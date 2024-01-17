@@ -13,9 +13,9 @@
 * limitations under the License.
 */
 
-{
-  "hvigorVersion": "2.1.1",
-  "dependencies": {
-    "@ohos/hvigor-ohos-plugin": "2.1.1"
-  }
-}
+{ 
+  "hvigorVersion": "file:../dependencies/hvigor-3.2.1-s.tgz", 
+  "dependencies": { 
+    "@ohos/hvigor-ohos-plugin": "file:../dependencies/hvigor-ohos-plugin-3.2.1-s.tgz", 
+  } 
+ }
