@@ -9,6 +9,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import 'basic.dart';
 import 'framework.dart';
@@ -1005,6 +1006,21 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
 
   /// Called by [beginActivity] to report when an activity has started.
   void didStartScroll() {
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        break;
+      case TargetPlatform.ohos:
+        SystemChannels.platform.invokeMethod(
+          'Scroll.Activity',
+          'start',
+        );
+        break;
+    }
     activity!.dispatchScrollStartNotification(copyWith(), context.notificationContext);
   }
 
@@ -1021,6 +1037,21 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
     saveOffset();
     if (keepScrollOffset) {
       saveScrollOffset();
+    }
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.android:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+        break;
+      case TargetPlatform.ohos:
+        SystemChannels.platform.invokeMethod(
+          'Scroll.Activity',
+          'end',
+        );
+        break;
     }
   }
 
