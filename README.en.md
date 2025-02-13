@@ -3,6 +3,9 @@ Flutter SDK Repository
 
 Source of the original repository: https://github.com/flutter/flutter
 
+## Notice
+**Starting from February 22, 2025, the code repository will be migrated to [GitCode](https://gitcode.com/openharmony-sig/flutter_flutter)**
+
 ## Repository Description
 This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows IDEs or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
 
@@ -139,7 +142,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
 | create | Creates a plugin template.| flutter create -t plugin --platforms ohos,android,ios \<plugin_name\> |
 | create | Creates a plugin_ffi template.| flutter create -t plugin_ffi --platforms ohos,android,ios \<plugin_name\> |
 | devices | Searches for connected devices.| flutter devices                                                   |
-| install | Installs an application.| flutter install -t \<deviceId\> \<hap file path\>                                                  |
+| install | Installs an application.| flutter install -d \<deviceId\> \<hap file path\>                                                  |
 | assemble | Pack resources.| flutter assemble                                                  |
 | build  | Builds the test application.| flutter build hap --debug [--target-platform ohos-arm64]      |
 | build  | Builds the formal application.| flutter build hap --release [--target-platform ohos-arm64]   |
