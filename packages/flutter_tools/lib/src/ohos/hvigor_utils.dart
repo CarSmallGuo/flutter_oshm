@@ -40,17 +40,20 @@ void updateLocalProperties({
   bool changed = false;
 
   SettingsFile settings;
+  // Avoid repetition
   if (localProperties.existsSync()) {
     settings = SettingsFile.parseFromFile(localProperties);
   } else {
     settings = SettingsFile();
     changed = true;
   }
-
+  
+  // Avoid repetition
   void changeIfNecessary(String key, String? value) {
     if (settings.values[key] == value) {
       return;
     }
+    // Avoid repetition
     if (value == null) {
       settings.values.remove(key);
     } else {
