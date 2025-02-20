@@ -3,6 +3,9 @@ Flutter SDK 仓库
 
 原始仓来源：https://github.com/flutter/flutter
 
+## 公告
+**2025.02.22起，代码仓迁移至[GitCode](https://gitcode.com/openharmony-sig/flutter_flutter)**
+
 ## 仓库说明
 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
 
@@ -139,7 +142,7 @@ Flutter SDK 仓库
 | create | 创建plugin模板 | flutter create -t plugin --platforms ohos,android,ios \<plugin_name\> |
 | create | 创建plugin_ffi模板 | flutter create -t plugin_ffi --platforms ohos,android,ios \<plugin_name\> |
 | devices | 查找已连接设备 | flutter devices                                                   |
-| install | 应用安装 | flutter install -t \<deviceId\> \<hap文件路径\>                                                   |
+| install | 应用安装 | flutter install -d \<deviceId\> \<hap文件路径\>                                                   |
 | assemble | 资源打包 | flutter assemble                                                  |
 | build  | 测试应用构建 | flutter build hap --debug [--target-platform ohos-arm64]      |
 | build  | 正式应用构建 | flutter build hap --release [--target-platform ohos-arm64]   |
