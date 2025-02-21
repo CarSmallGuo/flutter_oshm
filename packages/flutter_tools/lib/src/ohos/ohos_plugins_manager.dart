@@ -59,7 +59,8 @@ Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
       if (useAbsolutePathOfHar) {
         dependencies[plugin.name] = 'file:./har/${plugin.path}.har';
       } else {
-        dependencies[plugin.name] = 'file:${plugin.path}ohos';
+        final String relativePath = _relative('${plugin.path}ohos', globals.fs.path.dirname(packageFile.path));
+        dependencies[plugin.name] = 'file:${relativePath}';
       }
     } else {
       final String absolutePath = globals.fs.path.join(flutterProject.ohos.ohosRoot.path, 'har/${plugin.name}.har');
