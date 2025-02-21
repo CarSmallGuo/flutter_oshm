@@ -20,10 +20,10 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
   For Windows, the Flutter project and the dependent plugin project must be in the same disk.
 
 * Environment configuration
-   **Download the supporting development kits from [HarmonyOS SDK](https://developer.huawei.com/consumer/en/develop).**
+   **Download the supporting development kits from [OpenHarmony SDK](https://developer.huawei.com/consumer/en/develop).**
    *For Unix-like systems (Linux and macOS), you can refer to the environment variable configuration below. For Windows, set environment variables by following the instructions provided in "Edit System Environment Variables."*
 
-  1. Configure the HarmonyOS SDK and the environment variables.
+  1. Configure the OpenHarmony SDK and the environment variables.
    * API 12, DevEco Studio 5.0, or command-line-tools-5.0.
    * Download JDK 17 and configure environment variables.
 
@@ -123,6 +123,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
    ```
 
 ## Release Notes
+ - [3.7.12-ohos-1.0.4 Release](/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.3 Release](/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.en.md)
