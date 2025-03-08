@@ -7,7 +7,7 @@ Flutter SDK 仓库
 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
 
 ## 开发文档
-[参考文档](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[参考文档](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
@@ -55,7 +55,7 @@ Flutter SDK 仓库
        PATH=%TOOL_HOME%\tools\node
       ```
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitee.com/openharmony-sig/flutter_flutter.git`，指定dev或master分支，并配置环境
+  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-sig/flutter_flutter.git`，指定dev或master分支，并配置环境
 
      ```sh
       export PUB_CACHE=D:/PUB
@@ -123,6 +123,7 @@ Flutter SDK 仓库
    ```
 
 ## 版本说明
+ - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.4 Release](/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.3 Release](/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.md)
@@ -150,7 +151,7 @@ Flutter SDK 仓库
 | clean | 清除项目依赖 | flutter clean                                                 |
 | cache | 清除全局缓存数据 | flutter pub cache clean                                                  |
 
-附：[Flutter高频使用的三方库（部分OpenHarmony化）列表](https://gitee.com/openharmony-sig/flutter_packages#openharmony%E5%B9%B3%E5%8F%B0%E5%B7%B2%E5%85%BC%E5%AE%B9%E5%BA%93)
+附：[Flutter高频使用的三方库（部分OpenHarmony化）列表](https://gitcode.com/openharmony-sig/flutter_packages#openharmony%E5%B9%B3%E5%8F%B0%E5%B7%B2%E5%85%BC%E5%AE%B9%E5%BA%93)
 
 ## 常见问题
 
@@ -220,7 +221,7 @@ Flutter SDK 仓库
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 12. 执行`flutter build hap` 时遇到路径校验报错。
@@ -263,4 +264,4 @@ Flutter SDK 仓库
        A crash report has been written to D:\code\flutter_01.log.
       ``` 
 
-[更多FAQ](https://gitee.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[更多FAQ](https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
