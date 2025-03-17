@@ -139,7 +139,7 @@ Flutter SDK 仓库
 | create | 创建plugin模板 | flutter create -t plugin --platforms ohos,android,ios \<plugin_name\> |
 | create | 创建plugin_ffi模板 | flutter create -t plugin_ffi --platforms ohos,android,ios \<plugin_name\> |
 | devices | 已连接设备查找 | flutter devices                                                   |
-| install | 应用安装 | flutter install -t \<deviceId\> \<hap文件路径\>                                                   |
+| install | 应用安装 | flutter install -d \<deviceId\> \<hap文件路径\>                                                   |
 | assemble | 资源打包 | flutter assemble                                                  |
 | build  | 测试应用构建 | flutter build hap --debug [--target-platform ohos-arm64] [--local-engine=\<兼容ohos的debug engine产物路径\>]       |
 | build  | 正式应用构建 | flutter build hap --release [--target-platform ohos-arm64] [--local-engine=\<兼容ohos的release engine产物路径\>]   |
