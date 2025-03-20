@@ -647,6 +647,13 @@ class HdcLogReader extends DeviceLogReader {
       'hilog',
     ];
 
+    // If past logs are included then filter for 'flutter' logs only.
+    if (includePastLogs) {
+      args.addAll(<String>['T','flutter']);
+    } else {
+      // if not includePastLogs, execute an hour log.
+      args.addAll(<String>['logcat','-d','-G','3600']);
+    }
     final Process process =
         await processManager.start(device.hdcCommandForDevice(args));
     return HdcLogReader._(process, device.name);
