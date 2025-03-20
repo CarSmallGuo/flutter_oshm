@@ -380,6 +380,7 @@ class ManifestAssetBundle implements AssetBundle {
           targetPlatform,
           packageName: package.name,
           attributedPackage: package,
+          flavor: flavor,
         );
 
         if (packageAssets == null) {
