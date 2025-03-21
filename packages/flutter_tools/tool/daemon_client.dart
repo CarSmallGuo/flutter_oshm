@@ -19,6 +19,7 @@ late Process daemon;
 
 Future<void> main() async {
   daemon = await Process.start('dart', <String>['bin/flutter_tools.dart', 'daemon']);
+  // 流水线测试
   print('daemon process started, pid: ${daemon.pid}');
 
   daemon.stdout
