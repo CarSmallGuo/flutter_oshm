@@ -27,6 +27,7 @@ import '../ios/devices.dart';
 import '../ios/simulators.dart';
 import '../macos/macos_ipad_device.dart';
 import '../mdns_discovery.dart';
+import '../ohos/ohos_device.dart';
 import '../project.dart';
 import '../protocol_discovery.dart';
 import '../resident_runner.dart';
