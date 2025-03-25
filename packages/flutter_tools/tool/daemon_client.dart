@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+
 late Process daemon;
 
 // To use, start from the console and enter:
@@ -18,6 +19,7 @@ late Process daemon;
 //   emulator-launch: launch an emulator, append the word coldBoot to cold boot the emulator.
 
 Future<void> main() async {
+  // test
   daemon = await Process.start('dart', <String>['bin/flutter_tools.dart', 'daemon']);
   print('daemon process started, pid: ${daemon.pid}');
 
