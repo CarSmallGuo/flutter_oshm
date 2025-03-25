@@ -651,7 +651,7 @@ class HdcLogReader extends DeviceLogReader {
     if (includePastLogs) {
       args.addAll(<String>['-e', 'flutter']);
     } else {
-      // execute timestamp log
+      // execute show local time log
       args.addAll(<String>['-v', 'time']);
     }
     final Process process =
