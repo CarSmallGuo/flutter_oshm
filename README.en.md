@@ -131,6 +131,7 @@ Original warehouse source: https://github.com/flutter/flutter
     ```
 
 ## Release Notes
+ - [Flutter-ohos-1.0.6 Release](/release-notes/Flutter-ohos%201.0.6%20ReleaseNote.en.md)
  - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
 
 ## Compatible command list developed by OpenHarmony
