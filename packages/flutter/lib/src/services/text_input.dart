@@ -7,6 +7,7 @@ import 'dart:io' show Platform;
 import 'dart:ui' show
   FontWeight,
   Offset,
+  PointerDeviceKind,
   Rect,
   Size,
   TextAlign,
@@ -478,6 +479,7 @@ class TextInputConfiguration {
     this.autofillConfiguration = AutofillConfiguration.disabled,
     this.enableIMEPersonalizedLearning = true,
     this.enableDeltaModel = false,
+    this.deviceKind = PointerDeviceKind.unknown,
   }) : assert(inputType != null),
        assert(obscureText != null),
        smartDashesType = smartDashesType ?? (obscureText ? SmartDashesType.disabled : SmartDashesType.enabled),
@@ -488,7 +490,8 @@ class TextInputConfiguration {
        assert(inputAction != null),
        assert(textCapitalization != null),
        assert(enableIMEPersonalizedLearning != null),
-       assert(enableDeltaModel != null);
+       assert(enableDeltaModel != null),
+       assert(deviceKind != null);
 
   /// The type of information for which to optimize the text input control.
   final TextInputType inputType;
@@ -645,6 +648,7 @@ class TextInputConfiguration {
     bool? enableIMEPersonalizedLearning,
     AutofillConfiguration? autofillConfiguration,
     bool? enableDeltaModel,
+    PointerDeviceKind? deviceKind,
   }) {
     return TextInputConfiguration(
       inputType: inputType ?? this.inputType,
@@ -661,6 +665,7 @@ class TextInputConfiguration {
       enableIMEPersonalizedLearning: enableIMEPersonalizedLearning?? this.enableIMEPersonalizedLearning,
       autofillConfiguration: autofillConfiguration ?? this.autofillConfiguration,
       enableDeltaModel: enableDeltaModel ?? this.enableDeltaModel,
+      deviceKind: deviceKind ?? this.deviceKind,
     );
   }
 
@@ -689,6 +694,9 @@ class TextInputConfiguration {
   /// Defaults to false. Cannot be null.
   final bool enableDeltaModel;
 
+  /// Defaults to PointerDeviceKind.unknown. Cannot be null.
+  final PointerDeviceKind deviceKind;
+
   /// Returns a representation of this object as a JSON object.
   Map<String, dynamic> toJson() {
     final Map<String, dynamic>? autofill = autofillConfiguration.toJson();
@@ -708,6 +716,7 @@ class TextInputConfiguration {
       'enableIMEPersonalizedLearning': enableIMEPersonalizedLearning,
       if (autofill != null) 'autofill': autofill,
       'enableDeltaModel' : enableDeltaModel,
+      'deviceKind' : deviceKind.index,
     };
   }
 }
