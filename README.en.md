@@ -30,8 +30,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
   *For Unix-like systems (Linux and macOS), you can refer to the environment variable configuration below. For Windows, set environment variables by following the instructions provided in "Edit System Environment Variables."*
 
   1. Configure the OpenHarmony SDK and the environment variables.
-
-   * API 12, DevEco Studio 5.0, or command-line-tools-5.0.
+   * API 18, DevEco Studio 5.1, or command-line-tools-5.1.
    * Download JDK 17 and configure environment variables.
 
     ```sh

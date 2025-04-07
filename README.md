@@ -32,8 +32,7 @@ Flutter SDK 仓库
   类Unix系统（Linux、Mac）下可直接参照配置，Windows系统请在“环境变量配置”中添加配置。
 
 1. 配置OpenHarmony SDK和环境变量。
-
-   * API12, deveco-studio-5.0 或 command-line-tools-5.0。
+   * API18, deveco-studio-5.1 或 command-line-tools-5.1。
    * 下载jdk17并配置环境变量。
 
    ```sh
