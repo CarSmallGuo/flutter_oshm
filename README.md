@@ -17,12 +17,12 @@ Flutter SDK 仓库
    * 渲染引擎：新增impeller-vulkan模式（默认，可切换为skia-gl）
    * 三方库
       - 纯dart库请升级到指定版本以支持3.22.0
-      - [OpenHarmony-SIG/flutter_packages](https://gitee.com/openharmony-sig/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
+      - [OpenHarmony-SIG/flutter_packages](https://gitcode.com/openharmony-sig/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
 
 2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.22.0版本，请参考剩余指导文档。
 
 ## 开发文档
-[参考文档](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[参考文档](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
