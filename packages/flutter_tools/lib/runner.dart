@@ -26,6 +26,7 @@ import 'src/reporting/reporting.dart';
 import 'src/runner/flutter_command.dart';
 import 'src/runner/flutter_command_runner.dart';
 
+/// test
 /// Runs the Flutter tool with support for the specified list of [commands].
 Future<int> run(
   List<String> args,
