@@ -127,8 +127,8 @@ Flutter SDK 仓库
    ```
 
 ## 版本说明
- - [3.22.0-ohos-0.1.1 Release](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
- - [3.22.0-ohos-0.1.0 Release](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.md)
+ - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
+ - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.md)
 
 ## 已兼容OpenHarmony开发的指令列表
 | 指令名称   | 指令描述           | 使用说明                                                     |
