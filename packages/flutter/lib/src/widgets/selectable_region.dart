@@ -1663,6 +1663,7 @@ class _SelectableRegionContainerDelegate extends MultiSelectableSelectionContain
         _hasReceivedEndEvent.remove(selectable);
       case SelectionEventType.selectAll:
       case SelectionEventType.selectWord:
+      case SelectionEventType.selectParagraph:
         break;
       case SelectionEventType.granularlyExtendSelection:
       case SelectionEventType.directionallyExtendSelection:
@@ -2276,6 +2277,13 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
     return SelectionResult.end;
   }
 
+  /// Selects a paragraph in a [Selectable] at the location
+  /// [SelectParagraphSelectionEvent.globalPosition].
+  @protected
+  SelectionResult handleSelectParagraph(SelectParagraphSelectionEvent event) {
+    return _handleSelectBoundary(event);
+  }
+
   /// Removes the selection of all selectables this delegate manages.
   @protected
   SelectionResult handleClearSelection(ClearSelectionEvent event) {
@@ -2405,6 +2413,9 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
       case SelectionEventType.selectWord:
         _extendSelectionInProgress = false;
         result = handleSelectWord(event as SelectWordSelectionEvent);
+      case SelectionEventType.selectParagraph:
+        _extendSelectionInProgress = false;
+        result = handleSelectParagraph(event as SelectParagraphSelectionEvent);
       case SelectionEventType.granularlyExtendSelection:
         _extendSelectionInProgress = true;
         result = handleGranularlyExtendSelection(event as GranularlyExtendSelectionEvent);
@@ -2593,6 +2604,58 @@ abstract class MultiSelectableSelectionContainerDelegate extends SelectionContai
     }
     _flushInactiveSelections();
     return finalResult!;
+  }
+
+  SelectionResult _handleSelectBoundary(SelectionEvent event) {
+    assert(event is SelectWordSelectionEvent || event is SelectParagraphSelectionEvent, 'This method should only be given selection events that select text boundaries.');
+    late final Offset effectiveGlobalPosition;
+    if (event.type == SelectionEventType.selectWord) {
+      effectiveGlobalPosition = (event as SelectWordSelectionEvent).globalPosition;
+    } else if (event.type == SelectionEventType.selectParagraph) {
+      effectiveGlobalPosition = (event as SelectParagraphSelectionEvent).globalPosition;
+    }
+    SelectionResult? lastSelectionResult;
+    for (int index = 0; index < selectables.length; index += 1) {
+      bool globalRectsContainPosition = false;
+      if (selectables[index].boundingBoxes.isNotEmpty) {
+        for (final Rect rect in selectables[index].boundingBoxes) {
+          final Rect globalRect = MatrixUtils.transformRect(selectables[index].getTransformTo(null), rect);
+          if (globalRect.contains(effectiveGlobalPosition)) {
+            globalRectsContainPosition = true;
+            break;
+          }
+        }
+      }
+      if (globalRectsContainPosition) {
+        final SelectionGeometry existingGeometry = selectables[index].value;
+        lastSelectionResult = dispatchSelectionEventToChild(selectables[index], event);
+        if (index == selectables.length - 1 && lastSelectionResult == SelectionResult.next) {
+          return SelectionResult.next;
+        }
+        if (lastSelectionResult == SelectionResult.next) {
+          continue;
+        }
+        if (index == 0 && lastSelectionResult == SelectionResult.previous) {
+          return SelectionResult.previous;
+        }
+        if (selectables[index].value != existingGeometry) {
+          // Geometry has changed as a result of select word, need to clear the
+          // selection of other selectables to keep selection in sync.
+          selectables
+              .where((Selectable target) => target != selectables[index])
+              .forEach((Selectable target) => dispatchSelectionEventToChild(target, const ClearSelectionEvent()));
+          currentSelectionStartIndex = currentSelectionEndIndex = index;
+        }
+        return SelectionResult.end;
+      } else {
+        if (lastSelectionResult == SelectionResult.next) {
+          currentSelectionStartIndex = currentSelectionEndIndex = index - 1;
+          return SelectionResult.end;
+        }
+      }
+    }
+    assert(lastSelectionResult == null);
+    return SelectionResult.end;
   }
 }
 
