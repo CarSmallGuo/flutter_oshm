@@ -1450,6 +1450,8 @@ class _SelectableFragment with Selectable, Diagnosticable, ChangeNotifier implem
       case SelectionEventType.selectWord:
         final SelectWordSelectionEvent selectWord = event as SelectWordSelectionEvent;
         result = _handleSelectWord(selectWord.globalPosition);
+      case SelectionEventType.selectParagraph:
+        assert(false, 'not supported.');
       case SelectionEventType.granularlyExtendSelection:
         final GranularlyExtendSelectionEvent granularlyExtendSelection = event as GranularlyExtendSelectionEvent;
         result = _handleGranularlyExtendSelection(
