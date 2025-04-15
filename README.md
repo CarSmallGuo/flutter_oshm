@@ -36,7 +36,6 @@ Flutter SDK 仓库
 
   1. 配置HarmonyOS SDK和环境变量
    * API12, deveco-studio-5.0 或 command-line-tools-5.0 (推荐使用5.0.0 Release或更新版本)
-   * 配置 Java17
    * 配置环境变量 (SDK, node, ohpm, hvigor)
 
       ```sh

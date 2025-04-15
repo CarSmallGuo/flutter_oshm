@@ -36,7 +36,6 @@ Original warehouse source: https://github.com/flutter/flutter
 
    1. Configure the HarmonyOS SDK and environment variables
     * API12, deveco-studio-5.0 or command-line-tools-5.0 (Recommended to use version 5.0.0 Release or later)
-    * Configure Java17
     * Configure environment variables (SDK, node, ohpm, hvigor)
 
        ```sh
