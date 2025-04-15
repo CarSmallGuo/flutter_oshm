@@ -36,7 +36,6 @@ Original warehouse source: https://github.com/flutter/flutter
 
    1. Configure the HarmonyOS SDK and environment variables
     * API12, deveco-studio-5.0 or command-line-tools-5.0 (Recommended to use version 5.0.0 Release or later)
-    * Configure Java17
     * Configure environment variables (SDK, node, ohpm, hvigor)
 
        ```sh
@@ -67,14 +66,14 @@ Original warehouse source: https://github.com/flutter/flutter
        ```sh
         # Dependent cache
         export PUB_CACHE=D:/PUB(Custom path)
-       
+
         # Domestic mirror
         export PUB_HOSTED_URL=https://pub.flutter-io.cn
         export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
-       
+
         # The flutter_flutter directory pulled from Gitee
         export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
-       
+
         # HarmonyOS SDK
         export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # For mac
         export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
@@ -194,7 +193,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
 
 
     Please create the file `.npmrc` in the user directory `~`. For this configuration, please refer to [DevEco Studio official documentation](https://developer.harmonyos.com/cn/docs/documentation/doc-guides-V3/environment_config -0000001052902427-V3), the edited content is as follows:
-    
+
     ```
      registry=https://repo.huaweicloud.com/repository/npm/
      @ohos:registry=https://repo.harmonyos.com/npm/

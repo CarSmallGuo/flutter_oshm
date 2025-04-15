@@ -36,7 +36,6 @@ Flutter SDK 仓库
 
   1. 配置HarmonyOS SDK和环境变量
    * API12, deveco-studio-5.0 或 command-line-tools-5.0 (推荐使用5.0.0 Release或更新版本)
-   * 配置 Java17
    * 配置环境变量 (SDK, node, ohpm, hvigor)
 
       ```sh
@@ -63,14 +62,14 @@ Flutter SDK 仓库
       ```sh
        #依赖缓存
        export PUB_CACHE=D:/PUB(自定义路径)
-      
+
        # 国内镜像
        export PUB_HOSTED_URL=https://pub.flutter-io.cn
        export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
-      
+
        # 拉取下来的flutter_flutter/bin目录
        export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
-      
+
        # HamonyOS SDK
        export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
