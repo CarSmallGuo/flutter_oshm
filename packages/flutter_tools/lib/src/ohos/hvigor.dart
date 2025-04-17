@@ -559,7 +559,6 @@ class OhosHvigorBuilder implements OhosBuilder {
         modulePath: ohosProject.mainModuleDirectory.path,
         moduleName: ohosProject.mainModuleName,
         flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
-        throwOnMissing: true,
       );
       final String appSize = (buildInfo.mode == BuildMode.debug)
           ? '' // Don't display the size when building a debug variant.
@@ -695,7 +694,6 @@ class OhosHvigorBuilder implements OhosBuilder {
       moduleName: ohosProject.mainModuleName,
       flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       type: OhosFileType.app,
-      throwOnMissing: true,
     );
     final String appSize = (buildInfo.mode == BuildMode.debug)
         ? '' // Don't display the size when building a debug variant.
