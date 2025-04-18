@@ -4,7 +4,7 @@ Flutter SDK Repository
 Source of the original repository: https://github.com/flutter/flutter
 
 ## Repository Description
-This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows IDEs or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
+This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows DevEco Studio IDE or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
 
 ## Development Documentation
 [Flutter_samples](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
