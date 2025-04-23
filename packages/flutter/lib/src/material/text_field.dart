@@ -66,7 +66,7 @@ class _TextFieldSelectionGestureDetectorBuilder extends TextSelectionGestureDete
   @override
   void onSingleTapUp(TapUpDetails details) {
     super.onSingleTapUp(details);
-    _state._requestKeyboard();
+    _state._requestKeyboard(kind: details.kind);
     _state.widget.onTap?.call();
   }
 
@@ -1043,7 +1043,10 @@ class _TextFieldState extends State<TextField> with RestorationMixin implements 
 
   EditableTextState? get _editableText => editableTextKey.currentState;
 
-  void _requestKeyboard() {
+  PointerDeviceKind _deviceKind = PointerDeviceKind.unknown;
+
+  void _requestKeyboard({PointerDeviceKind kind = PointerDeviceKind.unknown}) {
+    _deviceKind = kind;
     _editableText?.requestKeyboard();
   }
 
@@ -1157,7 +1160,8 @@ class _TextFieldState extends State<TextField> with RestorationMixin implements 
         )
       : AutofillConfiguration.disabled;
 
-    return _editableText!.textInputConfiguration.copyWith(autofillConfiguration: autofillConfiguration);
+    return _editableText!.textInputConfiguration.copyWith(
+        autofillConfiguration: autofillConfiguration, deviceKind: _deviceKind);
   }
   // AutofillClient implementation end.
 
