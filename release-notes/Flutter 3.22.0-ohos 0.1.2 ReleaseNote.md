@@ -15,5 +15,8 @@ OpenHarmony API16
 - IDE: DevEco Studio 5.0.11.100
 - Flutter SDK: 3.22.0-ohos-0.1.2
 
+## Changelog
+- [5.1.0.403](/CHANGELOG.md)
+
 ## 赋能文档
 - [文档链接](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
