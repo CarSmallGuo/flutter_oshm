@@ -127,9 +127,16 @@ Flutter SDK 仓库
    ```
 
 ## 版本说明
+ - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.md)
  - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.md)
  - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
  - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.md)
+
+## 分支说明
+ - dev: 基于上游社区3.7.12分支的开发主分支，请勿从此分支拉取源码用于商用版本，不保证质量。
+ - br_3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos后的发布分支。如需下载源码，请从此分支下载上述正式版本对应的tag点源码。
+ - 3.22.0-ohos：基于上游社区3.22.0分支的开发主分支，如需下载源码，请下载3.22.0正式版本对应的tag点源码。
+ - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos后的发布分支。
 
 ## 已兼容OpenHarmony开发的指令列表
 | 指令名称   | 指令描述           | 使用说明                                                     |
