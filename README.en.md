@@ -123,6 +123,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
    ```
 
 ## Release Notes
+ - [3.7.12-ohos-1.1.0 Release](/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.7 Release](/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.6 Release](/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.en.md)
@@ -131,6 +132,13 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
  - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.en.md)
  - [3.7.12-ohos-1.0.0 Release](/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.en.md)
+
+## Branch description
+ - dev: The main branch based on the 3.7.12 branch of the upstream community. Do not pull the source code from this branch for commercial version, and the quality is not guaranteed.
+ - br_3.7.12-ohos-X.X.X: Based on the release branch of the upstream community 3.7.12 after adapting to ohos. If you want to download the source code, download the tag source code corresponding to the official version from this branch.
+ - 3.22.0-ohos：The main branch based on the 3.22.0 branch of the upstream community. If you want to download the source code, please download the tag source code corresponding to the official version of 3.22.0.
+ - 3.22.1-ohos-X.X.X: Based on the upstream community 3.22.0 branch, the release branch after adapting to ohos.
+ - oh-3.27.4-dev: The branch based on the upstream community 3.27.4 branch adapted to ohos, which is currently being adapted, and has not been commercially released and does not guarantee quality. It is expected to be released in Q3 2025.
 
 ## Instruction List Compatible with OpenHarmony
 | Instruction| Description| How to Use                                                             |
