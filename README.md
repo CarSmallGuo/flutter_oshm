@@ -125,6 +125,7 @@ Flutter SDK 仓库
    ```
 
 ## 版本说明
+ - [3.7.12-ohos-1.1.0 Release](/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.7 Release](/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.6 Release](/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.md)
@@ -133,6 +134,19 @@ Flutter SDK 仓库
  - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.md)
  - [3.7.12-ohos-1.0.0 Release](/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.md)
+
+要使用指定版本flutter，可以基于版本tag获取，版本tag格式见“TAG说明”
+
+### 分支说明
+ - dev: 基于上游社区3.7.12分支的开发主分支。
+ - br_3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos后的发布分支。
+ - 3.22.0-ohos：基于上游社区3.22.0分支的开发主分支。
+ - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos后的发布分支。
+ - oh-3.27.4-dev: 基于上游社区3.27.4分支适配ohos的分支，目前正在适配中，未商用发布，不保证质量。预计在2025年Q3发布。
+
+### TAG说明
+ - 3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos的X.X.X版本。
+ - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos的X.X.X版本。
 
 ## 已兼容OpenHarmony开发的指令列表
 | 指令名称 | 指令描述 | 使用说明                                                              |
