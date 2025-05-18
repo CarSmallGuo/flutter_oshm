@@ -10,6 +10,8 @@ import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
 
+import '../../foundation.dart';
+import '../scheduler/binding.dart';
 import 'animation.dart';
 import 'curves.dart';
 import 'listener_helpers.dart';
@@ -853,6 +855,20 @@ class AnimationController extends Animation<double>
         AnimationStatus.dismissed;
       stop(canceled: false);
     }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.ohos:
+        SchedulerBinding.instance.sendTranslateVelocity(velocity);
+        break;
+      case TargetPlatform.android:
+      case TargetPlatform.iOS:
+      case TargetPlatform.macOS:
+      case TargetPlatform.fuchsia:
+      case TargetPlatform.linux:
+      case TargetPlatform.windows:
+        break;
+    }
+
     notifyListeners();
     _checkStatusChanged();
   }
