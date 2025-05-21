@@ -44,6 +44,9 @@ const String HAR_FILE_NAME = 'flutter.har';
 const String BUILD_INFO_JSON_PATH = 'src/main/resources/base/profile/buildinfo.json5';
 const String BUILD_INFO_JSON_DES_PATH = 'src/main/resources/rawfile/buildinfo.json5';
 
+const String FRAMES_CFG_JSON_PATH = 'src/main/resources/base/profile/framesconfig.json';
+const String FRAMES_CFG_JSON_DES_PATH = 'src/main/resources/rawfile/framesconfig.json';
+
 final bool isWindows = globals.platform.isWindows;
 
 String getHvigorwFile() => isWindows ? 'hvigorw.bat' : 'hvigorw';
@@ -83,6 +86,35 @@ Future<void> copyFlutterBuildInfoFile(OhosProject ohosProject) async {
   if (!await sourceFile.exists()) {
     return;
   }
+
+  if (!await destinationFile.exists()) {
+    await sourceFile.copy(destinationFilePath);
+  } else {
+    return;
+  }
+  // delete sourceFile
+  await sourceFile.delete();
+}
+
+Future<void> copyFramesCfgFile(OhosProject ohosProject, Logger? logger) async {
+  final String rawfilePath = globals.fs.path.join(ohosProject.flutterModuleDirectory.path,
+    'src/main/resources/rawfile');
+  final Directory rawfileDirectory = globals.localFileSystem.directory(rawfilePath);
+  if (!await rawfileDirectory.exists()) {
+    rawfileDirectory.createSync();
+  }
+
+  final String framesCfgFilePath = globals.fs.path.join(ohosProject.flutterModuleDirectory.path,
+    FRAMES_CFG_JSON_PATH);
+  final File sourceFile = globals.localFileSystem.file(framesCfgFilePath);
+  final String fileName = globals.fs.path.basename(framesCfgFilePath);
+  final String destinationFilePath = globals.fs.path.join(rawfilePath, fileName);
+  final File destinationFile = globals.localFileSystem.file(destinationFilePath);
+
+  if (!await sourceFile.exists()) {
+    return;
+  }
+
 
   if (!await destinationFile.exists()) {
     await sourceFile.copy(destinationFilePath);
@@ -396,6 +428,7 @@ Future<void> cleanAndCopyFlutterAsset(
   copyFlutterAssets(globals.fs.path.join(output, FLUTTER_ASSETS_PATH),
       desFlutterAssetsPath, logger);
   await copyFlutterBuildInfoFile(ohosProject);
+  copyFramesCfgFile(ohosProject, logger);
 
   if (ohosBuildInfo.enableImpellerFlag != null) {
     await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
