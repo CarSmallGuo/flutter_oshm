@@ -9,6 +9,7 @@ import 'dart:ui' show AppLifecycleState, DartPerformanceMode, FramePhase, FrameT
 
 import 'package:collection/collection.dart' show HeapPriorityQueue, PriorityQueue;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 
 import 'debug.dart';
 import 'priority.dart';
@@ -1412,6 +1413,14 @@ mixin SchedulerBinding on BindingBase {
       _FrameCallbackEntry.debugCurrentCallbackStack = null;
       return true;
     }());
+  }
+
+  void sendTranslateVelocity(double velocity) {
+    if (velocity.isInfinite) {
+      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': 0});
+    } else {
+      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+    }
   }
 }
 
