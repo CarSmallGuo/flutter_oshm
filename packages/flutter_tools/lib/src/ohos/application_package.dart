@@ -98,6 +98,7 @@ class OhosBuildData {
   late ModuleInfo moduleInfo;
   late int apiVersion;
   List<dynamic>? products;
+  List<String> flutterPluginModuleNameList = [];
 
   bool get hasEntryModule => false;
 

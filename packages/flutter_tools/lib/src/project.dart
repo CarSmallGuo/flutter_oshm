@@ -1236,7 +1236,19 @@ class OhosProject extends FlutterProjectPlatform {
         return file;
       }
     }
-
+    final Directory defaultDir =
+        moduleDir.childDirectory('build').childDirectory('default').childDirectory('outputs').childDirectory('default');
+    if (defaultDir.existsSync()) {
+      // 查找defaultDir下hap文件，并且不能是unsigned.hap
+      final List<File> hapFiles = defaultDir
+          .listSync(recursive: true)
+          .where((FileSystemEntity e) => e is File && e.path.endsWith('.hap') && !e.path.endsWith('-unsigned.hap'))
+          .cast<File>()
+          .toList();
+      if (hapFiles.isNotEmpty) {
+        return hapFiles.first;
+      }
+    }
     if (throwOnMissing) {
       throwToolExit('Hvigor build failed to produce an ${type.name} file. '
         "It's likely that this file was generated under $modulePath, "

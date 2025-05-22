@@ -19,6 +19,13 @@ import '../project.dart';
 
 const String kUseAbsolutePathOfHar = 'useAbsolutePathOfHar';
 
+/// 获取 flutter_module 的 name 列表
+Future<List<String>> getFlutterModuleNameList(FlutterProject flutterProject) async {
+   final List<Plugin> plugins =
+      (await findPlugins(flutterProject)).where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey)).toList();
+  return plugins.map((Plugin p) => p.name).toList();
+}
+
 /// 检查 ohos plugin 依赖
 Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
   final List<Plugin> plugins = (await findPlugins(flutterProject))
