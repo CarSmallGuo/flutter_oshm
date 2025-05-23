@@ -688,7 +688,7 @@ class OhosHvigorBuilder implements OhosBuilder {
   ) async {
     final String ohosProjectPath = project.ohos.ohosRoot.path;
     final List<OhosModule> allHarModules = ohosBuildData.harModules;
-     // ohosBuildData.flutterPluginModuleNameList 如果为空的话  ，modules = originModules
+    // ohosBuildData.flutterPluginModuleNameList 如果为空的话  ，modules = originModules
     List<OhosModule> originModules;
     if (ohosBuildData.flutterPluginModuleNameList.isEmpty) {
       originModules = allHarModules;
@@ -708,24 +708,31 @@ class OhosHvigorBuilder implements OhosBuilder {
 
     // 筛选需要构建的模块
     List<OhosModule> modules = originModules;
-    if (targetModules?.isNotEmpty == true) {
+    if (targetModules?.isNotEmpty == true && targetModules != "none") {
       // 如果指定了要构建的模块,则只构建指定的模块
       final List<String> moduleNames = targetModules!.split(',');
       modules = originModules.where((OhosModule element) => moduleNames.contains(element.name)).toList();
-    } else if (ohosBuildData.flutterPluginModuleNameList.isNotEmpty) {
-      // 如果有插件模块列表,则构建插件模块
-      modules = originModules
-          .where((OhosModule element) => ohosBuildData.flutterPluginModuleNameList.contains(element.name))
-          .toList();
     }
 
     // 检查新增的 har 模块
     final Directory harDir = globals.fs.directory(globals.fs.path.join(ohosRootPath, 'har'));
+    final List<OhosModule> mustBuildModules = [];
     if (harDir.existsSync()) {
       for (final OhosModule module in originModules) {
         final File harFile = globals.fs.file(globals.fs.path.join(harDir.path, '${module.name}.har'));
-        if (!harFile.existsSync() && !modules.contains(module)) {
+        if (!harFile.existsSync()) {
           // 如果 har 目录下没有对应的 har 文件,说明是新增模块,需要构建
+          mustBuildModules.add(module);
+        }
+      }
+    }
+
+    if ("none" == targetModules) {
+      modules = mustBuildModules;
+    } else {
+      // 遍历mustBuildModules 把!modules.contains(module)的模块添加到modules中
+      for (final OhosModule module in mustBuildModules) {
+        if (!modules.contains(module)) {
           modules.add(module);
         }
       }
