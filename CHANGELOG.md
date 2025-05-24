@@ -9,6 +9,9 @@
 
 ## 6.0.0.201
 - Flutter支持输入法预上屏
+- 新增ltpo帧率可变的功能 (3.22:[fb341351](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fb341351a473129079c7924863a301b40f056cd3?ref=oh-3.22.0-dev-6.0))
+- pick 826、3.22、6.0修复输入框导致的闪动的问题 (3.22:[f3da98b5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f3da98b5ac4ba19042d78f3275585b4e3de9844d?ref=oh-3.22.0-dev-6.0))
+- pick 822修复输入法预上屏的扩展场景bug (中英文语音五笔模式等输入，候选词替换等问题) (3.22:[12c8ca2c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/12c8ca2cc4fc27d5fd239f785bd75f78d1c1f68d?ref=oh-3.22.0-dev-6.0))
 
 ## 5.1.0.403
 - 修复showModalBottomSheet动画失效 (3.7:[2c88beb6](https://gitcode.com/openharmony-sig/flutter_engine/commit/2c88beb69bf674f72c82cc7807e15acbe2fb5776?ref=fix-accessibility&prId=789))
