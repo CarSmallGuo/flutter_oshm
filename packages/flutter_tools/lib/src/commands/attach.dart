@@ -27,6 +27,7 @@ import '../ios/devices.dart';
 import '../ios/simulators.dart';
 import '../macos/macos_ipad_device.dart';
 import '../mdns_discovery.dart';
+import '../ohos/ohos_device.dart';
 import '../project.dart';
 import '../protocol_discovery.dart';
 import '../resident_runner.dart';
@@ -320,7 +321,7 @@ known, it can be explicitly provided to attach via the command-line, e.g.
           ProtocolDiscovery.observatory(
             // If it's an Android device, attaching relies on past log searching
             // to find the service protocol.
-            await device.getLogReader(includePastLogs: device is AndroidDevice),
+            await device.getLogReader(includePastLogs: device is AndroidDevice || device is OhosDevice),
             portForwarder: device.portForwarder,
             ipv6: ipv6!,
             devicePort: deviceVmservicePort,
