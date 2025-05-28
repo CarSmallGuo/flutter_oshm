@@ -332,6 +332,8 @@ class OhosDevice extends Device {
       builtPackage.ohosBuildData.moduleInfo.mainElement!,
       '-b',
       builtPackage.ohosBuildData.appInfo!.bundleName,
+      if (debuggingOptions.traceSystrace)
+        ...<String>['--pb', 'trace-systrace', 'true'],
     ];
     final String result = (await runHdcCheckedAsync(cmd)).stdout;
     // This invocation returns 0 even when it fails.
