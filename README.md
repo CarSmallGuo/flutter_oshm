@@ -7,7 +7,7 @@ Flutter SDK 仓库
 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持DevEco Studio IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
 
 ## 开发文档
-[参考文档](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
@@ -57,7 +57,7 @@ Flutter SDK 仓库
        PATH=%TOOL_HOME%\tools\node
       ```
 
-2. 通过代码工具下载当前仓库代码 `git clone https://gitcode.com/openharmony-sig/flutter_flutter.git` ，指定dev或master分支，并配置环境。
+2. 通过代码工具下载当前仓库代码 `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` ，指定dev或master分支，并配置环境。
 
      ```sh
       export PUB_CACHE=D:/PUB
@@ -124,31 +124,55 @@ Flutter SDK 仓库
     flutter build app --release
    ```
 
-## 版本说明
- - [3.7.12-ohos-1.1.1 Release](/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.md)
- - [3.7.12-ohos-1.1.0 Release](/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.7 Release](/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.6 Release](/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.4 Release](/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.3 Release](/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.md)
- - [3.7.12-ohos-1.0.0 Release](/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.md)
+## 版本管理说明
 
-要使用指定版本flutter，可以基于版本tag获取，版本tag格式见“TAG说明”
+### 一、版本演进规划
+**稳定版本**
+ - 基于上游社区Flutter 3.7适配ohos的版本
+ - 基于上游社区Flutter 3.22适配ohos的版本
 
-### 分支说明
- - dev: 基于上游社区3.7.12分支的开发主分支。
- - br_3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos后的发布分支。
- - 3.22.0-ohos：基于上游社区3.22.0分支的开发主分支。
- - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos后的发布分支。
- - oh-3.27.4-dev: 基于上游社区3.27.4分支适配ohos的分支，目前正在适配中，未商用发布，不保证质量。预计在2025年Q3发布。
- - 其他分支：项目运行过程分支。
+**最新稳定版本**
+ - [Flutter 3.7.12-ohos 1.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos 1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.md)
 
-### TAG说明
+**历史归档版本**
+ - [Flutter 3.7.12-ohos-1.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.1.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.7 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.6 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.5 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.4 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.3 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.2 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.md)
+ - [Flutter 3.7.12-ohos-1.0.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos-1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos-1.0.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos-0.1.2 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos-0.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
+ - [Flutter 3.22.0-ohos-0.1.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.md)
+
+**稳定版本获取说明**
+ - 推荐基于版本tag获取稳定版本，版本tag格式如下
  - 3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos的X.X.X版本。
  - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos的X.X.X版本。
+
+**开发中版本**
+- 基于上游社区Flutter 3.27.4适配ohos的版本
+- 预计2025年第三季度发布生产环境可用版本
+- 当前处于架构适配阶段(在技术预览分支开放)
+
+### 二、代码分支策略
+
+| 分支名称                | 生命周期状态 | 使用规范说明                   |
+| ----------------------- | ------------ | ------------------------------ |
+| dev                     | 开发分支 | 基于上游社区3.7.12适配ohos后的开发主分支 |
+| 3.22.0-ohos             | 开发分支 | 基于上游社区3.22.0适配ohos后的开发主分支 |
+| br_3.7.12-ohos-X.X.X    | 版本发布分支 | 基于上游社区3.7.12分支适配ohos后发布的稳定分支 |
+| br_3.22.0-ohos-X.X.X    | 版本发布分支 | 基于上游社区3.22.0分支适配ohos后发布的稳定分支 |
+| oh-3.27.4-dev           | 技术预览分支 | 基于上游社区3.27.4适配ohos的技术预览分支 |
+| 其他分支                 | 临时工作分支 | 特定场景技术验证分支 |
+
 
 ## 已兼容OpenHarmony开发的指令列表
 | 指令名称 | 指令描述 | 使用说明                                                              |
@@ -171,7 +195,7 @@ Flutter SDK 仓库
 | clean | 清除项目依赖 | flutter clean                                                 |
 | cache | 清除全局缓存数据 | flutter pub cache clean                                                  |
 
-附：[Flutter高频使用的三方库（部分OpenHarmony化）列表](https://gitcode.com/openharmony-sig/flutter_packages#openharmony%E5%B9%B3%E5%8F%B0%E5%B7%B2%E5%85%BC%E5%AE%B9%E5%BA%93)
+附：[Flutter高频使用的三方库（部分OpenHarmony化）列表](https://gitcode.com/openharmony-tpc/flutter_packages#openharmony%E5%B9%B3%E5%8F%B0%E5%B7%B2%E5%85%BC%E5%AE%B9%E5%BA%93)
 
 ## 常见问题
 
@@ -256,7 +280,7 @@ Flutter SDK 仓库
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 12. 执行 `flutter build hap` 时遇到路径校验报错。
@@ -307,4 +331,4 @@ Flutter SDK 仓库
        A crash report has been written to D:\code\flutter_01.log.
       ``` 
 
-[更多FAQ](https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[更多FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
