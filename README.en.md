@@ -18,11 +18,11 @@ Original warehouse source: https://github.com/flutter/flutter
    * Rendering Engine: Added impeller-vulkan mode (default, can be switched to skia-gl).
    * Third-party libraries:
       - Pure Dart libraries should be upgraded to the specified version to support 3.22.0.
-      - The packages in [OpenHarmony-SIG/flutter_packages](https://gitcode.com/openharmony-sig/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.22.0. If you encounter any issues during use, please create an issue for tracking.
+      - The packages in [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.22.0. If you encounter any issues during use, please create an issue for tracking.
 2. If your project is migrating from Android or iOS to the HarmonyOS adaptation for version 3.22.0, please refer to the remaining guide documents.
 
 ## Development document
-[Docs](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[Docs](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Environment dependencies
 
@@ -48,7 +48,7 @@ Original warehouse source: https://github.com/flutter/flutter
         export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
        ```
 
-   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-sig/flutter_flutter.git` Specify the oh-3.22.0 branch and configure the environment
+   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.22.0 branch and configure the environment
 
       ```sh
        export PATH=<flutter_flutter path>/bin:$PATH
@@ -131,25 +131,54 @@ Original warehouse source: https://github.com/flutter/flutter
     flutter run  --debug --local-engine=/home/user/engine_make/src/out/ohos_debug_unopt_arm64 -d <device-id> --local-engine-host=src/out/<engine_host>/
     ```
 
-## Release Notes
- - [3.22.0-ohos-1.0.1 Release](/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.en.md)
- - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
+## Version management instructions
 
-To use a specific version of flutter, you can obtain it based on the version tag, and the format of the version tag is described in "TAG Description"
+### 1.Version evolution planning
+**Stable version**
+ - Version adapted for ohos based on Flutter 3.7.12 in upstream community
+ - Version adapted for ohos based on Flutter 3.22.0 in upstream community
 
-### Branch description
- - dev: The main branch of development based on the 3.7.12 branch of the upstream community.
- - br_3.7.12-ohos-X.X.X: The release branch based on the upstream community 3.7.12 after adapting to ohos.
- - 3.22.0-ohos：The main branch of development based on the 3.22.0 branch of the upstream community.
- - 3.22.1-ohos-X.X.X: The release branch based on the upstream community 3.22.0 after adapting to ohos.
- - oh-3.27.4-dev: The branch based on the upstream community 3.27.4 branch adapted to ohos, which is currently being adapted, and has not been commercially released and does not guarantee quality. It is expected to be released in Q3 2025.
+**Latest stable version**
+ - [Flutter 3.7.12-ohos 1.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos 1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.en.md)
 
-### TAG description
- - 3.7.12-ohos-X.X.X: version X.X.X based on the upstream community 3.7.12 branch after adapting to ohos
- - 3.22.1-ohos-X.X.X: version X.X.X based on the upstream community 3.22.0 branch after adapting to ohos
+**Historical archived versions**
+ - [Flutter 3.7.12-ohos-1.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.1.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.7 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.6 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.5 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.4 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.3 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.2 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.en.md)
+ - [Flutter 3.7.12-ohos-1.0.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/dev/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos-1.0.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos-1.0.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos-0.1.2 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos-0.1.1 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.en.md)
+ - [Flutter 3.22.0-ohos-0.1.0 Release](https://gitcode.com/openharmony-tpc/flutter_flutter/blob/3.22.0-ohos/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
+
+**Instructions for obtaining stable versions**
+ - It is recommend to obtain a stable version based on the version tag in the following format:
+ - 3.7.12-ohos-X.X.X: based on the upstream community 3.7.12 branch after adapting to ohos
+ - 3.22.1-ohos-X.X.X: based on the upstream community 3.22.0 branch after adapting to ohos
+
+**Developing version**
+- Version adapted for ohos based on Flutter 3.27.4 in upstream community
+- The production-ready version is expected to be released in Q3 2025
+- It is currently in the architecture adaptation stage(In the Technology Preview branch)
+
+### 2.Code branching strategy
+
+| Branch name                | Lifecycle state | Instructions for using specifications                   |
+| ----------------------- | ------------ | ------------------------------ |
+| dev                     | developing branch | The main developing branch based on flutter 3.7.12 |
+| 3.22.0-ohos             | developing branch | The main developing branch based on flutter 3.22.0 |
+| br_3.7.12-ohos-X.X.X    | released branches | The released branches based on flutter 3.7.12 |
+| br_3.22.0-ohos-X.X.X    | released branches | The released branches based on flutter 3.22.0 |
+| oh-3.27.4-dev           | technical preview branch | The preview branch based on flutter 3.27.4 |
+| other                 | temporary work branches | Scenario-specific technical validation branches |
 
 ## Compatible command list developed by OpenHarmony
 
@@ -268,7 +297,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitee.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 15. An error message indicating path verification occurs when `flutter build hap` is executed。
@@ -341,4 +370,4 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
       ```
 
-[More FAQ](https://gitee.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[More FAQ](https://gitee.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
