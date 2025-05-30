@@ -3,6 +3,9 @@ Flutter SDK 仓库
 
 原始仓来源：https://github.com/flutter/flutter
 
+## Flutter OH版本演进规划和分支策略
+您可以在[Flutter OH版本演进规划和分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)中了解更多关于我们对FLutter的OpenHarmony适配版本的说明。
+
 ## 仓库说明
 1. 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
 2. 本仓库基于Flutter官方社区3.22.0版本构建
@@ -18,12 +21,12 @@ Flutter SDK 仓库
    * 渲染引擎：新增impeller-vulkan模式（默认，可切换为skia-gl）
    * 三方库
       - 纯dart库请升级到指定版本以支持3.22.0
-      - [OpenHarmony-SIG/flutter_packages](https://gitcode.com/openharmony-sig/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
+      - [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
 
 2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.22.0版本，请参考剩余指导文档。
 
 ## 开发文档
-[参考文档](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
@@ -48,7 +51,7 @@ Flutter SDK 仓库
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
       ```
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-sig/flutter_flutter.git`，指定3.22.0-ohos分支，并配置环境
+  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定3.22.0-ohos分支，并配置环境
 
      ```sh
       export PUB_CACHE=D:/PUB
@@ -126,26 +129,6 @@ Flutter SDK 仓库
     # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
     flutter build app --release
    ```
-
-## 版本说明
- - [3.22.0-ohos-1.0.1 Release](/release-notes/Flutter%203.22.0-ohos%201.0.1%20ReleaseNote.md)
- - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.md)
- - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.md)
- - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.md)
- - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.md)
-
-要使用指定版本flutter，可以基于版本tag获取，版本tag格式见“TAG说明”
-
-### 分支说明
- - dev: 基于上游社区3.7.12分支的开发主分支。
- - br_3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos后的发布分支。
- - 3.22.0-ohos：基于上游社区3.22.0分支的开发主分支。
- - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos后的发布分支。
- - oh-3.27.4-dev: 基于上游社区3.27.4分支适配ohos的分支，目前正在适配中，未商用发布，不保证质量。预计在2025年Q3发布。
-
-### TAG说明
- - 3.7.12-ohos-X.X.X: 基于上游社区3.7.12分支适配ohos的X.X.X版本。
- - 3.22.1-ohos-X.X.X: 基于上游社区3.22.0分支适配ohos的X.X.X版本。
 
 ## 已兼容OpenHarmony开发的指令列表
 | 指令名称   | 指令描述           | 使用说明                                                     |
@@ -265,7 +248,7 @@ Flutter SDK 仓库
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitee.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 15. 执行`flutter build hap` 时遇到路径校验报错。
@@ -337,4 +320,4 @@ Flutter SDK 仓库
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
       ```
 
-[更多FAQ](https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[更多FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
