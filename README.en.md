@@ -1,13 +1,16 @@
 Flutter SDK Repository
 ==============
 
+## Flutter OH version evolution planning and branching strategy
+You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
+
 Source of the original repository: https://github.com/flutter/flutter
 
 ## Repository Description
 This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows DevEco Studio IDE or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
 
 ## Development Documentation
-[Flutter_samples](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[Flutter_samples](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Environment Dependencies
 
@@ -55,7 +58,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
         PATH=%TOOL_HOME%\tools\node
         ```
 
-  2. Use a code editor to download the current repository code by running `git clone https://gitcode.com/openharmony-sig/flutter_flutter.git`, specify the dev or master branch, and set up the environment.
+  2. Use a code editor to download the current repository code by running `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`, specify the dev or master branch, and set up the environment.
 
         ```sh
         export PUB_CACHE=D:/PUB
@@ -121,32 +124,6 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
     # Example: flutter build app --release
     flutter build app --release
    ```
-
-## Release Notes
- - [3.7.12-ohos-1.1.1 Release](/release-notes/Flutter%203.7.12-ohos%201.1.1%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.1.0 Release](/release-notes/Flutter%203.7.12-ohos%201.1.0%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.7 Release](/release-notes/Flutter%203.7.12-ohos%201.0.7%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.6 Release](/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.4 Release](/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.3 Release](/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.0 Release](/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.en.md)
-
-To use a specific version of flutter, you can obtain it based on the version tag, and the format of the version tag is described in "TAG Description"
-
-### Branch description
- - dev: The main branch of development based on the 3.7.12 branch of the upstream community.
- - br_3.7.12-ohos-X.X.X: The release branch based on the upstream community 3.7.12 after adapting to ohos.
- - 3.22.0-ohos：The main branch of development based on the 3.22.0 branch of the upstream community.
- - 3.22.1-ohos-X.X.X: The release branch based on the upstream community 3.22.0 after adapting to ohos.
- - oh-3.27.4-dev: The branch based on the upstream community 3.27.4 branch adapted to ohos, which is currently being adapted, and has not been commercially released and does not guarantee quality. It is expected to be released in Q3 2025.
- - Other branches: Branch of the project run process.
-
-### TAG description
- - 3.7.12-ohos-X.X.X: version X.X.X based on the upstream community 3.7.12 branch after adapting to ohos
- - 3.22.1-ohos-X.X.X: version X.X.X based on the upstream community 3.22.0 branch after adapting to ohos
 
 ## Instruction List Compatible with OpenHarmony
 | Instruction| Description| How to Use                                                             |
@@ -241,7 +218,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
     #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
     #You need to update the Flutter plugin project structure.
     #See
-    #https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+    #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 12. A path verification error is reported when the `flutter build hap` instruction is executed.
@@ -290,4 +267,4 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
           A crash report has been written to D:\code\flutter_01.log.
          ```
 
-Reference: [FAQs] (https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README_EN.md)
+Reference: [FAQs] (https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README_EN.md)
