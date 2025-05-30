@@ -1,5 +1,6 @@
 # Changelog
 ## 5.1.0.502
+- 无障碍支持xcomponent多实例/多引擎场景(3.7:[12247ac6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/12247ac613a9e446bd806bc4bc8c1d7fd512401c?ref=dev), 3.22[e7a98130](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7a98130f574f0b0cff0ff73776c085c5a583d43?ref=oh-3.22.0))
 - 修复输入法文本光标位置更新和文本错误替换de问题 （3.7:[8fcb9342](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8fcb93420b80727fde29571fbd3c22d570b5fcc2?ref=fix-input-changeselection-3.7&prId=846), 3.22:[4729b57d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4729b57dec567a345180582670af05fea8624867?ref=fix-input-changeselection_3.22&prId=847)）
 - 修复外接物理键盘时,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符的问题 (3.7:[89d3ce09](https://gitcode.com/openharmony-tpc/flutter_engine/commit/89d3ce097aa21bc79b75db3d85b2975beb93269b?ref=feature-keyevent-3.7&prId=839), 3.22:[0fa997df](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0fa997dfa9b6767bdebc6726284845dbbabdf21c?ref=feature-keyevent-3.22&prId=840))
 - 修改engine编译依赖的仓库管理方式 (3.22:[681fd1f2](https://gitcode.com/openharmony-tpc/flutter_engine/commit/681fd1f2ec188aeadfe9981472379919e0d31522?ref=multi-repos&prId=790))
