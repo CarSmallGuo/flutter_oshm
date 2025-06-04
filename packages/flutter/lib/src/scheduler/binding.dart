@@ -1415,12 +1415,38 @@ mixin SchedulerBinding on BindingBase {
     }());
   }
 
+  static const int countdownNumber = 59;
+  int _lastTranslateVelocity = -1; // 上一次发送的速率值
+  int _countdown = 0;
+
+  // 一帧时间内可被调用多次
   void sendTranslateVelocity(double velocity) {
-    if (velocity.isInfinite) {
-      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': 0});
-    } else {
+    // 动画结束，需要立刻通知到引擎层
+    if (velocity == 0.0) {
       SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _translateVelocity = -1;
+      _countdown = countdownNumber;
+      return;
     }
+
+    // 动画运行中，剔除相似速率值
+    int velocityInt = velocity.truncate(); // 向下取整数，过滤相似值
+    if (!velocity.isInfinite && _translateVelocity != velocityInt) {
+      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _translateVelocity = velocityInt;
+      _countdown = countdownNumber;
+      return;
+    }
+
+    // 动画运行中，速率值相似时，周期性发送帧率
+    if (_countdown == 0) {
+      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _translateVelocity = velocityInt;
+      _countdown = countdownNumber;
+    } else {
+      _countdown--;
+    }
+    return;
   }
 }
 
