@@ -1415,11 +1415,28 @@ mixin SchedulerBinding on BindingBase {
     }());
   }
 
+  static const int countdownNumber = 59;
+  int _translateVelocity = -1;
+  int _countdown = 0;
+
   void sendTranslateVelocity(double velocity) {
-    if (velocity.isInfinite) {
-      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': 0});
-    } else {
+    // velocity等于0，意味着动画结束，需要立刻通知到引擎层
+    if (velocity == 0.0 || _countdown == 0) {
       SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _translateVelocity = -1;
+      _countdown = countdownNumber;
+      return;
+    }
+
+    // 向下取整数，过滤相似值
+    int velocityInt = velocity.truncate();
+    print('kemin sendTranslateVelocity = ${_translateVelocity}, velocityInt = ${velocityInt}');
+    if (!velocity.isInfinite && _translateVelocity != velocityInt) {
+      _translateVelocity = velocityInt;
+      SystemChannels.nativeVsync.invokeMethod('sendVelocity', {'type': 'translate', 'velocity': velocity});
+      _countdown = countdownNumber;
+    } else {
+      _countdown--;
     }
   }
 }
