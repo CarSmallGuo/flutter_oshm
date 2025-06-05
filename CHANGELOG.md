@@ -1,5 +1,10 @@
 # Changelog
 
+## 6.0.0.302
+- 优化帧率投票；新增纹理投票 (3.22:[22d6147c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/22d6147c5fe71b23f16734652b82d45d65f946e6?ref=ltpo_code_0604&prId=855))
+- 重构轴事件处理，适配更多场景 (3.27:[bdcd16cd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/bdcd16cd33b6cb565bf1be04752ff417e7d5bf54?ref=oh-3.27.4-dev))
+- 修复web应用启动时，平台识别异常 (3.27:[3654ae13](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3654ae13f45755995bafe92566ec92aa775ab962?ref=oh-3.27.4-dev&prId=852))
+
 ## 6.0.0.300
 - 新增ltpo帧率可变的功能 (3.22:[e825e2c8](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e825e2c84117a363506133bc50ed02679eda64c5?ref=oh-3.22.0-dev-6.0&prId=834))
 
