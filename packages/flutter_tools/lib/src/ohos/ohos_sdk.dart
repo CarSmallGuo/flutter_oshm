@@ -297,17 +297,17 @@ class HmosSdk implements HarmonySdk {
 
   //harmonyOsSdk，包含目录hmscore和openharmony
   static bool validSdkDirectory(String hmosHomeDir) {
-    return validApi10SdkDirectory(hmosHomeDir) ||
-        validApi11SdkDirectory(hmosHomeDir);
+    return validNewSdkDirectory(hmosHomeDir) ||
+        validOldSdkDirectory(hmosHomeDir);
   }
 
-  static bool validApi10SdkDirectory(String hmosHomeDir) {
+  static bool validNewSdkDirectory(String hmosHomeDir) {
     final Directory directory = globals.fs.directory(hmosHomeDir);
-    return directory.childDirectory('hmscore').existsSync() &&
+    return (directory.childDirectory('hmscore').existsSync() || directory.childDirectory('hms').existsSync()) &&
         directory.childDirectory('openharmony').existsSync();
   }
 
-  static bool validApi11SdkDirectory(String hmosHomeDir) {
+  static bool validOldSdkDirectory(String hmosHomeDir) {
     if (sdkVersionMap.length == 0) {
       return false;
     }
