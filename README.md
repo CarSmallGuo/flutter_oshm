@@ -195,9 +195,7 @@ Flutter SDK 仓库
 
 5. 若Beta1版本的机器上无法启动debug签名的应用，可以通过将签名换成正式签名，或在手机端打开开发者模式解决（步骤：设置->通用->开发者模式）。
 
-6. 如果报 `Invalid CEN header (invalid zip64 extra data field size)` 异常，请更换Jdk版本。参见[JDK-8313765](https://bugs.openjdk.org/browse/JDK-8313765)
-
-7. ROM更新后，不再支持申请有执行权限的匿名内存，导致debug运行闪退。  
+6. ROM更新后，不再支持申请有执行权限的匿名内存，导致debug运行闪退。  
 
    解决方案：更新 flutter_flutter 到 a44b8a6d (2024-07-25) 之后的版本。
 
@@ -209,9 +207,7 @@ Flutter SDK 仓库
    #22 at init (oh_modules/.ohpm/@ohos+flutter_ohos@g8zhdaqwu8gotysbmqcstpfpcpy=/oh_modules/@ohos/flutter_ohos/src/main/ets/embedding/engine/FlutterEngine.ets:133:7)
    ```
 
-8. 构建Hap命令直接执行 `flutter build hap` 即可，不再需要 `--local-engine` 参数，直接从云端获取编译产物。
-
-9. 配置环境完成后执行 flutter 命令 出现闪退。  
+7. 配置环境完成后执行 flutter 命令 出现闪退。  
 
    解决方案：windows环境中添加git环境变量配置。  
 
@@ -219,7 +215,7 @@ Flutter SDK 仓库
    export PATH=<git path>/cmd:$PATH
    ```
 
-10. 执行 `flutter pub cache clean` 正常，执行 `flutter clean` 报错，按照报错信息执行 update 命令也没有效果。  
+8. 执行 `flutter pub cache clean` 正常，执行 `flutter clean` 报错，按照报错信息执行 update 命令也没有效果。  
 
     解决方案：通过注释掉 build.json5 文件中的配置规避：`"modules":[{ // 删除报错对应的整个对象 }]`。
 
@@ -233,7 +229,7 @@ Flutter SDK 仓库
     #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
-11. 在.ohos的项目执行 `flutter clean` 报错，然后再执行 `flutter pub get` 也报错。
+9. 在.ohos的项目执行 `flutter clean` 报错，然后再执行 `flutter pub get` 也报错。
 
     解决方案：删除 .ohos 文件夹，重新 `flutter pub get`即可。  
 

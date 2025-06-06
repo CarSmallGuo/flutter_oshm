@@ -188,9 +188,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
 
 5. If the application with the debug signature cannot be started on a device of API 11 Beta1, replace the debug signature with a formal signature or enable the developer mode on the device. (Steps: Go to **Settings** > **General** > **Developer mode**.)
 
-6. If the message `Invalid CEN header (invalid zip64 extra data field size)` is reported, replace the JDK version. For details, see [JDK-8313765](https://bugs.openjdk.org/browse/JDK-8313765).
-
-7. Updated ROM of Beta2 no longer supports anonymous memory with the execution permission. As a result, debugging crashes.
+6. Updated ROM of Beta2 no longer supports anonymous memory with the execution permission. As a result, debugging crashes.
 
    1. Solution: Update **flutter_flutter** to a version later than a44b8a6d (2024-07-25).
    2. Key logs:
@@ -201,9 +199,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
    #22 at init (oh_modules/.ohpm/@ohos+flutter_ohos@g8zhdaqwu8gotysbmqcstpfpcpy=/oh_modules/@ohos/flutter_ohos/src/main/ets/embedding/engine/FlutterEngine.ets:133:7)
     ```
 
-8. Run the `flutter build hap` instruction to build an HAP file without using the parameter of `--local-engine`. You can obtain the build product from the cloud.
-
-9. After the environment is configured, crash occurs when execute the `flutter` instruction.
+7. After the environment is configured, crash occurs when execute the `flutter` instruction.
 
    1. Solution: Add the Git environment variable configuration to the Windows environment.
 
@@ -211,7 +207,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
    export PATH=<git path>/cmd:$PATH
    ```
 
-10. The `flutter pub cache clean` instruction is executed successfully, but an error is reported when the `flutter clean` instruction is executed. In this case, executing the `update` instruction according to the error message does not take effect.
+8. The `flutter pub cache clean` instruction is executed successfully, but an error is reported when the `flutter clean` instruction is executed. In this case, executing the `update` instruction according to the error message does not take effect.
 
     1. Solution: Add comment to the configuration in the **build.json5** file. For example, "modules": [{ // Delete the entire object corresponding to the error}].
     2. Error message:
@@ -224,7 +220,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
     #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
-11. In the **.ohos** project, errors are reported when the `flutter clean` and the `flutter pub get` instructions are executed.
+9. In the **.ohos** project, errors are reported when the `flutter clean` and the `flutter pub get` instructions are executed.
 
     1. Solution: Delete the **.ohos** folder and execute the **flutter pub get** instruction again.
     2. Error message:
