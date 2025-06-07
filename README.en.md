@@ -9,19 +9,23 @@ Original warehouse source: https://github.com/flutter/flutter
    * [sdk base version](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
    * [engine base version](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
 
+## Flutter OH version evolution planning and branching strategy
+You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
+
 ## Upgrade Guide
 1. If your project is upgrading from HarmonyOS version 3.7.12 to version 3.22.0:
    * Environment dependencies: Configuration remains consistent between the two versions, no additional modifications required.
    * For new features and changes from 3.7.12 to 3.22.0, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
    * For official compatibility changes, please refer to the [Upgrade Guide](https://docs.flutter.dev/release/breaking-changes).
+   * For the changelog from 3.7 to 3.22, please refer to the [Changelog](/release-notes/changelog/Flutter3.7_to_3.22_CHANGElOG.md)
    * Rendering Engine: Added impeller-vulkan mode (default, can be switched to skia-gl).
    * Third-party libraries:
       - Pure Dart libraries should be upgraded to the specified version to support 3.22.0.
-      - The packages in [OpenHarmony-SIG/flutter_packages](https://gitee.com/openharmony-sig/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.22.0. If you encounter any issues during use, please create an issue for tracking.
+      - The packages in [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.22.0. If you encounter any issues during use, please create an issue for tracking.
 2. If your project is migrating from Android or iOS to the HarmonyOS adaptation for version 3.22.0, please refer to the remaining guide documents.
 
 ## Development document
-[Docs](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[Docs](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Environment dependencies
 
@@ -47,7 +51,7 @@ Original warehouse source: https://github.com/flutter/flutter
         export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
        ```
 
-   2. Download the current warehouse code `git clone https://gitee.com/openharmony-sig/flutter_flutter.git` Specify the dev or master branch and configure the environment
+   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.22.0 branch and configure the environment
 
       ```sh
        export PATH=<flutter_flutter path>/bin:$PATH
@@ -130,10 +134,6 @@ Original warehouse source: https://github.com/flutter/flutter
     flutter run  --debug --local-engine=/home/user/engine_make/src/out/ohos_debug_unopt_arm64 -d <device-id> --local-engine-host=src/out/<engine_host>/
     ```
 
-## Release Notes
- - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
-
 ## Compatible command list developed by OpenHarmony
 
 | Command name | Command description | Instructions for use                                                              |
@@ -188,7 +188,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
      HDC_SERVER_PORT=8710
     ```
 
-    After the configuration is completed, the flutter sdk can complete the device connection through the hdc server. You can also refer to [official guidance](https://docs.openharmony.cn/pages/v4.0/zh-cn/device-dev/subsystems/subsys-toolchain -hdc-guide.md/#hdc-client%E5%A6%82%E4%BD%95%E8%BF%9C%E7%A8%8B%E8%AE%BF%E9%97%AEhdc-server) .
+    After the configuration is completed, the flutter sdk can complete the device connection through the hdc server. You can also refer to [official guidance](https://docs.openharmony.cn/pages/v5.0/zh-cn/device-dev/subsystems/subsys-toolchain -hdc-guide.md/#hdc-client%E5%A6%82%E4%BD%95%E8%BF%9C%E7%A8%8B%E8%AE%BF%E9%97%AEhdc-server) .
 
 6. An error occurred when building the Hap task: Error: The hvigor depends on the npmrc file. Configure the npmrc file first.
 
@@ -251,13 +251,13 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitee.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 15. An error message indicating path verification occurs when `flutter build hap` is executed。
     1. Solution：
-      · Open the ohos-project-build-profile-schema.json file in deveco installation path D:\DevEco Studio\tools\hvigor\hvigor-ohos-plugin\res\schemas。
-      · Find the line containing: "pattern": "^(\\./|\\.\\./)[\\s\\S]+$" in the file and delete it。
+        · Open the ohos-project-build-profile-schema.json file in deveco installation path D:\DevEco Studio\tools\hvigor\hvigor-ohos-plugin\res\schemas。
+        · Find the line containing: "pattern": "^(\\./|\\.\\./)[\\s\\S]+$" in the file and delete it。
     2. Error message:
     ```
      #hvigor  ERROR: Schema validate failed.
@@ -324,4 +324,4 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
       ```
 
-[More FAQ](https://gitee.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[More FAQ](https://gitee.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
