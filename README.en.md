@@ -4,10 +4,13 @@ Flutter SDK Repository
 Source of the original repository: https://github.com/flutter/flutter
 
 ## Repository Description
-This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows IDEs or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
+This repository is an extension of the Flutter SDK for compatibility with OpenHarmony. It allows DevEco Studio IDE or terminals to use Flutter Tools instructions to compile and build OpenHarmony applications.
+
+## Flutter OH version evolution planning and branching strategy
+You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
 
 ## Development Documentation
-[Flutter_samples](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[Flutter_samples](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Environment Dependencies
 
@@ -24,7 +27,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
    *For Unix-like systems (Linux and macOS), you can refer to the environment variable configuration below. For Windows, set environment variables by following the instructions provided in "Edit System Environment Variables."*
 
   1. Configure the OpenHarmony SDK and the environment variables.
-   * API 18, DevEco Studio 5.1, or command-line-tools-5.1.
+   * API 12, DevEco Studio 5.0, or command-line-tools-5.0.
    * Download JDK 17 and configure environment variables.
 
         ```sh
@@ -55,7 +58,7 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
         PATH=%TOOL_HOME%\tools\node
         ```
 
-  2. Use a code editor to download the current repository code by running `git clone https://gitcode.com/openharmony-sig/flutter_flutter.git`, specify the dev or master branch, and set up the environment.
+  2. Use a code editor to download the current repository code by running `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`, specify the dev or master branch, and set up the environment.
 
         ```sh
         export PUB_CACHE=D:/PUB
@@ -121,15 +124,6 @@ This repository is an extension of the Flutter SDK for compatibility with OpenHa
     # Example: flutter build app --release
     flutter build app --release
    ```
-
-## Release Notes
- - [3.7.12-ohos-1.0.6 Release](/release-notes/Flutter%203.7.12-ohos%201.0.6%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.5 Release](/release-notes/Flutter%203.7.12-ohos%201.0.5%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.4 Release](/release-notes/Flutter%203.7.12-ohos%201.0.4%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.3 Release](/release-notes/Flutter%203.7.12-ohos%201.0.3%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.2 Release](/release-notes/Flutter%203.7.12-ohos%201.0.2%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.1 Release](/release-notes/Flutter%203.7.12-ohos%201.0.1%20ReleaseNote.en.md)
- - [3.7.12-ohos-1.0.0 Release](/release-notes/Flutter%203.7.12-ohos%201.0.0%20ReleaseNote.en.md)
 
 ## Instruction List Compatible with OpenHarmony
 | Instruction| Description| How to Use                                                             |
@@ -224,7 +218,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
     #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
     #You need to update the Flutter plugin project structure.
     #See
-    #https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+    #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 12. A path verification error is reported when the `flutter build hap` instruction is executed.
@@ -273,4 +267,4 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
           A crash report has been written to D:\code\flutter_01.log.
          ```
 
-Reference: [FAQs] (https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README_EN.md)
+Reference: [FAQs] (https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README_EN.md)
