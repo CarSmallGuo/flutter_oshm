@@ -16,7 +16,7 @@ February 7, 2025
 - Flutter SDK: 3.7.12-ohos-1.0.4
 
 ## Enablement Documents
-- [Document Link](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [Document Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Fixed Issues
 - External texture related issues
