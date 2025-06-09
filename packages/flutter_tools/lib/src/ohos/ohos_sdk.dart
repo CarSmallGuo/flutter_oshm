@@ -295,7 +295,7 @@ class HmosSdk implements HarmonySdk {
     }
   }
 
-  //harmonyOsSdk，包含目录hmscore和openharmony
+  //harmonyOsSdk验证，1、兼容老sdk，根据版本名作为sdk根目录，2、或者新版本sdk，包含openharmony目录，和hmscore、hms两者的一种。
   static bool validSdkDirectory(String hmosHomeDir) {
     return validNewSdkDirectory(hmosHomeDir) ||
         validOldSdkDirectory(hmosHomeDir);
