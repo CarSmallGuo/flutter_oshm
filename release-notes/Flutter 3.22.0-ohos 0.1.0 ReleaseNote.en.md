@@ -28,7 +28,7 @@ December 31, 2024
 
 ## Enabling Documentation
 
-- [Documentation Link](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [Documentation Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## Third-Party Library List
 
@@ -36,7 +36,7 @@ The 3.22 version shares the same set of third-party library repositories as the 
 
 - Official Library:
 
-    [Official Library Link](https://gitcode.com/openharmony-sig/flutter_packages)
+    [Official Library Link](https://gitcode.com/openharmony-tpc/flutter_packages)
 
 - Third-Party Libraries:
 
@@ -44,7 +44,7 @@ The 3.22 version shares the same set of third-party library repositories as the 
     |:-------------|:----------------|
     | sqflite | https://gitcode.com/openharmony-sig/flutter_sqflite |
     | permission_handler | https://gitcode.com/openharmony-sig/flutter_permission_handler |
-    | fluttertoast | https://gitcode.com/openharmony-sig/flutter_fluttertoast |
+    | fluttertoast | https://gitcode.com/openharmony-tpc/flutter_fluttertoast |
     | connectivity_plus | https://gitcode.com/openharmony-sig/flutter_plus_plugins |
     | device_info_plus | https://gitcode.com/openharmony-sig/flutter_plus_plugins |
     | package_info_plus | https://gitcode.com/openharmony-sig/flutter_plus_plugins |

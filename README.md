@@ -151,8 +151,6 @@ Flutter SDK 仓库
 | clean      | 清除项目依赖       | flutter clean                                                |
 | cache      | 清除全局缓存数据   | flutter pub cache clean                                      |
 
-附：[Flutter三方库适配计划](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
-
 
 ## 常见问题
 
@@ -248,7 +246,7 @@ Flutter SDK 仓库
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
     ```
 
 15. 执行`flutter build hap` 时遇到路径校验报错。
