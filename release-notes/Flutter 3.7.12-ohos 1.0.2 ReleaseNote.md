@@ -21,14 +21,14 @@ HarmonyOS NEXT, API12 MR3
 
 ## 赋能文档
 
-- [文档链接](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 三方库列表
 - 本次更新的三方库：
 
 |三方库名称|仓库地址|
 |:----|:----|
-|tobias|https://gitee.com/openharmony-sig/fluttertpc_tobias|
+|tobias|https://gitcode.com/openharmony-sig/fluttertpc_tobias|
 
 ## 修复问题
 - 英文输入法无法删除的问题

@@ -22,13 +22,13 @@ October 22, 2024
 
 ## Development Documentation
 
-- [Documentation Link](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs) 
+- [Documentation Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs) 
 
 ## Third-party library list
 
 |Library Name|Address|
 |:----|:----|
-|tobias|https://gitee.com/openharmony-sig/fluttertpc_tobias|
+|tobias|https://gitcode.com/openharmony-sig/fluttertpc_tobias|
 
 Fixes:
 - English input method cannot be deleted
