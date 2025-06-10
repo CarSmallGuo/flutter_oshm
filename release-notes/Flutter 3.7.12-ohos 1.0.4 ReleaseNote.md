@@ -16,7 +16,7 @@ HarmonyOS NEXT, API13
 - Flutter SDK: 3.7.12-ohos-1.0.4
 
 ## 赋能文档
-- [文档链接](https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+- [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 修复问题
 - 外接纹理相关问题
