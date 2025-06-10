@@ -56,7 +56,7 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 4) 确保适配应用是flutter 3.22 版本的。
 5) 应用工程里的ltpo配置文件[framesconfig.json](#frames-config)确认是否存在。如果是新建的flutter应用工程，ltpo配置文件默认存在应用模板里；如果是已存在的应用工程，需要手动拷贝framesconfig.json文件到应用工程ohos/entry/src/main/resources/rawfile路径下。
 6) 开启ltpo配置使能开关。framesconfig.json文件更改“SWITCH”选项，把0改为1。
-7) 正常编译应用工程
+7) 正常编译release模式的应用工程
 
 # 6.验证流程
 
