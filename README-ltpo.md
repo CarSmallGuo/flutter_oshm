@@ -29,9 +29,13 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 已存在的flutter应用工程，如果不是flutter 3.22版本，在切换flutter_flutter oh-3.22.0-dev-6.0分支后，需要适配flutter 3.22版本。
 
 ## 3.3 <span id="frames-config">framesconfig.json</span>
+
+链接：https://gitcode.com/openharmony-tpc/flutter_flutter/blob/oh-3.22.0-dev-6.0/packages/flutter_tools/templates/app_shared/ohos.tmpl/entry/src/main/resources/base/profile/framesconfig.json
+
 1) framesconfig.json是ltpo的配置文件，可配置使能开关，默认不使能ltpo功能，需要手动开启。
 2) ltpo配置文件，还预置了平移动画的速率映射帧率挡位，根据动画的平移速率来决定屏幕刷新率。默认映射帧率挡位配置，不推荐改动。
 3) ltpo配置文件，预置在模板应用工程中，默认存在新建的flutter应用工程中。已存在的flutter应用工程，需要适配切换flutter 3.22版本，并手动拷贝framesconfig.json文件到应用工程ohos/entry/src/main/resources/rawfile路径下。
+其原型文件在flutter_flutter下的packages/flutter_tools/templates/app_shared/ohos.tmpl/entry/src/main/resources/base/profile/framesconfig.json路径。
 
 
 # 4.适用场景
@@ -46,11 +50,13 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 
 # 5.适配流程
 
-1) 下载适配了ltpo功能的flutter_flutter代码仓，并添加进环境变量。
-2) 确保适配应用是flutter 3.22 版本的。
-3) 应用工程里的ltpo配置文件确认是否存在。如果是新建的flutter应用工程，ltpo配置文件默认存在应用模板里；如果是已存在的应用工程，需要手动拷贝framesconfig.json文件到应用工程ohos/entry/src/main/resources/rawfile路径下。
-4) 开启ltpo配置使能开关。framesconfig.json文件更改“SWITCH”选项，把0改为1。
-5) 正常编译应用工程
+1) 更新[deveco-studio](#deveco-studio)的IDE工具，至少使用DevEco Studio 5.0.5 Release版本。
+2) 下载适配了ltpo功能的[flutter_flutter](#flutter-flutter)代码仓，并添加进环境变量。
+3) 命令行窗口执行"flutter doctor -v"，确认flutter路径是否为适配了ltpo功能的flutter_flutter代码仓，其分支是否为oh-3.22.0-dev-6.0。
+4) 确保适配应用是flutter 3.22 版本的。
+5) 应用工程里的ltpo配置文件[framesconfig.json](#frames-config)确认是否存在。如果是新建的flutter应用工程，ltpo配置文件默认存在应用模板里；如果是已存在的应用工程，需要手动拷贝framesconfig.json文件到应用工程ohos/entry/src/main/resources/rawfile路径下。
+6) 开启ltpo配置使能开关。framesconfig.json文件更改“SWITCH”选项，把0改为1。
+7) 正常编译应用工程
 
 # 6.验证流程
 
