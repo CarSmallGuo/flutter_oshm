@@ -1,4 +1,10 @@
 # Changelog
+## 6.0.0.303
+- 增加查询ltpo开启状态的接口 (3.27[51a1e089](https://gitcode.com/openharmony-tpc/flutter_engine/commit/51a1e08992de33eb15d6374fa855bd65dbcb5a58?ref=oh-3.27.4-dev&prId=884))
+- 更改xcomponentMap_mutex为可重入锁 (3.27[465cfba4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/465cfba41f898730f622c9cfab75265765d39226?ref=oh-3.27.4-dev&prId=883))
+- 外接物理键盘,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符 (3.27[73fc9b55](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73fc9b55f0224d8c361c116c4d01e96af5f4458e?ref=oh-3.27.4-dev&prId=865))
+- 添加DEP_ohos，依赖三方库分仓构建 (3.27[091c6562](https://gitcode.com/openharmony-tpc/flutter_engine/commit/091c65622b430469aaaa9de29837ea918a0766eb?ref=deps&prId=854))
+- 优化帧率投票；新增纹理投票 (3.27:[7c0bf0f7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7c0bf0f7367055e6f325c1f03895d57945d15520?ref=oh-3.27.4-dev))
 ## 6.0.0.302
 - 优化帧率投票；新增纹理投票 (3.22:[22d6147c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/22d6147c5fe71b23f16734652b82d45d65f946e6?ref=ltpo_code_0604&prId=855))
 - 重构轴事件处理，适配更多场景 (3.27:[bdcd16cd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/bdcd16cd33b6cb565bf1be04752ff417e7d5bf54?ref=oh-3.27.4-dev))
