@@ -577,7 +577,6 @@ class OHOSGenSnapshotArtifacts extends EngineCachedArtifact {
         ..._osxBinaryDirsForOhos
       else if (_platform.isLinux)
         ..._linuxBinaryDirsForOhos,
-      ..._ohosBinaryDirs,
     ];
   }
 
@@ -617,7 +616,7 @@ class OHOSInternalBuildArtifacts extends EngineCachedArtifact {
   String get storageBaseUrl => cache.ohosStorageBaseUrl;
 
   @override
-  String? get version => cache.getVersionFor('engine.ohos');
+  String? get version => cache.getVersionFor('engine.har');
 }
 
 /// A cached artifact containing Gradle Wrapper scripts and binaries.
