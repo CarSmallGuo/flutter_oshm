@@ -31,7 +31,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 
   1. Configure the OpenHarmony SDK and the environment variables.
 
-   * API 12, DevEco Studio 5.0, or command-line-tools-5.0.
+   * API 18, DevEco Studio 5.1, or command-line-tools-5.1.
    * Download JDK 17 and configure environment variables.
 
     ```sh
@@ -154,7 +154,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 | clean       | Clears the project dependencies. | flutter clean                                                |
 | cache       | Clears global cache data.        | flutter pub cache clean                                      |
 
-Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
+Appendix: [List of third-party Flutter libraries frequently used adapting to OpenHarmony](https://gitcode.com/openharmony-tpc/flutter_packages#openharmony%E5%B9%B3%E5%8F%B0%E5%B7%B2%E5%85%BC%E5%AE%B9%E5%BA%93)
 
 
 ## FAQs
