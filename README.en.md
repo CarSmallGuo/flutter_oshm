@@ -39,7 +39,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
     *The following environment variable configuration is for Unix-like systems (Linux, Mac). You can directly refer to the configuration below. For environment variable configuration under Windows, please set it in ‘Edit System Environment Variables’*
 
    1. Configure the HarmonyOS SDK and environment variables
-    * API12, deveco-studio-5.0 or command-line-tools-5.0 (Recommended to use version 5.0.0 Release or later)
+    * API18, deveco-studio-5.1 or command-line-tools-5.1 (Recommended to use version 5.1.0 Beta1 or later)
     * Configure Java17
     * Configure environment variables (SDK, node, ohpm, hvigor)
 

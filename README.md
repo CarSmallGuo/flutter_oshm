@@ -39,7 +39,7 @@ Flutter SDK 仓库
    *下列环境变量配置，类Unix系统（Linux、Mac），下可直接参照配置，Windows下环境变量配置请在‘编辑系统环境变量’中设置*
 
   1. 配置HarmonyOS SDK和环境变量
-   * API12, deveco-studio-5.0 或 command-line-tools-5.0 (推荐使用5.0.0 Release或更新版本)
+   * API18, deveco-studio-5.1 或 command-line-tools-5.1 (推荐使用5.1.0 Beta1或更新版本)
    * 配置 Java17
    * 配置环境变量 (SDK, node, ohpm, hvigor)
 
