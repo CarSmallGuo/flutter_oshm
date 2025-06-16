@@ -2943,6 +2943,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
       }
       _lastKnownRemoteTextEditingValue = localValue;
     } else {
+      _textInputConnection!.updateConfig(_effectiveAutofillClient.textInputConfiguration);
       _textInputConnection!.show();
     }
   }
@@ -3020,7 +3021,7 @@ class EditableTextState extends State<EditableText> with AutomaticKeepAliveClien
       _textInputConnection!.connectionClosedReceived();
       _textInputConnection = null;
       _lastKnownRemoteTextEditingValue = null;
-      _finalizeEditing(TextInputAction.done, shouldUnfocus: true);
+      widget.focusNode.unfocus();
     }
   }
 

@@ -1,8 +1,8 @@
 ## 版本概述
 本版本为基于Flutter 3.7.12适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
-## 新特性
-- 添加动态库加载工具类
+## 新增特性
+- 无障碍支持xcomponent多实例/多引擎场景
 
 ## Bug修复
 - 修复输入法文本光标位置更新和文本错误替换的问题
@@ -14,13 +14,13 @@
 2025年6月7日
 
 ## 版本配套
-- OpenHarmony API18
-- ROM: 5.1.0.110
-- IDE: DevEco Studio 5.1.0.828
-- Flutter SDK: 3.7.12-ohos-1.1.2Beta1
+- OpenHarmony API17
+- ROM: 5.0.1.120
+- IDE: DevEco Studio 5.0.13.200
+- Flutter SDK: 3.7.12-ohos-1.1.3
 
 ## Changelog
-- [5.1.0.501, 5.1.0.502](../CHANGELOG.md)
+- [5.1.0.502](../CHANGELOG.md)
 
 ## 赋能文档
 - [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
