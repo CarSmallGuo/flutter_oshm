@@ -226,7 +226,7 @@ Flutter SDK 仓库
     #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
     #You need to update the Flutter plugin project structure.
     #See
-    #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+    #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
 9. 在.ohos的项目执行 `flutter clean` 报错，然后再执行 `flutter pub get` 也报错。
