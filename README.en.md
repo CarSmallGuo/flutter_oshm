@@ -216,7 +216,7 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
     #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
     #You need to update the Flutter plugin project structure.
     #See
-    #https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+   #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
 9. In the **.ohos** project, errors are reported when the `flutter clean` and the `flutter pub get` instructions are executed.
