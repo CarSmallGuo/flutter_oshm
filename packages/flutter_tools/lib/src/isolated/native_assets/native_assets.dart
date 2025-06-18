@@ -936,8 +936,7 @@ OSImpl _getNativeOSFromTargetPlatfrorm(build_info.TargetPlatform platform) {
     case build_info.TargetPlatform.ohos_arm:
     case build_info.TargetPlatform.ohos_arm64:
     case build_info.TargetPlatform.ohos_x64:
-      // todo: 修改为 OSImpl.ohos
-      return OSImpl.android;
+      return OSImpl.ohos;
     case build_info.TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OSImpl.macOS;

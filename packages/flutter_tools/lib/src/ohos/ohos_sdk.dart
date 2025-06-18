@@ -5,8 +5,12 @@
 */
 
 import 'dart:collection';
+
+import 'package:cli_config/cli_config.dart';
 import 'package:json5/json5.dart';
+
 import '../base/file_system.dart';
+import '../base/platform.dart';
 import '../globals.dart' as globals;
 
 // OpenHarmony SDK
@@ -66,6 +70,11 @@ abstract class HarmonySdk {
   static bool isNumeric(String str) {
     return double.tryParse(str) != null;
   }
+
+  String? getNdkClangPath({Platform? platform, Config? config});
+  String? getNdkArPath({Platform? platform, Config? config});
+  String? getNdkLdPath({Platform? platform, Config? config});
+  String? getNdkBinaryPath(String binaryName, { Platform? platform, Config? config});
 }
 
 class OhosSdk implements HarmonySdk {
@@ -184,6 +193,25 @@ class OhosSdk implements HarmonySdk {
     return list;
   }
 
+  @override
+  String? getNdkArPath({Platform? platform, Config? config}) {
+    return _getNdkArPath(sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkBinaryPath(String binaryName, { Platform? platform, Config? config}) {
+    return _getNdkBinaryPath(binaryName, sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkClangPath({Platform? platform, Config? config}) {
+    return _getNdkClangPath(sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkLdPath({Platform? platform, Config? config}) {
+    return _getNdkLdPath(sdkPath, platform: platform, config: config);
+  }
 }
 
 class HmosSdk implements HarmonySdk {
@@ -320,4 +348,67 @@ class HmosSdk implements HarmonySdk {
     }
     return true;
   }
+  @override
+  String? getNdkArPath({Platform? platform, Config? config}) {
+     return _getNdkArPath(sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkBinaryPath(String binaryName, { Platform? platform, Config? config}) {
+    return _getNdkBinaryPath(binaryName, sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkClangPath({Platform? platform, Config? config}) {
+     return _getNdkClangPath(sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNdkLdPath({Platform? platform, Config? config}) {
+     return _getNdkLdPath(sdkPath, platform: platform, config: config);
+  }
+}
+
+String? _getNdkArPath(String sdkPath, {Platform? platform, Config? config}) {
+  platform ??= globals.platform;
+  return _getNdkBinaryPath(
+    platform.isWindows ? 'llvm-ar.exe' : 'llvm-ar',
+    sdkPath,
+    platform: platform,
+    config: config,
+  );
+}
+
+String? _getNdkBinaryPath(String binaryName, String sdkPath, { Platform? platform, Config? config}) {
+  final File executable = globals.fs.directory(sdkPath)
+      .childDirectory('default')
+      .childDirectory('openharmony')
+      .childDirectory('native')
+      .childDirectory('llvm')
+      .childDirectory('bin')
+      .childFile(binaryName);
+  if (executable.existsSync()) {
+    return executable.path;
+  }
+  return null;
+}
+
+String? _getNdkClangPath(String sdkPath, {Platform? platform, Config? config}) {
+  platform ??= globals.platform;
+  return _getNdkBinaryPath(
+    platform.isWindows ? 'clang.exe' : 'clang',
+    sdkPath,
+    platform: platform,
+    config: config,
+  );
+}
+
+String? _getNdkLdPath(String sdkPath,{Platform? platform, Config? config}) {
+  platform ??= globals.platform;
+  return _getNdkBinaryPath(
+    platform.isWindows ? 'ld.lld.exe' : 'ld.lld',
+    sdkPath,
+    platform: platform,
+    config: config,
+  );
 }
