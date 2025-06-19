@@ -26,8 +26,6 @@ import 'features.dart';
 import 'flutter_manifest.dart';
 import 'flutter_plugins.dart';
 import 'globals.dart' as globals;
-import 'ohos/hvigor_utils.dart';
-import 'macos/xcode.dart';
 import 'platform_plugins.dart';
 import 'project_validator_result.dart';
 import 'template.dart';
@@ -1072,10 +1070,6 @@ class OhosProject extends FlutterProjectPlatform {
   Directory get managedDirectory =>
       flutterModuleDirectory.childDirectory('src/main/ets/plugins');
 
-  /// 是否先编译.ohos/module下har，再运行hap
-  bool get isRunWithModuleHar =>
-      isModule && editableHostAppDirectory.existsSync();
-
   /// Whether this flutter project has a ohos sub-project.
   @override
   bool existsSync() {
@@ -1092,10 +1086,6 @@ class OhosProject extends FlutterProjectPlatform {
     return ephemeralDirectory;
   }
 
-  /// flutter运行时资源拷贝来源路径
-  Directory get flutterRuntimeAssertOriginPath =>
-      isModule ? ephemeralDirectory : editableHostAppDirectory;
-
   Directory get ephemeralDirectory => parent.directory.childDirectory('.ohos');
 
   Directory get editableHostAppDirectory =>
@@ -1110,32 +1100,7 @@ class OhosProject extends FlutterProjectPlatform {
 
   Directory get flutterModuleDirectory {
     if (isModule) {
-      final File buildProfileFile =
-          ephemeralDirectory.childFile(kBuildProfileName);
-      final Map<String, dynamic> buildProfile = JSON5
-          .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
-      final List<dynamic> modules = buildProfile['modules'] as List<dynamic>;
-      Map<String, dynamic>? module = modules.firstWhere((item) {
-        final Map<String, dynamic> module = item as Map<String, dynamic>;
-        return module['name'] as String == kFlutterModuleName;
-      }, orElse: () => null) as Map<String, dynamic>?;
-
-      if (module == null) {
-        module = <String, String>{
-          'name': 'flutter_module',
-          'srcPath': './flutter_module',
-        };
-        final List<dynamic> modules = buildProfile['modules'] as List<dynamic>;
-        modules.add(module);
-        final String buildProfileNew =
-            const JsonEncoder.withIndent('  ').convert(buildProfile);
-        buildProfileFile.writeAsStringSync(buildProfileNew, flush: true);
-      }
-
-      final String srcPath = module['srcPath'] as String;
-      return globals.fs
-          .directory(globals.fs.path.join(ephemeralDirectory.path,
-                     globals.platform.isWindows ? srcPath.replaceAll(r'./', r'') : srcPath));
+      return ephemeralDirectory.childDirectory(kFlutterModuleName);
     }
     return editableHostAppDirectory.childDirectory(mainModuleName);
   }
@@ -1250,9 +1215,6 @@ class OhosProject extends FlutterProjectPlatform {
     return targetFile;
   }
 
-  File get flutterModulePackageFile =>
-      flutterModuleDirectory.childFile('oh-package.json5');
-
   File get localPropertiesFile => ohosRoot.childFile('local.properties');
 
   File get ephemeralLocalPropertiesFile =>
@@ -1265,10 +1227,6 @@ class OhosProject extends FlutterProjectPlatform {
       : (localPropertiesFile.existsSync()
           ? SettingsFile.parseFromFile(localPropertiesFile)
           : SettingsFile());
-
-  bool hasSignedHapBuild(flavor) {
-    return getSignedHapFile(flavor).existsSync();
-  }
 
   Future<void> ensureReadyForPlatformSpecificTooling(
       {DeprecationBehavior deprecationBehavior =
@@ -1283,6 +1241,7 @@ class OhosProject extends FlutterProjectPlatform {
       }
     }
     hvigor.updateLocalProperties(project: parent);
+    hvigor.installHvigorPlugin(parent.ohos);
   }
 
   Future<void> _regenerateLibrary() async {
@@ -1321,7 +1280,7 @@ class OhosProject extends FlutterProjectPlatform {
       templateRenderer: globals.templateRenderer,
     );
     final String ohosIdentifier =
-        parent.manifest.ohosPackage ?? 'com.example.${parent.manifest.appName}';
+        parent.manifest.ohosBundleName ?? 'com.example.${parent.manifest.appName}';
     template.render(
       target,
       <String, Object>{

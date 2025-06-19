@@ -9,6 +9,9 @@ Flutter SDK 仓库
    * [sdk基础版本链接](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
    * [engine基础版本链接](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
 
+## Flutter OH版本演进规划和分支策略
+您可以在[Flutter OH版本演进规划和分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)中了解更多关于我们对Flutter的OpenHarmony适配版本的说明。
+
 ## 升级指导
 1. 如果您的项目希望从鸿蒙3.7.12版本升级到3.27.4版本
    * 环境依赖：两者环境配置一致，无需额外修改
@@ -23,7 +26,7 @@ Flutter SDK 仓库
 2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.27.4版本，请参考剩余指导文档。
 
 ## 开发文档
-[参考文档](https://gitcode.com/openharmony-sig/flutter_samples/tree/master/ohos/docs)
+[参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
@@ -36,7 +39,7 @@ Flutter SDK 仓库
    *下列环境变量配置，类Unix系统（Linux、Mac），下可直接参照配置，Windows下环境变量配置请在‘编辑系统环境变量’中设置*
 
   1. 配置HarmonyOS SDK和环境变量
-   * API12, deveco-studio-5.0 或 command-line-tools-5.0 (推荐使用5.0.0 Release或更新版本)
+   * API18, deveco-studio-5.1 或 command-line-tools-5.1 (推荐使用5.1.0 Beta1或更新版本)
    * 配置 Java17
    * 配置环境变量 (SDK, node, ohpm, hvigor)
 
@@ -265,7 +268,7 @@ Flutter SDK 仓库
      #D:\pub_cache\git\flutter_packages-b00939bb44d018f0710d1b080d91dcf4c34ed06\packages\video_player\video_player_ohos\ohossrc\main\module.json5.
      #You need to update the Flutter plugin project structure.
      #See
-     #https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md
+     #https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/09_specifications/update-flutter-plugin-structure.md
     ```
 
 15. 执行`flutter build hap` 时遇到路径校验报错。
@@ -337,4 +340,4 @@ Flutter SDK 仓库
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
       ```
 
-[更多FAQ](https://gitcode.com/openharmony-sig/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
+[更多FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)
