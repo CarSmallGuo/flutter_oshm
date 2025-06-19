@@ -2170,6 +2170,7 @@ class EditableText extends StatefulWidget {
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           break;
       }
     }
@@ -2559,9 +2560,10 @@ class EditableTextState extends State<EditableText>
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
-        return textEditingValue.text.isNotEmpty &&
-            !(textEditingValue.selection.start == 0 &&
-                textEditingValue.selection.end == textEditingValue.text.length);
+      case TargetPlatform.ohos:
+        return textEditingValue.text.isNotEmpty
+           && !(textEditingValue.selection.start == 0
+               && textEditingValue.selection.end == textEditingValue.text.length);
     }
   }
 
@@ -2598,6 +2600,7 @@ class EditableTextState extends State<EditableText>
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
+      case TargetPlatform.ohos:
         return false;
     }
   }
@@ -2649,6 +2652,7 @@ class EditableTextState extends State<EditableText>
         case TargetPlatform.linux:
         case TargetPlatform.windows:
           break;
+        case TargetPlatform.ohos:
         case TargetPlatform.android:
         case TargetPlatform.fuchsia:
           // Collapse the selection and hide the toolbar and handles.
@@ -2753,6 +2757,7 @@ class EditableTextState extends State<EditableText>
         case TargetPlatform.android:
         case TargetPlatform.iOS:
         case TargetPlatform.fuchsia:
+        case TargetPlatform.ohos:
           break;
         case TargetPlatform.macOS:
         case TargetPlatform.linux:
@@ -2764,6 +2769,7 @@ class EditableTextState extends State<EditableText>
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.windows:
+        case TargetPlatform.ohos:
           bringIntoView(textEditingValue.selection.extent);
         case TargetPlatform.macOS:
         case TargetPlatform.iOS:
@@ -3852,6 +3858,7 @@ class EditableTextState extends State<EditableText>
       }
       _lastKnownRemoteTextEditingValue = localValue;
     } else {
+      _textInputConnection!.updateConfig(_effectiveAutofillClient.textInputConfiguration);
       _textInputConnection!.show();
     }
   }
@@ -3985,7 +3992,8 @@ class EditableTextState extends State<EditableText>
     TargetPlatform.fuchsia ||
     TargetPlatform.linux ||
     TargetPlatform.macOS ||
-    TargetPlatform.windows => false,
+    TargetPlatform.windows ||
+    TargetPlatform.ohos => false,
   };
 
   bool _isInternalScrollableNotification(BuildContext? notificationContext) {
@@ -4469,6 +4477,7 @@ class EditableTextState extends State<EditableText>
       case TargetPlatform.windows:
       case TargetPlatform.fuchsia:
       case TargetPlatform.android:
+      case TargetPlatform.ohos:
         if (cause == SelectionChangedCause.drag) {
           if (oldSelection.baseOffset != newSelection.baseOffset) {
             bringIntoView(newSelection.base);
@@ -4640,8 +4649,15 @@ class EditableTextState extends State<EditableText>
   TextSelection? _adjustedSelectionWhenFocused() {
     TextSelection? selection;
     final bool isDesktop = switch (defaultTargetPlatform) {
-      TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.fuchsia => false,
-      TargetPlatform.macOS || TargetPlatform.linux || TargetPlatform.windows => true,
+      TargetPlatform.android ||
+      TargetPlatform.iOS ||
+      TargetPlatform.fuchsia ||
+      TargetPlatform.ohos =>
+        false,
+      TargetPlatform.macOS ||
+      TargetPlatform.linux ||
+      TargetPlatform.windows =>
+        true,
     };
     final bool shouldSelectAll =
         widget.selectionEnabled &&
@@ -5615,6 +5631,7 @@ class EditableTextState extends State<EditableText>
                           return false;
                         }
                       case TargetPlatform.android:
+                      case TargetPlatform.ohos:
                         // Gboard on Android puts non-CJK words in composing regions. Coalesce
                         // composing text in order to allow the saving of partial words in that
                         // case.
@@ -5755,6 +5772,7 @@ class EditableTextState extends State<EditableText>
         TargetPlatform.android,
         TargetPlatform.fuchsia,
         TargetPlatform.iOS,
+        TargetPlatform.ohos,
       };
       final bool brieflyShowPassword =
           WidgetsBinding.instance.platformDispatcher.brieflyShowPassword &&

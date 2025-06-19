@@ -34,6 +34,7 @@ import 'device.dart';
 import 'globals.dart' as globals;
 import 'ios/application_package.dart';
 import 'ios/devices.dart';
+import 'ohos/hdc_server.dart';
 import 'project.dart';
 import 'resident_devtools_handler.dart';
 import 'run_cold.dart';
@@ -238,6 +239,13 @@ class FlutterDevice {
 
     subscription = vmServiceUris!.listen(
       (Uri? vmServiceUri) async {
+        // when on hdc server mode,the host is not local,change to hdc server
+        final String? hdcServerHost = getHdcServerHost();
+        if(hdcServerHost!=null){
+          const String localHost = '127.0.0.1';
+          vmServiceUri = Uri.parse(vmServiceUri?.toString()?.replaceAll(localHost, hdcServerHost)??localHost);
+        }
+
         // FYI, this message is used as a sentinel in tests.
         globals.printTrace('Connecting to service protocol: $vmServiceUri');
         isWaitingForVm = true;
@@ -1569,6 +1577,10 @@ Future<String?> getMissingPackageHintForPlatform(TargetPlatform platform) async 
     case TargetPlatform.web_javascript:
     case TargetPlatform.windows_x64:
     case TargetPlatform.windows_arm64:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
       return null;
   }
 }

@@ -575,5 +575,11 @@ abstract final class SystemChannels {
   ///
   ///  * [HardwareKeyboard.syncKeyboardState], which uses this channel to synchronize
   ///    the `HardwareKeyboard` pressed state.
-  static const MethodChannel keyboard = OptionalMethodChannel('flutter/keyboard');
+  static const MethodChannel keyboard = OptionalMethodChannel(
+    'flutter/keyboard',
+  );
+
+  static const MethodChannel nativeVsync = MethodChannel(
+    'flutter/nativevsync'
+  );
 }

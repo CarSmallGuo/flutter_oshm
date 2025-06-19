@@ -15,11 +15,11 @@ import 'package:path/path.dart' as path;
 import 'package:process/process.dart';
 import 'package:process_runner/process_runner.dart';
 
+<<<<<<< HEAD
 const engineSubPath = 'engine/src/flutter';
 
+>>>>>>> oh-3.27.4-dev
 class FormattingException implements Exception {
-  FormattingException(this.message, [this.result]);
-
   final String message;
   final ProcessResult? result;
 
@@ -1283,7 +1283,7 @@ Future<String> _getDiffBaseRevision(ProcessManager processManager, Directory rep
   if (upstreamUrl.isEmpty) {
     upstream = 'origin';
   }
-  await _runGit(<String>['fetch', upstream, 'main'], processRunner);
+  await _runGit(<String>['fetch', upstream, 'oh-3.27.4-dev'], processRunner);
   String result = '';
   try {
     // This is the preferred command to use, but developer checkouts often do

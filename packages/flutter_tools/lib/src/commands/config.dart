@@ -42,27 +42,18 @@ class ConfigCommand extends FlutterCommand {
           'Complete prompt to select and save code signing settings used to sign apps for iOS device deployment.',
     );
     argParser.addOption('android-sdk', help: 'The Android SDK directory.');
-    argParser.addOption(
-      'android-studio-dir',
-      help:
-          'The Android Studio installation directory. If unset, flutter will search for valid installations at well-known locations.',
-    );
-    argParser.addOption(
-      'jdk-dir',
-      help:
-          'The Java Development Kit (JDK) installation directory. '
-          'If unset, flutter will search for one in the following order:\n'
-          '    1) the JDK bundled with the latest installation of Android Studio,\n'
-          '    2) the JDK found at the directory found in the JAVA_HOME environment variable, and\n'
-          "    3) the directory containing the java binary found in the user's path.",
-    );
-    argParser.addOption(
-      'build-dir',
-      help: 'The relative path to override a projects build directory.',
-      valueHelp: 'out/',
-    );
-    argParser.addFlag(
-      'machine',
+    argParser.addOption('android-studio-dir', help: 'The Android Studio installation directory. If unset, flutter will search for valid installations at well-known locations.');
+    argParser.addOption('jdk-dir', help: 'The Java Development Kit (JDK) installation directory. '
+      'If unset, flutter will search for one in the following order:\n'
+      '    1) the JDK bundled with the latest installation of Android Studio,\n'
+      '    2) the JDK found at the directory found in the JAVA_HOME environment variable, and\n'
+      "    3) the directory containing the java binary found in the user's path.");
+    argParser.addOption('ohos-sdk', help: 'The OpenHarmony SDK directory.');
+    argParser.addOption('ohpm-home', help: 'The ohpm tool directory.');
+    argParser.addOption('signTool-home', help: 'The sign tool directory.');
+    argParser.addOption('build-dir', help: 'The relative path to override a projects build directory.',
+        valueHelp: 'out/');
+    argParser.addFlag('machine',
       negatable: false,
       hide: !verboseHelp,
       help: 'Print config values as json.',
@@ -178,6 +169,21 @@ class ConfigCommand extends FlutterCommand {
       );
 
       await settings.selectSettings();
+    }
+    if (argResults!.wasParsed('ohos-sdk')) {
+      _updateConfig('ohos-sdk', stringArg('ohos-sdk')!);
+    }
+
+    if (argResults!.wasParsed('ohpm-home')) {
+      _updateConfig('ohpm-home', stringArg('ohpm-home')!);
+    }
+
+    if (argResults!.wasParsed('signTool-home')) {
+      _updateConfig('signTool-home', stringArg('signTool-home')!);
+    }
+
+    if (argResults!.wasParsed('clear-ios-signing-cert')) {
+      _updateConfig('ios-signing-cert', '');
     }
 
     if (argResults!.wasParsed('build-dir')) {

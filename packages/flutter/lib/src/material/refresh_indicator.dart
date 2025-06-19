@@ -681,18 +681,19 @@ class RefreshIndicatorState extends State<RefreshIndicator>
                           case _IndicatorType.material:
                             return materialIndicator;
 
-                          case _IndicatorType.adaptive:
-                            final ThemeData theme = Theme.of(context);
-                            switch (theme.platform) {
-                              case TargetPlatform.android:
-                              case TargetPlatform.fuchsia:
-                              case TargetPlatform.linux:
-                              case TargetPlatform.windows:
-                                return materialIndicator;
-                              case TargetPlatform.iOS:
-                              case TargetPlatform.macOS:
-                                return cupertinoIndicator;
-                            }
+                        case _IndicatorType.adaptive:
+                          final ThemeData theme = Theme.of(context);
+                          switch (theme.platform) {
+                            case TargetPlatform.android:
+                            case TargetPlatform.fuchsia:
+                            case TargetPlatform.linux:
+                            case TargetPlatform.windows:
+                            case TargetPlatform.ohos:
+                              return materialIndicator;
+                            case TargetPlatform.iOS:
+                            case TargetPlatform.macOS:
+                              return cupertinoIndicator;
+                          }
 
                           case _IndicatorType.noSpinner:
                             return Container();

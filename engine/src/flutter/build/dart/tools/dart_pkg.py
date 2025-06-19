@@ -19,6 +19,7 @@ def dart_filter(path):
   if os.path.isdir(path):
     return True
   _, ext = os.path.splitext(path)
+  # .dart includes '.mojom.dart'
   return ext == '.dart'
 
 

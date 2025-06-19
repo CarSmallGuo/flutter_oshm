@@ -243,7 +243,6 @@ class PlatformDispatcher {
     }());
     return result;
   }
-
   FlutterView? _debugLastImplicitView;
   bool _debugRecordedLastImplicitView = false;
 
@@ -441,6 +440,7 @@ class PlatformDispatcher {
 
   // Called from the engine, via hooks.dart
   void _drawFrame() {
+    // print("platform_dispatcher::drawFrame..${_onDrawFrame}") ;
     _invoke(onDrawFrame, _onDrawFrameZone);
   }
 
@@ -715,7 +715,6 @@ class PlatformDispatcher {
     DartPluginRegistrant.ensureInitialized();
     __registerBackgroundIsolate(token._token);
   }
-
   @Native<Void Function(Int64)>(symbol: 'PlatformConfigurationNativeApi::RegisterBackgroundIsolate')
   external static void __registerBackgroundIsolate(int rootIsolateId);
 
@@ -2310,7 +2309,6 @@ enum AppLifecycleState {
 enum AppExitResponse {
   /// Exiting the application can proceed.
   exit,
-
   /// Cancel the exit: do not exit the application.
   cancel,
 }
@@ -2495,7 +2493,6 @@ class ViewConstraints {
       }
       return '${min.toStringAsFixed(1)}<=$dim<=${max.toStringAsFixed(1)}';
     }
-
     final String width = describe(minWidth, maxWidth, 'w');
     final String height = describe(minHeight, maxHeight, 'h');
     return 'ViewConstraints($width, $height)';
@@ -2599,7 +2596,6 @@ class DisplayFeature {
 enum DisplayFeatureType {
   /// [DisplayFeature] type is new and not yet known to Flutter.
   unknown,
-
   /// A fold in the flexible screen without a physical gap.
   ///
   /// The bounds for this display feature type indicate where the display makes a crease.
@@ -2627,12 +2623,10 @@ enum DisplayFeatureState {
   /// The display feature is a [DisplayFeatureType.cutout] or this state is new
   /// and not yet known to Flutter.
   unknown,
-
   /// The foldable device is completely open.
   ///
   /// The screen space that is presented to the user is flat.
   postureFlat,
-
   /// Fold angle is in an intermediate position between opened and closed state.
   ///
   /// There is a non-flat angle between parts of the flexible screen or between

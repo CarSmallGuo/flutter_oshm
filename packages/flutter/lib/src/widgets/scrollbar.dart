@@ -1662,8 +1662,9 @@ class RawScrollbarState<T extends RawScrollbar> extends State<T> with TickerProv
           );
         case TargetPlatform.iOS:
         case TargetPlatform.android:
-        // We can only drag the scrollbar into overscroll on mobile
-        // platforms, and only then if the physics allow it.
+        case TargetPlatform.ohos:
+          // We can only drag the scrollbar into overscroll on mobile
+          // platforms, and only then if the physics allow it.
       }
       final bool isReversed = axisDirectionIsReversed(position.axisDirection);
       return isReversed ? newPosition - position.pixels : position.pixels - newPosition;

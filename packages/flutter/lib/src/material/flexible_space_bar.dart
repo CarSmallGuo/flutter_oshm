@@ -189,14 +189,10 @@ class FlexibleSpaceBar extends StatefulWidget {
 
 class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
   bool _getEffectiveCenterTitle(ThemeData theme) {
-    return widget.centerTitle ??
-        switch (theme.platform) {
-          TargetPlatform.android ||
-          TargetPlatform.fuchsia ||
-          TargetPlatform.linux ||
-          TargetPlatform.windows => false,
-          TargetPlatform.iOS || TargetPlatform.macOS => true,
-        };
+    return widget.centerTitle ?? switch (theme.platform) {
+      TargetPlatform.android || TargetPlatform.fuchsia || TargetPlatform.linux || TargetPlatform.windows || TargetPlatform.ohos => false,
+      TargetPlatform.iOS || TargetPlatform.macOS => true,
+    };
   }
 
   Alignment _getTitleAlignment(bool effectiveCenterTitle) {
@@ -303,7 +299,11 @@ class _FlexibleSpaceBarState extends State<FlexibleSpaceBar> {
             case TargetPlatform.fuchsia:
             case TargetPlatform.linux:
             case TargetPlatform.windows:
-              title = Semantics(namesRoute: true, child: widget.title);
+            case TargetPlatform.ohos:
+              title = Semantics(
+                namesRoute: true,
+                child: widget.title,
+              );
           }
 
           // StretchMode.fadeTitle

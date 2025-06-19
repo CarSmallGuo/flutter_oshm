@@ -20,6 +20,7 @@ import '../build_system/targets/ios.dart';
 import '../build_system/targets/linux.dart';
 import '../build_system/targets/macos.dart';
 import '../build_system/targets/windows.dart';
+import '../build_system/targets/ohos.dart';
 import '../cache.dart';
 import '../convert.dart';
 import '../globals.dart' as globals;
@@ -86,6 +87,8 @@ List<Target> _kDefaultTargets = <Target>[
   const ProfileBundleWindowsAssets(TargetPlatform.windows_arm64),
   const ReleaseBundleWindowsAssets(TargetPlatform.windows_x64),
   const ReleaseBundleWindowsAssets(TargetPlatform.windows_arm64),
+  // Ohos targets
+  ...ohosTargets,
 ];
 
 /// Assemble provides a low level API to interact with the flutter tool build
@@ -178,7 +181,8 @@ class AssembleCommand extends FlutterCommand {
     }
 
     final TargetPlatform targetPlatform = getTargetPlatformForName(platform);
-    final DevelopmentArtifact? artifact = artifactFromTargetPlatform(targetPlatform);
+    final DevelopmentArtifact? artifact =
+        artifactFromTargetPlatform(targetPlatform);
     if (artifact != null) {
       return <DevelopmentArtifact>{artifact};
     }
@@ -313,9 +317,16 @@ class AssembleCommand extends FlutterCommand {
       decodedDefines = decodeDartDefines(_environment.defines, kDartDefines);
     } on FormatException {
       throwToolExit(
-        'Error parsing assemble command: your generated configuration may be out of date. '
-        "Try re-running 'flutter build ios' or the appropriate build command.",
-      );
+          'Error parsing assemble command: your generated configuration may be out of date. '
+          "Try re-running 'flutter build ios' or the appropriate build command.");
+    }
+    if (deferredTargets.isNotEmpty) {
+      // Record to analytics that DeferredComponents is being used.
+      globals.analytics.send(Event.flutterBuildInfo(
+        label: 'assemble-deferred-components',
+        buildType: 'android',
+        settings: deferredTargets.map((Target t) => t.name).join(','),
+      ));
     }
     if (deferredTargets.isNotEmpty) {
       // Record to analytics that DeferredComponents is being used.
@@ -333,7 +344,8 @@ class AssembleCommand extends FlutterCommand {
         !isDebug()) {
       // Add deferred components validation target that require loading units.
       target = DeferredComponentsGenSnapshotValidatorTarget(
-        deferredComponentsDependencies: deferredTargets.cast<AndroidAotDeferredComponentsBundle>(),
+        deferredComponentsDependencies:
+            deferredTargets.cast<AndroidAotDeferredComponentsBundle>(),
         nonDeferredComponentsDependencies: nonDeferredTargets,
         title: 'Deferred components gen_snapshot validation',
       );
@@ -373,7 +385,8 @@ class AssembleCommand extends FlutterCommand {
       writeListIfChanged(result.outputFiles, stringArg('build-outputs')!);
     }
     if (argumentResults.wasParsed('performance-measurement-file')) {
-      final File outFile = globals.fs.file(argumentResults['performance-measurement-file']);
+      final File outFile =
+          globals.fs.file(argumentResults['performance-measurement-file']);
       writePerformanceData(result.performance.values, outFile);
     }
     if (argumentResults.wasParsed('depfile')) {
@@ -405,7 +418,8 @@ void writeListIfChanged(List<File> files, String path) {
 
 /// Output performance measurement data in [outFile].
 @visibleForTesting
-void writePerformanceData(Iterable<PerformanceMeasurement> measurements, File outFile) {
+void writePerformanceData(
+    Iterable<PerformanceMeasurement> measurements, File outFile) {
   final Map<String, Object> jsonData = <String, Object>{
     'targets': <Object>[
       for (final PerformanceMeasurement measurement in measurements)

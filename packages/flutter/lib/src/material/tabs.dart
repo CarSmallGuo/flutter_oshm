@@ -646,7 +646,7 @@ class _IndicatorPainter extends CustomPainter {
     // This only works for the tab change animation via tab index, not when
     // dragging a [TabBarView], but it's still ok, to avoid unnecessary calculations.
     if (controller.animation!.isCompleted) {
-      return rect;
+      return currentRect;
     }
 
     final double tabChangeProgress;
@@ -663,7 +663,7 @@ class _IndicatorPainter extends CustomPainter {
 
     // If the animation has finished, there is no need to apply the stretch effect.
     if (tabChangeProgress == 1.0) {
-      return rect;
+      return currentRect;
     }
 
     final double leftFraction;

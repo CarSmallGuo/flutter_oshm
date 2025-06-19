@@ -21,6 +21,21 @@
 
 namespace flutter {
 
+// The combination of targeted graphics API and Impeller support.
+enum class AndroidRenderingAPI {
+  kSoftware,
+  kImpellerOpenGLES,
+  kImpellerVulkan,
+  kSkiaOpenGLES
+};
+
+// The combination of targeted graphics API and Impeller support.
+enum class OHOSRenderingAPI {
+  kSoftware,
+  kOpenGLES,
+  kImpellerVulkan,
+};
+
 class FrameTiming {
  public:
   enum Phase {

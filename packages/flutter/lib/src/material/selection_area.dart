@@ -123,14 +123,12 @@ class SelectionAreaState extends State<SelectionArea> {
   @override
   Widget build(BuildContext context) {
     assert(debugCheckHasMaterialLocalizations(context));
-    final TextSelectionControls controls =
-        widget.selectionControls ??
-        switch (Theme.of(context).platform) {
-          TargetPlatform.android || TargetPlatform.fuchsia => materialTextSelectionHandleControls,
-          TargetPlatform.linux || TargetPlatform.windows => desktopTextSelectionHandleControls,
-          TargetPlatform.iOS => cupertinoTextSelectionHandleControls,
-          TargetPlatform.macOS => cupertinoDesktopTextSelectionHandleControls,
-        };
+    final TextSelectionControls controls = widget.selectionControls ?? switch (Theme.of(context).platform) {
+      TargetPlatform.android || TargetPlatform.fuchsia || TargetPlatform.ohos => materialTextSelectionHandleControls,
+      TargetPlatform.linux || TargetPlatform.windows   => desktopTextSelectionHandleControls,
+      TargetPlatform.iOS                               => cupertinoTextSelectionHandleControls,
+      TargetPlatform.macOS                             => cupertinoDesktopTextSelectionHandleControls,
+    };
     return SelectableRegion(
       key: _selectableRegionKey,
       selectionControls: controls,

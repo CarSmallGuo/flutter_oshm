@@ -1666,13 +1666,11 @@ class FocusManager with DiagnosticableTreeMixin, ChangeNotifier {
   /// Until these are resolved, we won't be adding the listener to mobile platforms.
   /// https://github.com/flutter/flutter/issues/148475#issuecomment-2118407411
   /// https://github.com/flutter/flutter/pull/142930#issuecomment-1981750069
-  bool get _respondToLifecycleChange =>
-      kIsWeb ||
-      switch (defaultTargetPlatform) {
-        TargetPlatform.android || TargetPlatform.iOS => false,
-        TargetPlatform.fuchsia || TargetPlatform.linux => true,
-        TargetPlatform.windows || TargetPlatform.macOS => true,
-      };
+  bool get _respondToLifecycleChange => kIsWeb || switch (defaultTargetPlatform) {
+    TargetPlatform.android || TargetPlatform.iOS || TargetPlatform.ohos => false,
+    TargetPlatform.fuchsia || TargetPlatform.linux => true,
+    TargetPlatform.windows || TargetPlatform.macOS => true,
+  };
 
   /// Registers global input event handlers that are needed to manage focus.
   ///
@@ -2343,6 +2341,7 @@ class _HighlightModeManager {
       case TargetPlatform.android:
       case TargetPlatform.fuchsia:
       case TargetPlatform.iOS:
+      case TargetPlatform.ohos:
         if (WidgetsBinding.instance.mouseTracker.mouseIsConnected) {
           return FocusHighlightMode.traditional;
         }

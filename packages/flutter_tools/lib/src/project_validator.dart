@@ -77,13 +77,14 @@ class VariableDumpMachineProjectValidator extends MachineProjectValidator {
       'FlutterVersion.frameworkRevision': version.frameworkRevision,
 
       // Platform
-      'Platform.operatingSystem': platform.operatingSystem,
-      'Platform.isAndroid': platform.isAndroid,
-      'Platform.isIOS': platform.isIOS,
-      'Platform.isWindows': platform.isWindows,
-      'Platform.isMacOS': platform.isMacOS,
-      'Platform.isFuchsia': platform.isFuchsia,
-      'Platform.pathSeparator': platform.pathSeparator,
+      'Platform.operatingSystem':         platform.operatingSystem,
+      'Platform.isAndroid':               platform.isAndroid,
+      'Platform.isIOS':                   platform.isIOS,
+      'Platform.isWindows':               platform.isWindows,
+      'Platform.isMacOS':                 platform.isMacOS,
+      'Platform.isFuchsia':               platform.isFuchsia,
+      'Platform.pathSeparator':           platform.pathSeparator,
+      'Platform.isOhos':                  platform.isOhos,
 
       // Cache
       'Cache.flutterRoot': Cache.flutterRoot,

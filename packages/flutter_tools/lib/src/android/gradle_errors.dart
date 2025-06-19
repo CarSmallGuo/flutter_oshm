@@ -729,3 +729,31 @@ https://github.com/flutter/flutter/issues/156304''', title: _boxTitle);
   },
   eventLabel: 'java21-and-source-compatibility',
 );
+
+@visibleForTesting
+const String jlinkErrorMessage = '> Error while executing process';
+
+@visibleForTesting
+final GradleHandledError jlinkErrorWithJava21AndSourceCompatibility = GradleHandledError(
+    test: (String line) => line.contains('> Error while executing process')&& line.contains('jlink'),
+    handler: ({
+      required String line,
+      required FlutterProject project,
+      required bool usesAndroidX,
+    }) async {
+      globals.printBox('''
+${globals.logger.terminal.warningMark} This is likely due to a known bug in Android Gradle Plugin (AGP) versions less than 8.2.1, when
+  1. setting a value for SourceCompatibility and
+  2. using Java 21 or above.
+To fix this error, please upgrade your AGP version to at least 8.2.1.${_getAgpLocation(project)}
+
+For more information, see:
+https://issuetracker.google.com/issues/294137077
+https://github.com/flutter/flutter/issues/156304''',
+        title: _boxTitle,
+      );
+
+      return GradleBuildStatus.exit;
+    },
+    eventLabel: 'java21-and-source-compatibility'
+);

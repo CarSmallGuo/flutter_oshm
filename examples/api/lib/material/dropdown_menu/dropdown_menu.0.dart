@@ -2,7 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 
 // Flutter code sample for [DropdownMenu]s. The first dropdown menu
@@ -14,8 +13,6 @@ import 'package:flutter/material.dart';
 void main() {
   runApp(const DropdownMenuExample());
 }
-
-typedef ColorEntry = DropdownMenuEntry<ColorLabel>;
 
 // DropdownMenuEntry labels and values for the first dropdown menu.
 enum ColorLabel {
@@ -46,7 +43,10 @@ typedef IconEntry = DropdownMenuEntry<IconLabel>;
 // DropdownMenuEntry labels and values for the second dropdown menu.
 enum IconLabel {
   smile('Smile', Icons.sentiment_satisfied_outlined),
-  cloud('Cloud', Icons.cloud_outlined),
+  cloud(
+    'Cloud',
+    Icons.cloud_outlined,
+  ),
   brush('Brush', Icons.brush_outlined),
   heart('Heart', Icons.favorite);
 

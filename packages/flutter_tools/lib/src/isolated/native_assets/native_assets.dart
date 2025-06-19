@@ -700,6 +700,10 @@ Architecture _getNativeArchitecture(TargetPlatform targetPlatform) {
     case TargetPlatform.android_arm64:
     case TargetPlatform.android_x64:
     case TargetPlatform.android_x86:
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
       throw Exception('Unknown targetPlatform: $targetPlatform.');
   }
 }
@@ -754,6 +758,12 @@ OS getNativeOSFromTargetPlatform(TargetPlatform platform) {
     case TargetPlatform.android_x64:
     case TargetPlatform.android_x86:
       return OS.android;
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
+      // todo: 修改为 OSImpl.ohos
+      return OSImpl.android;
     case TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OS.macOS;
@@ -783,7 +793,14 @@ List<AndroidArch> _androidArchs(TargetPlatform targetPlatform, String? androidAr
       if (androidArchsEnvironment == null) {
         throw MissingDefineException(kAndroidArchs, 'native_assets');
       }
-      return androidArchsEnvironment.split(' ').map(getAndroidArchForName).toList();
+      return androidArchsEnvironment
+          .split(' ')
+          .map(getAndroidArchForName)
+          .toList();
+    case TargetPlatform.ohos:
+    case TargetPlatform.ohos_arm:
+    case TargetPlatform.ohos_arm64:
+    case TargetPlatform.ohos_x64:
     case TargetPlatform.darwin:
     case TargetPlatform.fuchsia_arm64:
     case TargetPlatform.fuchsia_x64:

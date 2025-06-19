@@ -18,7 +18,6 @@
 namespace flutter {
 
 namespace {
-
 sk_sp<DlImage> DoMakeRasterSnapshot(
     const sk_sp<DisplayList>& display_list,
     SkISize size,
@@ -161,6 +160,8 @@ void SnapshotControllerImpeller::CacheRuntimeStage(
 sk_sp<SkImage> SnapshotControllerImpeller::ConvertToRasterImage(
     sk_sp<SkImage> image) {
   FML_UNREACHABLE();
+  sk_sp<SkImage> result;
+  return result;
 }
 
 }  // namespace flutter

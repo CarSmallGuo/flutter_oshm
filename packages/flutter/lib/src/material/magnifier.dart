@@ -47,7 +47,10 @@ class TextMagnifier extends StatefulWidget {
         case TargetPlatform.iOS:
           return CupertinoTextMagnifier(controller: controller, magnifierInfo: magnifierInfo);
         case TargetPlatform.android:
-          return TextMagnifier(magnifierInfo: magnifierInfo);
+        case TargetPlatform.ohos:
+          return TextMagnifier(
+            magnifierInfo: magnifierInfo,
+          );
         case TargetPlatform.fuchsia:
         case TargetPlatform.linux:
         case TargetPlatform.macOS:

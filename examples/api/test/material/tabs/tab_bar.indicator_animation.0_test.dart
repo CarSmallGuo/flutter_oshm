@@ -79,6 +79,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
 
+<<<<<<< HEAD
     expect(
       tabBarBox,
       paints..something((Symbol method, List<dynamic> arguments) {
@@ -89,6 +90,15 @@ void main() {
         return true;
       }),
     );
+=======
+    expect(tabBarBox, paints..something((Symbol method, List<dynamic> arguments) {
+      if (method != #drawRRect) {
+        return false;
+      }
+      indicatorRRect = arguments[0] as RRect;
+      return true;
+    }));
+>>>>>>> oh-3.27.4-dev
     expect(indicatorRRect.left, closeTo(76.7, 0.1));
     expect(indicatorRRect.top, equals(45.0));
     expect(indicatorRRect.right, closeTo(423.1, 0.1));
