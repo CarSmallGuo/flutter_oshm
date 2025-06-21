@@ -4,6 +4,7 @@
 * found in the LICENSE_KHZG file.
 */
 
+import '../base/terminal.dart';
 import '../build_info.dart';
 import '../globals.dart' as globals;
 import '../ohos/hvigor_utils.dart';
@@ -76,6 +77,14 @@ class BuildHapCommand extends BuildSubCommand {
       targetArchs: stringsArg('target-platform').map<OhosArch>(getOhosArchForName),
       shouldCodesign: shouldCodesign
     );
+    if (!shouldCodesign) {
+      globals.printStatus(
+        '${globals.terminal.warningMark} Warning: Building for device with codesigning disabled. You will '
+            'have to manually codesign before deploying to device.',
+        color: TerminalColor.yellow,
+      );
+    }
+
     await ohosBuilder?.buildHap(
       project: FlutterProject.current(),
       ohosBuildInfo: ohosBuildInfo,
