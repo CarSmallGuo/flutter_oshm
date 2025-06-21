@@ -383,7 +383,7 @@ class OhosHvigorBuilder implements OhosBuilder {
 
     parseData(project, _logger);
 
-    if (ohosBuildInfo.enableImpellerFlag!) {
+    if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
 
