@@ -191,6 +191,7 @@ class OhosDartBuilder implements OhosBuilder {
           target,
           Environment(
             projectDir: globals.fs.currentDirectory,
+            packageConfigPath: '.dart_tool/package_config.json',
             outputDir: globals.fs.directory(output),
             buildDir: flutterProject.directory
                 .childDirectory('.dart_tool')
