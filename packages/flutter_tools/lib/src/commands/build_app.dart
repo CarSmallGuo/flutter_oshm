@@ -41,6 +41,11 @@ class BuildAppCommand extends BuildSubCommand {
       allowed: <String>['ohos-arm64', 'ohos-arm', 'ohos-x64'],
       help: 'The target platform for which the app is compiled.',
     );
+
+    argParser.addFlag('codesign',
+      defaultsTo: true,
+      help: 'Codesign the application bundle (only available on device builds).',
+    );
   }
 
   @override
@@ -51,6 +56,8 @@ class BuildAppCommand extends BuildSubCommand {
 
   @override
   bool get reportNullSafety => false;
+
+  bool get shouldCodesign => boolArg('codesign');
 
   @override
   Future<Set<DevelopmentArtifact>> get requiredArtifacts async => <DevelopmentArtifact>{
@@ -67,6 +74,7 @@ class BuildAppCommand extends BuildSubCommand {
     final OhosBuildInfo ohosBuildInfo = OhosBuildInfo(
       buildInfo,
       targetArchs: stringsArg('target-platform').map<OhosArch>(getOhosArchForName),
+      shouldCodesign: shouldCodesign
     );
     await ohosBuilder?.buildApp(
       project: FlutterProject.current(),
