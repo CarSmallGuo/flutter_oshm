@@ -17,7 +17,7 @@ flutter三方框架将在6.0版本后上线ltpo功能，当前只在开发分支
 # 3.详情
 
 ## 3.1 <span id="deveco-studio">deveco-studio</span>
-deveco-studio需要更新新版本，DevEco Studio 5.1.0 Release
+deveco-studio需要更新新版本，DevEco Studio 5.0.5 Release
 
 链接：https://developer.huawei.com/consumer/cn/download/deveco-studio
 
@@ -66,22 +66,98 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 
 # 7.FAQ
 
-## 合理选择标签页页面的TabController
+## 性能问题一
+动画页面切换后台，动画仍然在执行。
+
+![](./media/pic-2.png)
+
+“陪伴”页面有动画在循环播放，切换其他静置的页面后，屏幕刷新率未下降。问题原因是其页面切换后台未暂停动画。
+
+有以下建议：
+
+### 合理选择标签页页面的TabController
 TabController的创建有两种形式，一种是使用系统的DefaultTabController，第二种是自己定义一个TabController实现SingleTickerProviderStateMixin。
 
 1) 无状态控件(StatelessWidget)搭配DefaultTabController
 2) 有状态控件(StatefulWidget)搭配TabController
 
-## TabView页签切换停止动画
+```
+// 示例代码
+class TabsPage  extends StatefulWidget {
+  @override
+  State<TabsPage> createState() => _TabsPageState();
+}
 
-有状态控件(StatefulWidget)具有以下生命周期：
-1) createState。当 StatefulWidget 组件插入到组件树中时 createState 函数由 Framework 调用，此函数在树中给定的位置为此组件创建 State。
-2) initState。在组件被插入树中时被 Framework 调用（在 createState 之后），此函数只会被调用一次。
-3) didChangeDependencies。调用后，组件的状态变为 dirty，立即调用 build 方法。
-4) build。创建各种组件，绘制到屏幕上。
-5) didUpdateWidget。当组件的 configuration 发生变化时调用此函数。
-6) deactivate。当框架从树中移除此 State 对象时将会调用此方法。deactivate 还可以重新插入到树中。
-7) dispose。当框架从树中永久移除此 State 对象时将会调用此方法。dispose 表示此 State 对象永远不会在 build。
+class _TabsPageState extends State<TabsPage>
+    with SingleTickerProviderStateMixin {
+  late TabController _tabController;
 
-TabView页签切换，可以根据生命周期进行动画播放的管理。TabView切换隐藏后，会触发deactivate，可以在这个生命回调里，对AnimationController进行stop的操作；如果是一个基于this的vsync周期循环的动画，重新进入页面后会自动播放，无须手动启动动画。
+  @override
+  void initState() {
+    super.initState();
+    _tabController = new TabController(
+      vsync: this,
+      length: 3 // 设置TabBarView数量
+    );
+  }
 
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+@override
+  Widget build(BuildContext context) {
+    ...
+    TabBar(
+        controller: _tabController,
+        tabs: <Widget>[ ... ]
+    ),
+    ...
+    TabBarView(
+        controller: _tabController,
+        children: <Widget>[ ... ]
+    ),
+  }
+}
+```
+
+### TabView页签切换停止动画
+
+有状态控件(StatefulWidget)生命周期deactivate，当框架从树中移除此 State 对象时将会调用此方法。可在此生命周期回调deactivate对AnimationController进行stop的操作。
+
+如果是一个基于this的vsync周期循环的动画，重新进入页面后会自动播放，无须手动启动动画。
+
+```
+// 示例代码
+class AnimationPage extends StatefulWidget {
+  @override
+  _AnimationPageState createState() => _AnimationPageState();
+}
+
+class _AnimationPageState extends State<AnimationPage>
+    with SingleTickerProviderStateMixin {
+
+    late AnimationController _controller;
+
+  @override
+  void deactivate() {
+    super.deactivate();
+    _controller.stop();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = AnimationController(duration: Duration(seconds: 4), vsync: this)
+      ..addListener(() {
+        setState(() {});
+      })
+      ..repeat(reverse:true);
+
+      ...
+  }
+}
+```
