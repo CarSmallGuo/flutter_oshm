@@ -17,7 +17,7 @@ flutter三方框架将在6.0版本后上线ltpo功能，当前只在开发分支
 # 3.详情
 
 ## 3.1 <span id="deveco-studio">deveco-studio</span>
-deveco-studio需要更新新版本，DevEco Studio 5.0.5 Release
+deveco-studio需要更新新版本，DevEco Studio 5.1.0 Release
 
 链接：https://developer.huawei.com/consumer/cn/download/deveco-studio
 
@@ -63,4 +63,25 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 # 6.验证流程
 
 正式ROM版本上线前，ltpo功能的验证无法在外部进行。
+
+# 7.FAQ
+
+## 合理选择标签页页面的TabController
+TabController的创建有两种形式，一种是使用系统的DefaultTabController，第二种是自己定义一个TabController实现SingleTickerProviderStateMixin。
+
+1) 无状态控件(StatelessWidget)搭配DefaultTabController
+2) 有状态控件(StatefulWidget)搭配TabController
+
+## TabView页签切换停止动画
+
+有状态控件(StatefulWidget)具有以下生命周期：
+1) createState。当 StatefulWidget 组件插入到组件树中时 createState 函数由 Framework 调用，此函数在树中给定的位置为此组件创建 State。
+2) initState。在组件被插入树中时被 Framework 调用（在 createState 之后），此函数只会被调用一次。
+3) didChangeDependencies。调用后，组件的状态变为 dirty，立即调用 build 方法。
+4) build。创建各种组件，绘制到屏幕上。
+5) didUpdateWidget。当组件的 configuration 发生变化时调用此函数。
+6) deactivate。当框架从树中移除此 State 对象时将会调用此方法。deactivate 还可以重新插入到树中。
+7) dispose。当框架从树中永久移除此 State 对象时将会调用此方法。dispose 表示此 State 对象永远不会在 build。
+
+TabView页签切换，可以根据生命周期进行动画播放的管理。TabView切换隐藏后，会触发deactivate，可以在这个生命回调里，对AnimationController进行stop的操作；如果是一个基于this的vsync周期循环的动画，重新进入页面后会自动播放，无须手动启动动画。
 
