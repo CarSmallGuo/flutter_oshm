@@ -239,4 +239,19 @@ Flutter SDK 仓库
     A crash report has been written to D:\code\flutter_01.log.
       ```
 
+10. 在上架版本崩溃CppCrash出现 `Reason:Signal:SIGABRT(SI_TKILL)` 报错。
+
+    报错原因：开发者使用到了匿名内存无法申请内存可执行权限导致异常。
+
+    解决方案：排查代码是否使用到mmap或插件使用Pointer.fromFunction与调用了dart ffi方法。
+
+    报错信息：
+      ```
+      Reason:Signal:SIGABRT(SI_TKILL)@0x01317b310000fc96 from:64662:20020017
+      LastFatalMessage:../../third_party/dart/runtime/vm/virtual_memory_posix.cc: 74: error: mmap failed: 22 (Invalid argument)
+      Fault thread info:
+      Tid:64662, Name:xxxx
+      ``` 
+
+
 [更多FAQ](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README.md)

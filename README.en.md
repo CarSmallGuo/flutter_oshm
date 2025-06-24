@@ -229,4 +229,18 @@ Appendix: [Flutter Third-Party Library Adaptation Program](https://docs.qq.com/s
     A crash report has been written to D:\code\flutter_01.log.
     ```
 
+15. In the version on the shelves, a crash occurred with the CppCrash error message: `Reason: Signal: SIGABRT(SI_TKILL)`. 
+
+The error occurred because the developer used anonymous memory and failed to apply for executable permission for the memory, resulting in an exception. 
+
+Solution: Check whether the code uses mmap or if the plugin uses methods such as Pointer.fromFunction and dart ffi. 
+
+Error message:
+      ```
+      Reason:Signal:SIGABRT(SI_TKILL)@0x01317b310000fc96 from:64662:20020017
+      LastFatalMessage:../../third_party/dart/runtime/vm/virtual_memory_posix.cc: 74: error: mmap failed: 22 (Invalid argument)
+      Fault thread info:
+      Tid:64662, Name:xxxx
+      ``` 
+
 Reference: [FAQs] (https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/ohos/docs/08_FAQ/README_EN.md)
