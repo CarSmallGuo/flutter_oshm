@@ -58,7 +58,8 @@ ltpo功能跟随flutter_flutter代码仓版本发布，请使用flutter_flutter�
 4) 确保适配应用是flutter 3.22 版本的。
 5) 应用工程里的ltpo配置文件[framesconfig.json](#frames-config)确认是否存在。如果是新建的flutter应用工程，ltpo配置文件默认存在应用模板里；如果是已存在的应用工程，需要手动拷贝framesconfig.json文件到应用工程ohos/entry/src/main/resources/rawfile路径下。
 6) 开启ltpo配置使能开关。framesconfig.json文件更改“SWITCH”选项，把0改为1。
-7) 正常编译release模式的应用工程
+7) 因为未实名调试整数有效期只有14天，实名之后是180天，14天之后应用就无法打开，所以请在开发者联盟网站实名认证，然后重新申请调试证书。https://developer.huawei.com/consumer/cn/doc/app/agc-help-add-debugcert-0000001914263178
+8) 使用步骤7申请的调试证书编译release模式的应用工程。
 
 # 6.验证流程
 
