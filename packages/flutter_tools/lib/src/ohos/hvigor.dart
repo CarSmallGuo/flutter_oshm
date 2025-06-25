@@ -387,6 +387,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
 
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
@@ -540,6 +541,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
     }
 
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
