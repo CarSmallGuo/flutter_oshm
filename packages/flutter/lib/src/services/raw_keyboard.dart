@@ -315,6 +315,7 @@ abstract class RawKeyEvent with Diagnosticable {
       final String keymap = message['keymap']! as String;
       switch (keymap) {
         case 'ohos':
+        // 门禁测试
           data = RawKeyEventDataOhos(
             message['type'] as String? ?? KeyType.keydown.name,
             message['keyCode'] as int? ?? 0,
