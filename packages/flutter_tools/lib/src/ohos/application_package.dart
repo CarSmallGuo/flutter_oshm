@@ -84,8 +84,30 @@ class OhosHap extends ApplicationPackage implements PrebuiltApplicationPackage {
     required Logger logger,
     required ProcessUtils processUtils,
   }) async {
-    // TODO(xc)  parse build data from hap file
-    return null;
+    final bool hapExists = await hap.exists();
+    if (hapExists) {
+      final File packInfo = hap.parent.childFile('pack.info');
+      if (!packInfo.existsSync()) {
+        throwToolExit(
+            'Can not found pack.info at ${hap.parent.absolute.resolveSymbolicLinksSync()}');
+      }
+
+      final Map<String, dynamic> info = JSON5.parse(packInfo.readAsStringSync()) as Map<String, dynamic>;
+      final Map<String, dynamic> summary = info['summary'] as Map<String, dynamic>;
+      final Map<String, dynamic> app = summary['app'] as Map<String, dynamic>;
+      final List<dynamic> modules = summary['modules'] as List<dynamic>;
+
+      final String bundleName = app['bundleName'] as String;
+      final String path = globals.fs.file(hap.absolute).resolveSymbolicLinksSync();
+      final OhosBuildData ohosBuildData = OhosBuildData.parseOhosBuildDataFromInfo(app, modules, logger);
+
+      return OhosHap(
+          id: bundleName,
+          applicationPackage: globals.fs.file(path),
+          ohosBuildData: ohosBuildData);
+    } else {
+      throwToolExit('Can not found hap.');
+    }
   }
 }
 
@@ -150,6 +172,59 @@ class OhosBuildData {
     }
     return OhosBuildData(appInfo, moduleInfo, apiVersion, products);
   }
+
+  static OhosBuildData parseOhosBuildDataFromInfo(
+      Map<String, dynamic> app, List<dynamic> modules, Logger? logger) {
+    late AppInfo appInfo;
+    late ModuleInfo moduleInfo;
+    late int apiVersion;
+    List<dynamic>? products;
+
+    // appInfo
+    final Map<String, dynamic> version = app['version'] as Map<String, dynamic>;
+    appInfo = AppInfo(app['bundleName'] as String, version['code'] as int, version['name'] as String);
+
+    // moduleInfo
+    moduleInfo = ModuleInfo.getModuleInfoFromInfo(modules);
+
+    // apiVersion
+    final Map<String, dynamic> apiVersionInfo = (modules.first
+    as Map<String, dynamic>)['apiVersion'] as Map<String, dynamic>;
+    apiVersion = apiVersionInfo['compatible'] as int;
+
+    // products
+    final Map<String, dynamic> product = <String, dynamic>{};
+    product['name'] = 'default';
+    product['signingConfig'] = 'default';
+    product['compatibleSdkVersion'] = getCompatibleSdkVersion(apiVersion);
+    product['runtimeOS'] = 'HarmonyOS';
+    products = <dynamic>[product];
+
+    return OhosBuildData(appInfo, moduleInfo, apiVersion, products);
+  }
+
+  static String getCompatibleSdkVersion(int apiVersion) {
+    switch (apiVersion) {
+      case 11:
+        return '4.1.0(11)';
+      case 12:
+        return '5.0.0(12)';
+      case 13:
+        return '5.0.1(13)';
+      case 14:
+        return '5.0.2(14)';
+      case 15:
+        return '5.0.3(15)';
+      case 16:
+        return '5.0.4(16)';
+      case 17:
+        return '5.0.5(17)';
+      case 18:
+        return '5.1.0(18)';
+      default:
+        return '5.0.0(12)';
+    }
+  }
 }
 
 int getApiVersion(dynamic obj) {
@@ -211,6 +286,10 @@ class ModuleInfo {
   static ModuleInfo getModuleInfo(OhosProject ohosProject) {
     return ModuleInfo(OhosModule.fromOhosProject(ohosProject));
   }
+
+  static ModuleInfo getModuleInfoFromInfo(List<dynamic> modules) {
+    return ModuleInfo(OhosModule.fromInfo(modules));
+  }
 }
 
 enum OhosModuleType {
@@ -261,6 +340,26 @@ class OhosModule {
     }).toList();
   }
 
+  static List<OhosModule> fromInfo(List<dynamic> modules) {
+    return modules.map((dynamic e) {
+      final Map<String, dynamic> module = e as Map<String, dynamic>;
+      final Map<String, dynamic> distro = module['distro'] as Map<String, dynamic>;
+      final String name = distro['moduleName'] as String;
+      final String type = distro['moduleType'] as String;
+      final bool isEntry = type == OhosModuleType.entry.name;
+      final String modulePath = globals.fs.path.join(
+          globals.fs.currentDirectory.resolveSymbolicLinksSync(), 'ohos', name);
+      return OhosModule(
+        name: name,
+        srcPath: modulePath,
+        isEntry: isEntry,
+        mainElement: isEntry ? module['mainAbility'] as String : null,
+        type: OhosModuleType.fromName(type),
+        flavor: FLAVOR_DEFAULT,
+      );
+    }).toList();
+  }
+
   static OhosModule fromModulePath({
     required String modulePath,
     String? flavor,
@@ -272,7 +371,7 @@ class OhosModule {
     if (!moduleJsonFile.existsSync()) {
       throwToolExit('Can not found module.json5 at $moduleJsonPath . \n'
           '  You need to update the Flutter plugin project structure. \n'
-          '  See https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md');
+          '  See https://gitee.com/openharmony-sig/flutter_samples/tree/master/ohos/docs/09_specifications/update_flutter_plugin_structure.md');
     }
     try {
       final Map<String, dynamic> moduleJson = JSON5
