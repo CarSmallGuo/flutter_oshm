@@ -277,7 +277,7 @@ class ModuleInfo {
   String get mainModuleName =>
       entryModule?.name ??
       (moduleList.isNotEmpty ? moduleList.first.name : OHOS_ENTRY_DEFAULT);
-
+ // 门禁测试
   /// 获取主要的module路径，如果存在entry，返回entry类型的module，否则返回第一个module
   String get mainModuleSrcPath =>
       entryModule?.srcPath ??
