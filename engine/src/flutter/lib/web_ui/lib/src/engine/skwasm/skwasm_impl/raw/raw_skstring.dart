@@ -9,9 +9,11 @@ import 'dart:convert';
 import 'dart:ffi';
 
 final class RawSkString extends Opaque {}
+
 typedef SkStringHandle = Pointer<RawSkString>;
 
 final class RawSkString16 extends Opaque {}
+
 typedef SkString16Handle = Pointer<RawSkString16>;
 
 @Native<SkStringHandle Function(Size)>(symbol: 'skString_allocate', isLeaf: true)
@@ -19,6 +21,9 @@ external SkStringHandle skStringAllocate(int size);
 
 @Native<Pointer<Int8> Function(SkStringHandle)>(symbol: 'skString_getData', isLeaf: true)
 external Pointer<Int8> skStringGetData(SkStringHandle handle);
+
+@Native<Int Function(SkStringHandle)>(symbol: 'skString_getLength', isLeaf: true)
+external int skStringGetLength(SkStringHandle handle);
 
 @Native<Void Function(SkStringHandle)>(symbol: 'skString_free', isLeaf: true)
 external void skStringFree(SkStringHandle handle);

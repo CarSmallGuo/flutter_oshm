@@ -8,23 +8,22 @@
 #include <memory>
 #include <vector>
 
+#include "assets/native_assets.h"
 #include "flutter/assets/asset_manager.h"
 #include "flutter/common/task_runners.h"
-#include "flutter/flow/layers/layer_tree.h"
 #include "flutter/fml/macros.h"
 #include "flutter/fml/mapping.h"
 #include "flutter/lib/ui/io_manager.h"
 #include "flutter/lib/ui/painting/image_generator_registry.h"
 #include "flutter/lib/ui/text/font_collection.h"
 #include "flutter/lib/ui/ui_dart_state.h"
-#include "flutter/lib/ui/volatile_path_tracker.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
+#include "flutter/lib/ui/window/pointer_data_packet_converter.h"
+#include "flutter/lib/ui/window/view_focus.h"
 #include "flutter/runtime/dart_vm.h"
 #include "flutter/runtime/platform_data.h"
 #include "flutter/runtime/platform_isolate_manager.h"
-#include "rapidjson/document.h"
-#include "rapidjson/stringbuffer.h"
 
 namespace flutter {
 
@@ -48,8 +47,19 @@ class Window;
 /// `RuntimeController` and flushed to the Dart VM when the isolate becomes
 /// ready before the entrypoint function. See `PlatformData`.
 ///
-class RuntimeController : public PlatformConfigurationClient {
+class RuntimeController : public PlatformConfigurationClient,
+                          PointerDataPacketConverter::Delegate {
  public:
+  /// A callback that's invoked after this `RuntimeController` attempts to
+  /// add a view to the Dart isolate.
+  ///
+  /// If the Dart isolate is not launched yet, this callback will be stored
+  /// and invoked after the isolate is launched.
+  ///
+  /// The `added` parameter is false if the add operation fails or was
+  /// cancelled while pending using `RemoveView`.
+  using AddViewCallback = std::function<void(bool added)>;
+
   //----------------------------------------------------------------------------
   /// @brief      Creates a new instance of a runtime controller. This is
   ///             usually only done by the engine instance associated with the
@@ -146,6 +156,8 @@ class RuntimeController : public PlatformConfigurationClient {
   /// @param[in]  dart_entrypoint_args     Arguments passed as a List<String>
   ///                                      to Dart's entrypoint function.
   /// @param[in]  isolate_configuration    The isolate configuration
+  /// @param[in]  engine_id.               Engine identifier to be passed to the
+  ///                                      platform dispatcher.
   ///
   /// @return     If the isolate could be launched and guided to the
   ///             `DartIsolate::Phase::Running` phase.
@@ -156,7 +168,9 @@ class RuntimeController : public PlatformConfigurationClient {
       std::optional<std::string> dart_entrypoint,
       std::optional<std::string> dart_entrypoint_library,
       const std::vector<std::string>& dart_entrypoint_args,
-      std::unique_ptr<IsolateConfiguration> isolate_configuration);
+      std::unique_ptr<IsolateConfiguration> isolate_configuration,
+      std::shared_ptr<NativeAssetsManager> native_assets_manager,
+      std::optional<int64_t> engine_id);
 
   //----------------------------------------------------------------------------
   /// @brief      Clone the runtime controller. Launching an isolate with a
@@ -174,24 +188,52 @@ class RuntimeController : public PlatformConfigurationClient {
   ///
   ///             A view must be added before other methods can refer to it,
   ///             including the implicit view. Adding a view that already exists
-  ///             triggers an assertion.
+  ///             is an error.
+  ///
+  ///             The `callback` is invoked when the add operation is attempted,
+  ///             failed, or is cancelled.
+  ///
+  ///             If the isolate is not running, the view add will be queued and
+  ///             flushed to the isolate when it starts. Calling `RemoveView`
+  ///             before the isolate is launched cancels the add operation.
+  ///
+  ///             If the isolate is running, a frame will be scheduled.
   ///
   /// @param[in]  view_id           The ID of the new view.
   /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
+  /// @param[in]  callback          Callback that will be invoked after the add
+  ///                               operation is attempted or cancelled.
   ///
-  bool AddView(int64_t view_id, const ViewportMetrics& view_metrics);
+  void AddView(int64_t view_id,
+               const ViewportMetrics& view_metrics,
+               AddViewCallback callback);
 
   //----------------------------------------------------------------------------
   /// @brief      Notify the isolate that a view is no longer available.
   ///
-  ///             Removing a view that does not exist triggers an assertion.
+  ///             Views that are added before the isolate is started are
+  ///             queued until the isolate is launched. If one of these
+  ///             "pending" views are removed, the view add is cancelled:
+  ///             the `AddViewCallback` will be invoked with an `added` of
+  ///             false and `RemoveView` will return false.
   ///
   ///             The implicit view (kFlutterImplicitViewId) should never be
   ///             removed. Doing so triggers an assertion.
   ///
   /// @param[in]  view_id  The ID of the view.
   ///
+  /// @return     If the remove view operation was forwarded to the running
+  ///             isolate. False if the view does not exist. If the Dart isolate
+  ///             is not running, then the pending view creation (if any) is
+  ///             cancelled and the return value is always false.
   bool RemoveView(int64_t view_id);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Notify the isolate that the focus state of a native view has
+  ///             changed.
+  ///
+  /// @param[in]  event  The focus event describing the change.
+  bool SendViewFocusEvent(const ViewFocusEvent& event);
 
   //----------------------------------------------------------------------------
   /// @brief      Forward the specified viewport metrics to the running isolate.
@@ -419,7 +461,7 @@ class RuntimeController : public PlatformConfigurationClient {
   ///
   /// @return     True if root isolate running, False otherwise.
   ///
-  virtual bool IsRootIsolateRunning();
+  virtual bool IsRootIsolateRunning() const;
 
   //----------------------------------------------------------------------------
   /// @brief      Dispatch the specified platform message to running root
@@ -448,7 +490,8 @@ class RuntimeController : public PlatformConfigurationClient {
   /// @brief      Dispatch the semantics action to the specified accessibility
   ///             node.
   ///
-  /// @param[in]  node_id The identified of the accessibility node.
+  /// @param[in]  view_id The identifier of the view.
+  /// @param[in]  node_id The identifier of the accessibility node.
   /// @param[in]  action  The semantics action to perform on the specified
   ///                     accessibility node.
   /// @param[in]  args    Optional data that applies to the specified action.
@@ -456,7 +499,8 @@ class RuntimeController : public PlatformConfigurationClient {
   /// @return     If the semantics action was dispatched. This may fail if an
   ///             isolate is not running.
   ///
-  bool DispatchSemanticsAction(int32_t node_id,
+  bool DispatchSemanticsAction(int64_t view_id,
+                               int32_t node_id,
                                SemanticsAction action,
                                fml::MallocMapping args);
 
@@ -490,6 +534,15 @@ class RuntimeController : public PlatformConfigurationClient {
   ///             False if the root isolate is not running as well.
   ///
   bool HasLivePorts();
+
+  //----------------------------------------------------------------------------
+  /// @brief      Returns if the root isolate has any pending microtasks.
+  ///
+  /// @return     True if there are microtasks that have been queued but not
+  ///             run, False otherwise. Return False if the root isolate is not
+  ///             running as well.
+  ///
+  bool HasPendingMicrotasks();
 
   //----------------------------------------------------------------------------
   /// @brief      Get the last error encountered by the microtask queue.
@@ -615,6 +668,12 @@ class RuntimeController : public PlatformConfigurationClient {
     return root_isolate_;
   }
 
+  void FlushMicrotaskQueue() {
+    if (auto isolate = root_isolate_.lock()) {
+      isolate->FlushMicrotasksNow();
+    }
+  }
+
   std::shared_ptr<PlatformIsolateManager> GetPlatformIsolateManager() override {
     return platform_isolate_manager_;
   }
@@ -656,9 +715,16 @@ class RuntimeController : public PlatformConfigurationClient {
   const fml::closure isolate_shutdown_callback_;
   std::shared_ptr<const fml::Mapping> persistent_isolate_data_;
   UIDartState::Context context_;
+  PointerDataPacketConverter pointer_data_packet_converter_;
   std::shared_ptr<PlatformIsolateManager> platform_isolate_manager_ =
       std::shared_ptr<PlatformIsolateManager>(new PlatformIsolateManager());
   bool has_flushed_runtime_state_ = false;
+
+  // Callbacks when `AddView` was called before the Dart isolate is launched.
+  //
+  // These views will be added when `FlushRuntimeStateToIsolate` is called.
+  // This is no longer used once the Dart isolate starts.
+  std::unordered_map<int64_t, AddViewCallback> pending_add_view_callbacks_;
 
   // Tracks the views that have been called `Render` during a frame.
   //
@@ -684,6 +750,9 @@ class RuntimeController : public PlatformConfigurationClient {
 
   bool FlushRuntimeStateToIsolate();
 
+  // |PointerDataPacketConverter::Delegate|
+  bool ViewExists(int64_t view_id) const override;
+
   // |PlatformConfigurationClient|
   std::string DefaultRouteName() override;
 
@@ -700,7 +769,7 @@ class RuntimeController : public PlatformConfigurationClient {
               double height) override;
 
   // |PlatformConfigurationClient|
-  void UpdateSemantics(SemanticsUpdate* update) override;
+  void UpdateSemantics(int64_t view_id, SemanticsUpdate* update) override;
 
   // |PlatformConfigurationClient|
   void HandlePlatformMessage(std::unique_ptr<PlatformMessage> message) override;
@@ -728,6 +797,9 @@ class RuntimeController : public PlatformConfigurationClient {
   // |PlatformConfigurationClient|
   double GetScaledFontSize(double unscaled_font_size,
                            int configuration_id) const override;
+
+  // |PlatformConfigurationClient|
+  void RequestViewFocusChange(const ViewFocusChangeRequest& request) override;
 
   FML_DISALLOW_COPY_AND_ASSIGN(RuntimeController);
 };

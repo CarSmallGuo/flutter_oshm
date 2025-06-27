@@ -5,9 +5,7 @@
 #ifndef FLUTTER_IMPELLER_TYPOGRAPHER_LAZY_GLYPH_ATLAS_H_
 #define FLUTTER_IMPELLER_TYPOGRAPHER_LAZY_GLYPH_ATLAS_H_
 
-#include <unordered_map>
-
-#include "flutter/fml/macros.h"
+#include "impeller/geometry/rational.h"
 #include "impeller/renderer/context.h"
 #include "impeller/typographer/glyph_atlas.h"
 #include "impeller/typographer/text_frame.h"
@@ -22,19 +20,24 @@ class LazyGlyphAtlas {
 
   ~LazyGlyphAtlas();
 
-  void AddTextFrame(const TextFrame& frame, Scalar scale);
+  void AddTextFrame(const std::shared_ptr<TextFrame>& frame,
+                    Rational scale,
+                    Point offset,
+                    const Matrix& transform,
+                    std::optional<GlyphProperties> properties);
 
   void ResetTextFrames();
 
   const std::shared_ptr<GlyphAtlas>& CreateOrGetGlyphAtlas(
       Context& context,
+      HostBuffer& host_buffer,
       GlyphAtlas::Type type) const;
 
  private:
   std::shared_ptr<TypographerContext> typographer_context_;
 
-  FontGlyphMap alpha_glyph_map_;
-  FontGlyphMap color_glyph_map_;
+  std::vector<std::shared_ptr<TextFrame>> alpha_text_frames_;
+  std::vector<std::shared_ptr<TextFrame>> color_text_frames_;
   std::shared_ptr<GlyphAtlasContext> alpha_context_;
   std::shared_ptr<GlyphAtlasContext> color_context_;
   mutable std::shared_ptr<GlyphAtlas> alpha_atlas_;

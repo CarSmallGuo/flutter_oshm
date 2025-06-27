@@ -5,23 +5,21 @@
 #ifndef FLUTTER_SHELL_PLATFORM_LINUX_FL_VIEW_PRIVATE_H_
 #define FLUTTER_SHELL_PLATFORM_LINUX_FL_VIEW_PRIVATE_H_
 
+#include "flutter/shell/platform/linux/fl_view_accessible.h"
 #include "flutter/shell/platform/linux/public/flutter_linux/fl_view.h"
 
-/**
- * fl_view_redraw:
- * @view: an #FlView.
- *
- * Indicate the view needs to redraw.
- */
-void fl_view_redraw(FlView* view);
+G_BEGIN_DECLS
 
 /**
- * fl_view_get_keyboard_state:
+ * fl_view_get_accessible:
  * @view: an #FlView.
  *
- * Returns the keyboard pressed state. The hash table contains one entry per
- * pressed keys, mapping from the logical key to the physical key.*
+ * Get the accessible object for this view.
+ *
+ * Returns: an #FlViewAccessible.
  */
-GHashTable* fl_view_get_keyboard_state(FlView* view);
+FlViewAccessible* fl_view_get_accessible(FlView* view);
+
+G_END_DECLS
 
 #endif  // FLUTTER_SHELL_PLATFORM_LINUX_FL_VIEW_PRIVATE_H_

@@ -17,25 +17,20 @@ FilterContentsFilterInput::FilterContentsFilterInput(
 
 FilterContentsFilterInput::~FilterContentsFilterInput() = default;
 
-FilterInput::Variant FilterContentsFilterInput::GetInput() const {
-  return filter_;
-}
-
 std::optional<Snapshot> FilterContentsFilterInput::GetSnapshot(
-    const std::string& label,
+    std::string_view label,
     const ContentContext& renderer,
     const Entity& entity,
     std::optional<Rect> coverage_limit,
     int32_t mip_count) const {
   if (!snapshot_.has_value()) {
-    snapshot_ = filter_->RenderToSnapshot(
-        renderer,        // renderer
-        entity,          // entity
-        coverage_limit,  // coverage_limit
-        std::nullopt,    // sampler_descriptor
-        true,            // msaa_enabled
-        /*mip_count=*/mip_count,
-        SPrintF("Filter to %s Filter Snapshot", label.c_str()));  // label
+    snapshot_ = filter_->RenderToSnapshot(renderer,        // renderer
+                                          entity,          // entity
+                                          coverage_limit,  // coverage_limit
+                                          std::nullopt,    // sampler_descriptor
+                                          true,            // msaa_enabled
+                                          /*mip_count=*/mip_count,  //
+                                          label);                   // label
   }
   return snapshot_;
 }
@@ -58,25 +53,6 @@ Matrix FilterContentsFilterInput::GetLocalTransform(
 
 Matrix FilterContentsFilterInput::GetTransform(const Entity& entity) const {
   return filter_->GetTransform(entity.GetTransform());
-}
-
-void FilterContentsFilterInput::PopulateGlyphAtlas(
-    const std::shared_ptr<LazyGlyphAtlas>& lazy_glyph_atlas,
-    Scalar scale) {
-  filter_->PopulateGlyphAtlas(lazy_glyph_atlas, scale);
-}
-
-bool FilterContentsFilterInput::IsTranslationOnly() const {
-  return filter_->IsTranslationOnly();
-}
-
-bool FilterContentsFilterInput::IsLeaf() const {
-  return false;
-}
-
-void FilterContentsFilterInput::SetLeafInputs(
-    const FilterInput::Vector& inputs) {
-  filter_->SetLeafInputs(inputs);
 }
 
 void FilterContentsFilterInput::SetEffectTransform(const Matrix& matrix) {

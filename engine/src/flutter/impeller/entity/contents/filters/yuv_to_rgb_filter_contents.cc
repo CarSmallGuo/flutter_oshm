@@ -74,7 +74,6 @@ std::optional<Entity> YUVToRGBFilterContents::RenderFilter(
                                const ContentContext& renderer,
                                const Entity& entity, RenderPass& pass) -> bool {
     pass.SetCommandLabel("YUV to RGB Filter");
-    pass.SetStencilReference(entity.GetClipDepth());
 
     auto options = OptionsFromPassAndEntity(pass, entity);
     options.primitive_type = PrimitiveType::kTriangleStrip;
@@ -82,16 +81,16 @@ std::optional<Entity> YUVToRGBFilterContents::RenderFilter(
 
     auto size = y_input_snapshot->texture->GetSize();
 
-    VertexBufferBuilder<VS::PerVertexData> vtx_builder;
-    vtx_builder.AddVertices({
-        {Point(0, 0)},
-        {Point(1, 0)},
-        {Point(0, 1)},
-        {Point(1, 1)},
-    });
+    std::array<VS::PerVertexData, 4> vertices = {
+        VS::PerVertexData{Point(0, 0)},
+        VS::PerVertexData{Point(1, 0)},
+        VS::PerVertexData{Point(0, 1)},
+        VS::PerVertexData{Point(1, 1)},
+    };
 
     auto& host_buffer = renderer.GetTransientsBuffer();
-    pass.SetVertexBuffer(vtx_builder.CreateVertexBuffer(host_buffer));
+    pass.SetVertexBuffer(
+        CreateVertexBuffer(vertices, renderer.GetTransientsBuffer()));
 
     VS::FrameInfo frame_info;
     frame_info.mvp = Entity::GetShaderTransform(
@@ -112,7 +111,7 @@ std::optional<Entity> YUVToRGBFilterContents::RenderFilter(
         break;
     }
 
-    const std::unique_ptr<const Sampler>& sampler =
+    raw_ptr<const Sampler> sampler =
         renderer.GetContext()->GetSamplerLibrary()->GetSampler({});
     FS::BindYTexture(pass, y_input_snapshot->texture, sampler);
     FS::BindUvTexture(pass, uv_input_snapshot->texture, sampler);
@@ -132,7 +131,6 @@ std::optional<Entity> YUVToRGBFilterContents::RenderFilter(
 
   Entity sub_entity;
   sub_entity.SetContents(std::move(contents));
-  sub_entity.SetClipDepth(entity.GetClipDepth());
   sub_entity.SetBlendMode(entity.GetBlendMode());
   return sub_entity;
 }

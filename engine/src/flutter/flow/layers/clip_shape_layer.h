@@ -44,12 +44,14 @@ class ClipShapeLayer : public CacheableContainerLayer {
   void Preroll(PrerollContext* context) override {
     bool uses_save_layer = UsesSaveLayer();
 
+#if !SLIMPELLER
     // We can use the raster_cache for children only when the use_save_layer is
     // true so if use_save_layer is false we pass the layer_raster_item is
     // nullptr which mean we don't do raster cache logic.
     AutoCache cache =
         AutoCache(uses_save_layer ? layer_raster_cache_item_.get() : nullptr,
-                  context, context->state_stack.transform_3x3());
+                  context, context->state_stack.matrix());
+#endif  //  !SLIMPELLER
 
     Layer::AutoPrerollSaveLayerState save =
         Layer::AutoPrerollSaveLayerState::Create(context, UsesSaveLayer());
@@ -57,13 +59,10 @@ class ClipShapeLayer : public CacheableContainerLayer {
     auto mutator = context->state_stack.save();
     ApplyClip(mutator);
 
-    SkRect child_paint_bounds = SkRect::MakeEmpty();
+    DlRect child_paint_bounds;
     PrerollChildren(context, &child_paint_bounds);
-    if (child_paint_bounds.intersect(clip_shape_bounds())) {
-      set_paint_bounds(child_paint_bounds);
-    } else {
-      set_paint_bounds(SkRect::MakeEmpty());
-    }
+    set_paint_bounds(
+        child_paint_bounds.IntersectionOrEmpty(clip_shape_bounds()));
 
     // If we use a SaveLayer then we can accept opacity on behalf
     // of our children and apply it in the saveLayer.
@@ -83,6 +82,7 @@ class ClipShapeLayer : public CacheableContainerLayer {
       return;
     }
 
+#if !SLIMPELLER
     if (context.raster_cache) {
       mutator.integralTransform();
       auto restore_apply = context.state_stack.applyState(
@@ -94,6 +94,7 @@ class ClipShapeLayer : public CacheableContainerLayer {
         return;
       }
     }
+#endif  //  !SLIMPELLER
 
     mutator.saveLayer(paint_bounds());
     PaintChildren(context);
@@ -104,7 +105,7 @@ class ClipShapeLayer : public CacheableContainerLayer {
   }
 
  protected:
-  virtual const SkRect& clip_shape_bounds() const = 0;
+  virtual const DlRect clip_shape_bounds() const = 0;
   virtual void ApplyClip(LayerStateStack::MutatorContext& mutator) const = 0;
   virtual ~ClipShapeLayer() = default;
 

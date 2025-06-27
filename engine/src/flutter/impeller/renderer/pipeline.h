@@ -8,13 +8,17 @@
 #include <future>
 
 #include "compute_pipeline_descriptor.h"
+#include "impeller/core/raw_ptr.h"
 #include "impeller/renderer/compute_pipeline_builder.h"
 #include "impeller/renderer/compute_pipeline_descriptor.h"
 #include "impeller/renderer/context.h"
 #include "impeller/renderer/pipeline_builder.h"
 #include "impeller/renderer/pipeline_descriptor.h"
+#include "impeller/renderer/shader_stage_compatibility_checker.h"
 
 namespace impeller {
+
+using PipelineKey = int64_t;
 
 class PipelineLibrary;
 template <typename PipelineDescriptor_>
@@ -61,6 +65,7 @@ class Pipeline {
   const T& GetDescriptor() const;
 
   PipelineFuture<T> CreateVariant(
+      bool async,
       std::function<void(T& desc)> descriptor_callback) const;
 
  protected:
@@ -76,34 +81,58 @@ class Pipeline {
   Pipeline& operator=(const Pipeline&) = delete;
 };
 
+/// @brief A raw ptr to a pipeline object.
+///
+/// These pipeline refs are safe to use as the context will keep the
+/// pipelines alive throughout rendering.
+using PipelineRef = raw_ptr<Pipeline<PipelineDescriptor>>;
+
 extern template class Pipeline<PipelineDescriptor>;
 extern template class Pipeline<ComputePipelineDescriptor>;
 
+/// @brief Create a pipeline for the given descriptor.
+///
+/// If `async` is true, the compilation is performed on a worker thread. The
+/// returned future will complete once that work is done. If `async` is false,
+/// the work is done on the current thread.
+///
+/// It is more performant to set async to false than to spawn a
+/// worker and immediately block on the future completion.
 PipelineFuture<PipelineDescriptor> CreatePipelineFuture(
     const Context& context,
-    std::optional<PipelineDescriptor> desc);
+    std::optional<PipelineDescriptor> desc,
+    bool async = true);
 
 PipelineFuture<ComputePipelineDescriptor> CreatePipelineFuture(
     const Context& context,
     std::optional<ComputePipelineDescriptor> desc);
 
+/// Holds a reference to a Pipeline used for rendering while also maintaining
+/// the vertex shader and fragment shader types at compile-time.
+///
+/// See also:
+///   - impeller::ContentContext::Variants - the typical container for
+///     RenderPipelineHandles.
 template <class VertexShader_, class FragmentShader_>
-class RenderPipelineT {
+class RenderPipelineHandle {
  public:
   using VertexShader = VertexShader_;
   using FragmentShader = FragmentShader_;
   using Builder = PipelineBuilder<VertexShader, FragmentShader>;
 
-  explicit RenderPipelineT(const Context& context)
-      : RenderPipelineT(CreatePipelineFuture(
+  explicit RenderPipelineHandle(const Context& context, bool async = true)
+      : RenderPipelineHandle(CreatePipelineFuture(
             context,
-            Builder::MakeDefaultPipelineDescriptor(context))) {}
+            Builder::MakeDefaultPipelineDescriptor(context),
+            async)) {}
 
-  explicit RenderPipelineT(const Context& context,
-                           std::optional<PipelineDescriptor> desc)
-      : RenderPipelineT(CreatePipelineFuture(context, desc)) {}
+  explicit RenderPipelineHandle(const Context& context,
+                                std::optional<PipelineDescriptor> desc,
+                                bool async = true)
+      : RenderPipelineHandle(
+            CreatePipelineFuture(context, desc, /*async=*/async)) {}
 
-  explicit RenderPipelineT(PipelineFuture<PipelineDescriptor> future)
+  explicit RenderPipelineHandle(PipelineFuture<PipelineDescriptor> future)
       : pipeline_future_(std::move(future)) {}
 
   std::shared_ptr<Pipeline<PipelineDescriptor>> WaitAndGet() {
@@ -126,28 +155,29 @@ class RenderPipelineT {
   std::shared_ptr<Pipeline<PipelineDescriptor>> pipeline_;
   bool did_wait_ = false;
 
-  RenderPipelineT(const RenderPipelineT&) = delete;
+  RenderPipelineHandle(const RenderPipelineHandle&) = delete;
 
-  RenderPipelineT& operator=(const RenderPipelineT&) = delete;
+  RenderPipelineHandle& operator=(const RenderPipelineHandle&) = delete;
 };
 
 template <class ComputeShader_>
-class ComputePipelineT {
+class ComputePipelineHandle {
  public:
   using ComputeShader = ComputeShader_;
   using Builder = ComputePipelineBuilder<ComputeShader>;
 
-  explicit ComputePipelineT(const Context& context)
-      : ComputePipelineT(CreatePipelineFuture(
+  explicit ComputePipelineHandle(const Context& context)
+      : ComputePipelineHandle(CreatePipelineFuture(
             context,
             Builder::MakeDefaultPipelineDescriptor(context))) {}
 
-  explicit ComputePipelineT(
+  explicit ComputePipelineHandle(
       const Context& context,
       std::optional<ComputePipelineDescriptor> compute_desc)
-      : ComputePipelineT(CreatePipelineFuture(context, compute_desc)) {}
+      : ComputePipelineHandle(CreatePipelineFuture(context, compute_desc)) {}
 
-  explicit ComputePipelineT(PipelineFuture<ComputePipelineDescriptor> future)
+  explicit ComputePipelineHandle(
+      PipelineFuture<ComputePipelineDescriptor> future)
       : pipeline_future_(std::move(future)) {}
 
   std::shared_ptr<Pipeline<ComputePipelineDescriptor>> WaitAndGet() {
@@ -166,9 +196,9 @@ class ComputePipelineT {
   std::shared_ptr<Pipeline<ComputePipelineDescriptor>> pipeline_;
   bool did_wait_ = false;
 
-  ComputePipelineT(const ComputePipelineT&) = delete;
+  ComputePipelineHandle(const ComputePipelineHandle&) = delete;
 
-  ComputePipelineT& operator=(const ComputePipelineT&) = delete;
+  ComputePipelineHandle& operator=(const ComputePipelineHandle&) = delete;
 };
 
 }  // namespace impeller

@@ -76,10 +76,8 @@ class FrameTimingRecorder {
 
   void submitTimings() {
     assert(
-      _buildFinishMicros != null &&
-      _rasterStartMicros != null &&
-      _rasterFinishMicros != null,
-      'Attempted to submit an incomplete timings.'
+      _buildFinishMicros != null && _rasterStartMicros != null && _rasterFinishMicros != null,
+      'Attempted to submit an incomplete timings.',
     );
     final ui.FrameTiming timing = ui.FrameTiming(
       vsyncStart: _vsyncStartMicros,

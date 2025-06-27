@@ -81,7 +81,7 @@ dart --version
 # Runs the tests for the license script.
 function run_tests() (
   cd "$SRC_DIR/flutter/tools/licenses"
-  find . -name "*_test.dart" | xargs -n 1 dart --disable-dart-dev --enable-asserts
+  find . -name "*_test.dart" | xargs -n 1 dart --enable-asserts
 )
 
 # Collects the license information from the repo.
@@ -94,7 +94,6 @@ function collect_licenses() (
   # interpreter is faster than using unoptimized machine code, which has
   # no chance of being optimized(due to its size).
   dart \
-    --disable-dart-dev \
     --enable-asserts \
     --interpret_irregexp \
     lib/main.dart \
@@ -174,7 +173,7 @@ function verify_licenses() (
 
   local actualLicenseCount
   actualLicenseCount="$(tail -n 1 flutter/ci/licenses_golden/licenses_flutter | tr -dc '0-9')"
-  local expectedLicenseCount=879 # When changing this number: Update the error message below as well describing the newly expected license types.
+  local expectedLicenseCount=846
 
   if [[ $actualLicenseCount -ne $expectedLicenseCount ]]; then
     echo "=============================== ERROR ==============================="
@@ -184,7 +183,6 @@ function verify_licenses() (
     echo "double-check that all newly added files have a BSD-style license"
     echo "header with the following copyright:"
     echo "    Copyright 2013 The Flutter Authors. All rights reserved."
-    echo "Files in 'third_party/txt' may have an Apache license header instead."
     echo "If you're absolutely sure that the change in license count is"
     echo "intentional, update 'flutter/ci/licenses.sh' with the new count."
     echo "================================================================="

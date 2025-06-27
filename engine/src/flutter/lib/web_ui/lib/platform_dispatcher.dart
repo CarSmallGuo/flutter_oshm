@@ -12,11 +12,10 @@ typedef PointerDataPacketCallback = void Function(PointerDataPacket packet);
 typedef KeyDataCallback = bool Function(KeyData data);
 typedef SemanticsActionEventCallback = void Function(SemanticsActionEvent action);
 typedef PlatformMessageResponseCallback = void Function(ByteData? data);
-typedef PlatformMessageCallback = void Function(
-    String name, ByteData? data, PlatformMessageResponseCallback? callback);
+typedef PlatformMessageCallback =
+    void Function(String name, ByteData? data, PlatformMessageResponseCallback? callback);
 typedef ErrorCallback = bool Function(Object exception, StackTrace stackTrace);
 
-// ignore: avoid_classes_with_only_static_members
 /// A token that represents a root isolate.
 class RootIsolateToken {
   static RootIsolateToken? get instance {
@@ -37,6 +36,8 @@ abstract class PlatformDispatcher {
   FlutterView? view({required int id});
 
   FlutterView? get implicitView;
+
+  int? get engineId;
 
   VoidCallback? get onMetricsChanged;
   set onMetricsChanged(VoidCallback? callback);
@@ -65,17 +66,9 @@ abstract class PlatformDispatcher {
   TimingsCallback? get onReportTimings;
   set onReportTimings(TimingsCallback? callback);
 
-  void sendPlatformMessage(
-      String name,
-      ByteData? data,
-      PlatformMessageResponseCallback? callback,
-  );
+  void sendPlatformMessage(String name, ByteData? data, PlatformMessageResponseCallback? callback);
 
-  void sendPortPlatformMessage(
-    String name,
-    ByteData? data,
-    int identifier,
-    Object port);
+  void sendPortPlatformMessage(String name, ByteData? data, int identifier, Object port);
 
   void registerBackgroundIsolate(RootIsolateToken token);
 
@@ -124,6 +117,8 @@ abstract class PlatformDispatcher {
 
   bool get nativeSpellCheckServiceDefined => false;
 
+  bool get supportsShowingSystemContextMenu => false;
+
   bool get brieflyShowPassword => true;
 
   VoidCallback? get onTextScaleFactorChanged;
@@ -158,6 +153,54 @@ abstract class PlatformDispatcher {
   set onFrameDataChanged(VoidCallback? callback) {}
 
   double scaleFontSize(double unscaledFontSize);
+}
+
+final class SystemColor {
+  const SystemColor({required this.name, this.value});
+  final String name;
+  final Color? value;
+  bool get isSupported => value != null;
+  static bool get platformProvidesSystemColors => true;
+
+  static final SystemColorPalette light = SystemColorPalette._(
+    engine.SystemColorPaletteDetector.light,
+  );
+
+  static final SystemColorPalette dark = SystemColorPalette._(
+    engine.SystemColorPaletteDetector.dark,
+  );
+}
+
+final class SystemColorPalette {
+  SystemColorPalette._(this._detector);
+
+  Brightness get brightness => _detector.brightness;
+
+  final engine.SystemColorPaletteDetector _detector;
+
+  SystemColor _lookUp(String name) {
+    return _detector.systemColors[name]!;
+  }
+
+  SystemColor get accentColor => _lookUp('AccentColor');
+  SystemColor get accentColorText => _lookUp('AccentColorText');
+  SystemColor get activeText => _lookUp('ActiveText');
+  SystemColor get buttonBorder => _lookUp('ButtonBorder');
+  SystemColor get buttonFace => _lookUp('ButtonFace');
+  SystemColor get buttonText => _lookUp('ButtonText');
+  SystemColor get canvas => _lookUp('Canvas');
+  SystemColor get canvasText => _lookUp('CanvasText');
+  SystemColor get field => _lookUp('Field');
+  SystemColor get fieldText => _lookUp('FieldText');
+  SystemColor get grayText => _lookUp('GrayText');
+  SystemColor get highlight => _lookUp('Highlight');
+  SystemColor get highlightText => _lookUp('HighlightText');
+  SystemColor get linkText => _lookUp('LinkText');
+  SystemColor get mark => _lookUp('Mark');
+  SystemColor get markText => _lookUp('MarkText');
+  SystemColor get selectedItem => _lookUp('SelectedItem');
+  SystemColor get selectedItemText => _lookUp('SelectedItemText');
+  SystemColor get visitedText => _lookUp('VisitedText');
 }
 
 enum FramePhase {
@@ -206,8 +249,7 @@ class FrameTiming {
     ]);
   }
 
-  FrameTiming._(this._data)
-      : assert(_data.length == _dataLength);
+  FrameTiming._(this._data) : assert(_data.length == _dataLength);
 
   static final int _dataLength = FramePhase.values.length + _FrameTimingInfo.values.length;
 
@@ -223,7 +265,8 @@ class FrameTiming {
   Duration get rasterDuration =>
       _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.rasterStart);
 
-  Duration get vsyncOverhead => _rawDuration(FramePhase.buildStart) - _rawDuration(FramePhase.vsyncStart);
+  Duration get vsyncOverhead =>
+      _rawDuration(FramePhase.buildStart) - _rawDuration(FramePhase.vsyncStart);
 
   Duration get totalSpan =>
       _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.vsyncStart);
@@ -242,7 +285,7 @@ class FrameTiming {
 
   int get frameNumber => _data.last;
 
-  final List<int> _data;  // some elements in microseconds, some in bytes, some are counts
+  final List<int> _data; // some elements in microseconds, some in bytes, some are counts
 
   String _formatMS(Duration duration) => '${duration.inMicroseconds * 0.001}ms';
 
@@ -260,30 +303,19 @@ class FrameTiming {
   }
 }
 
-enum AppLifecycleState {
-  detached,
-  resumed,
-  inactive,
-  hidden,
-  paused,
-}
+enum AppLifecycleState { detached, resumed, inactive, hidden, paused }
 
-enum AppExitResponse {
-  exit,
-  cancel,
-}
+enum AppExitResponse { exit, cancel }
 
-enum AppExitType {
-  cancelable,
-  required,
-}
+enum AppExitType { cancelable, required }
 
 abstract class ViewPadding {
-  const factory ViewPadding._(
-      {required double left,
-      required double top,
-      required double right,
-      required double bottom}) = engine.ViewPadding;
+  const factory ViewPadding._({
+    required double left,
+    required double top,
+    required double right,
+    required double bottom,
+  }) = engine.ViewPadding;
 
   double get left;
   double get top;
@@ -314,7 +346,7 @@ abstract class ViewConstraints {
   double get maxHeight;
   bool isSatisfiedBy(Size size);
   bool get isTight;
-  ViewConstraints operator/(double factor);
+  ViewConstraints operator /(double factor);
 }
 
 @Deprecated(
@@ -324,11 +356,7 @@ abstract class ViewConstraints {
 typedef WindowPadding = ViewPadding;
 
 class DisplayFeature {
-  const DisplayFeature({
-    required this.bounds,
-    required this.type,
-    required this.state,
-  });
+  const DisplayFeature({required this.bounds, required this.type, required this.state});
 
   final Rect bounds;
   final DisplayFeatureType type;
@@ -342,8 +370,10 @@ class DisplayFeature {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is DisplayFeature && bounds == other.bounds &&
-        type == other.type && state == other.state;
+    return other is DisplayFeature &&
+        bounds == other.bounds &&
+        type == other.type &&
+        state == other.state;
   }
 
   @override
@@ -355,36 +385,21 @@ class DisplayFeature {
   }
 }
 
-enum DisplayFeatureType {
-  unknown,
-  fold,
-  hinge,
-  cutout,
-}
+enum DisplayFeatureType { unknown, fold, hinge, cutout }
 
-enum DisplayFeatureState {
-  unknown,
-  postureFlat,
-  postureHalfOpened,
-  postureFlipped,
-}
+enum DisplayFeatureState { unknown, postureFlat, postureHalfOpened, postureFlipped }
 
 class Locale {
-  const Locale(
-    this._languageCode, [
-    this._countryCode,
-  ])  : assert(_languageCode != ''),
-        scriptCode = null;
+  const Locale(this._languageCode, [this._countryCode])
+    : assert(_languageCode != ''),
+      scriptCode = null;
 
-  const Locale.fromSubtags({
-    String languageCode = 'und',
-    this.scriptCode,
-    String? countryCode,
-  })  : assert(languageCode != ''),
-        _languageCode = languageCode,
-        assert(scriptCode != ''),
-        assert(countryCode != ''),
-        _countryCode = countryCode;
+  const Locale.fromSubtags({String languageCode = 'und', this.scriptCode, String? countryCode})
+    : assert(languageCode != ''),
+      _languageCode = languageCode,
+      assert(scriptCode != ''),
+      assert(countryCode != ''),
+      _countryCode = countryCode;
 
   String get languageCode => _deprecatedLanguageSubtagMap[_languageCode] ?? _languageCode;
   final String _languageCode;
@@ -493,10 +508,10 @@ class Locale {
     if (identical(this, other)) {
       return true;
     }
-    return other is Locale
-        && other.languageCode == languageCode
-        && other.scriptCode == scriptCode
-        && other.countryCode == countryCode;
+    return other is Locale &&
+        other.languageCode == languageCode &&
+        other.scriptCode == scriptCode &&
+        other.countryCode == countryCode;
   }
 
   @override
@@ -521,12 +536,7 @@ class Locale {
   }
 }
 
-enum DartPerformanceMode {
-  balanced,
-  latency,
-  throughput,
-  memory,
-}
+enum DartPerformanceMode { balanced, latency, throughput, memory }
 
 class SemanticsActionEvent {
   const SemanticsActionEvent({
@@ -562,11 +572,7 @@ class SemanticsActionEvent {
 }
 
 final class ViewFocusEvent {
-  const ViewFocusEvent({
-    required this.viewId,
-    required this.state,
-    required this.direction,
-  });
+  const ViewFocusEvent({required this.viewId, required this.state, required this.direction});
 
   final int viewId;
 
@@ -580,13 +586,6 @@ final class ViewFocusEvent {
   }
 }
 
-enum ViewFocusState {
-  unfocused,
-  focused,
-}
+enum ViewFocusState { unfocused, focused }
 
-enum ViewFocusDirection {
-  undefined,
-  forward,
-  backward,
-}
+enum ViewFocusDirection { undefined, forward, backward }

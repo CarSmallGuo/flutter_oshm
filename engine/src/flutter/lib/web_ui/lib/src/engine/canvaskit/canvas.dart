@@ -45,48 +45,43 @@ class CkCanvas {
   }
 
   void clipPath(CkPath path, bool doAntiAlias) {
-    skCanvas.clipPath(
-      path.skiaObject,
-      _clipOpIntersect,
-      doAntiAlias,
-    );
+    skCanvas.clipPath(path.skiaObject, _clipOpIntersect, doAntiAlias);
   }
 
   void clipRRect(ui.RRect rrect, bool doAntiAlias) {
+    skCanvas.clipRRect(toSkRRect(rrect), _clipOpIntersect, doAntiAlias);
+  }
+
+  void clipRSuperellipse(ui.RSuperellipse rsuperellipse, bool doAntiAlias) {
+    // TODO(dkwingsmt): Properly implement RSuperellipse on Web instead of falling
+    // back to RRect.  https://github.com/flutter/flutter/issues/163718
     skCanvas.clipRRect(
-      toSkRRect(rrect),
+      toSkRRect(rsuperellipse.toApproximateRRect()),
       _clipOpIntersect,
       doAntiAlias,
     );
   }
 
   void clipRect(ui.Rect rect, ui.ClipOp clipOp, bool doAntiAlias) {
-    skCanvas.clipRect(
-      toSkRect(rect),
-      toSkClipOp(clipOp),
-      doAntiAlias,
-    );
+    skCanvas.clipRect(toSkRect(rect), toSkClipOp(clipOp), doAntiAlias);
   }
 
   ui.Rect getDeviceClipBounds() {
     return rectFromSkIRect(skCanvas.getDeviceClipBounds());
   }
 
-  void drawArc(
-    ui.Rect oval,
-    double startAngle,
-    double sweepAngle,
-    bool useCenter,
-    CkPaint paint,
-  ) {
+  void drawArc(ui.Rect oval, double startAngle, double sweepAngle, bool useCenter, CkPaint paint) {
     const double toDegrees = 180 / math.pi;
+
+    final skPaint = paint.toSkPaint();
     skCanvas.drawArc(
       toSkRect(oval),
       startAngle * toDegrees,
       sweepAngle * toDegrees,
       useCenter,
-      paint.skiaObject,
+      skPaint,
     );
+    skPaint.delete();
   }
 
   // TODO(flar): CanvasKit does not expose sampling options available on SkCanvas.drawAtlas
@@ -98,42 +93,37 @@ class CkCanvas {
     Uint32List? colors,
     ui.BlendMode blendMode,
   ) {
+    final skPaint = paint.toSkPaint(defaultBlurTileMode: ui.TileMode.clamp);
     skCanvas.drawAtlas(
       atlas.skImage,
       rects,
       rstTransforms,
-      paint.skiaObject,
+      skPaint,
       toSkBlendMode(blendMode),
       colors,
     );
+    skPaint.delete();
   }
 
   void drawCircle(ui.Offset c, double radius, CkPaint paint) {
-    skCanvas.drawCircle(
-      c.dx,
-      c.dy,
-      radius,
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawCircle(c.dx, c.dy, radius, skPaint);
+    skPaint.delete();
   }
 
   void drawColor(ui.Color color, ui.BlendMode blendMode) {
-    skCanvas.drawColorInt(
-      color.value.toDouble(),
-      toSkBlendMode(blendMode),
-    );
+    skCanvas.drawColorInt(color.value.toDouble(), toSkBlendMode(blendMode));
   }
 
   void drawDRRect(ui.RRect outer, ui.RRect inner, CkPaint paint) {
-    skCanvas.drawDRRect(
-      toSkRRect(outer),
-      toSkRRect(inner),
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawDRRect(toSkRRect(outer), toSkRRect(inner), skPaint);
+    skPaint.delete();
   }
 
   void drawImage(CkImage image, ui.Offset offset, CkPaint paint) {
     final ui.FilterQuality filterQuality = paint.filterQuality;
+    final skPaint = paint.toSkPaint(defaultBlurTileMode: ui.TileMode.clamp);
     if (filterQuality == ui.FilterQuality.high) {
       skCanvas.drawImageCubic(
         image.skImage,
@@ -141,7 +131,7 @@ class CkCanvas {
         offset.dy,
         _kMitchellNetravali_B,
         _kMitchellNetravali_C,
-        paint.skiaObject,
+        skPaint,
       );
     } else {
       skCanvas.drawImageOptions(
@@ -150,13 +140,15 @@ class CkCanvas {
         offset.dy,
         toSkFilterMode(filterQuality),
         toSkMipmapMode(filterQuality),
-        paint.skiaObject,
+        skPaint,
       );
     }
+    skPaint.delete();
   }
 
   void drawImageRect(CkImage image, ui.Rect src, ui.Rect dst, CkPaint paint) {
     final ui.FilterQuality filterQuality = paint.filterQuality;
+    final skPaint = paint.toSkPaint(defaultBlurTileMode: ui.TileMode.clamp);
     if (filterQuality == ui.FilterQuality.high) {
       skCanvas.drawImageRectCubic(
         image.skImage,
@@ -164,7 +156,7 @@ class CkCanvas {
         toSkRect(dst),
         _kMitchellNetravali_B,
         _kMitchellNetravali_C,
-        paint.skiaObject,
+        skPaint,
       );
     } else {
       skCanvas.drawImageRectOptions(
@@ -173,53 +165,50 @@ class CkCanvas {
         toSkRect(dst),
         toSkFilterMode(filterQuality),
         toSkMipmapMode(filterQuality),
-        paint.skiaObject,
+        skPaint,
       );
     }
+    skPaint.delete();
   }
 
-  void drawImageNine(
-      CkImage image, ui.Rect center, ui.Rect dst, CkPaint paint) {
+  void drawImageNine(CkImage image, ui.Rect center, ui.Rect dst, CkPaint paint) {
+    final skPaint = paint.toSkPaint(defaultBlurTileMode: ui.TileMode.clamp);
     skCanvas.drawImageNine(
       image.skImage,
       toSkRect(center),
       toSkRect(dst),
       toSkFilterMode(paint.filterQuality),
-      paint.skiaObject,
+      skPaint,
     );
+    skPaint.delete();
   }
 
   void drawLine(ui.Offset p1, ui.Offset p2, CkPaint paint) {
-    skCanvas.drawLine(
-      p1.dx,
-      p1.dy,
-      p2.dx,
-      p2.dy,
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawLine(p1.dx, p1.dy, p2.dx, p2.dy, skPaint);
+    skPaint.delete();
   }
 
   void drawOval(ui.Rect rect, CkPaint paint) {
-    skCanvas.drawOval(
-      toSkRect(rect),
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawOval(toSkRect(rect), skPaint);
+    skPaint.delete();
   }
 
   void drawPaint(CkPaint paint) {
-    skCanvas.drawPaint(paint.skiaObject);
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawPaint(skPaint);
+    skPaint.delete();
   }
 
   void drawParagraph(CkParagraph paragraph, ui.Offset offset) {
-    skCanvas.drawParagraph(
-      paragraph.skiaObject,
-      offset.dx,
-      offset.dy,
-    );
+    skCanvas.drawParagraph(paragraph.skiaObject, offset.dx, offset.dy);
   }
 
   void drawPath(CkPath path, CkPaint paint) {
-    skCanvas.drawPath(path.skiaObject, paint.skiaObject);
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawPath(path.skiaObject, skPaint);
+    skPaint.delete();
   }
 
   void drawPicture(CkPicture picture) {
@@ -228,37 +217,41 @@ class CkCanvas {
   }
 
   void drawPoints(CkPaint paint, ui.PointMode pointMode, Float32List points) {
-    skCanvas.drawPoints(
-      toSkPointMode(pointMode),
-      points,
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawPoints(toSkPointMode(pointMode), points, skPaint);
+    skPaint.delete();
   }
 
   void drawRRect(ui.RRect rrect, CkPaint paint) {
-    skCanvas.drawRRect(
-      toSkRRect(rrect),
-      paint.skiaObject,
-    );
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawRRect(toSkRRect(rrect), skPaint);
+    skPaint.delete();
   }
 
   void drawRect(ui.Rect rect, CkPaint paint) {
-    skCanvas.drawRect(toSkRect(rect), paint.skiaObject);
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawRect(toSkRect(rect), skPaint);
+    skPaint.delete();
   }
 
-  void drawShadow(
-      CkPath path, ui.Color color, double elevation, bool transparentOccluder) {
-    drawSkShadow(skCanvas, path, color, elevation, transparentOccluder,
-        EngineFlutterDisplay.instance.devicePixelRatio);
-  }
-
-  void drawVertices(
-      CkVertices vertices, ui.BlendMode blendMode, CkPaint paint) {
-    skCanvas.drawVertices(
-      vertices.skiaObject,
-      toSkBlendMode(blendMode),
-      paint.skiaObject,
+  void drawShadow(CkPath path, ui.Color color, double elevation, bool transparentOccluder) {
+    drawSkShadow(
+      skCanvas,
+      path,
+      color,
+      elevation,
+      transparentOccluder,
+      EngineFlutterDisplay.instance.devicePixelRatio,
     );
+  }
+
+  void drawVertices(CkVertices vertices, ui.BlendMode blendMode, CkPaint paint) {
+    if (vertices.hasNoPoints) {
+      return;
+    }
+    final skPaint = paint.toSkPaint();
+    skCanvas.drawVertices(vertices.skiaObject, toSkBlendMode(blendMode), skPaint);
+    skPaint.delete();
   }
 
   void restore() {
@@ -278,34 +271,44 @@ class CkCanvas {
   }
 
   void saveLayer(ui.Rect bounds, CkPaint? paint) {
-    skCanvas.saveLayer(
-      paint?.skiaObject,
-      toSkRect(bounds),
-      null,
-      null,
-    );
+    final skPaint = paint?.toSkPaint();
+    skCanvas.saveLayer(skPaint, toSkRect(bounds), null, null, canvasKit.TileMode.Clamp);
+    skPaint?.delete();
   }
 
   void saveLayerWithoutBounds(CkPaint? paint) {
-    skCanvas.saveLayer(paint?.skiaObject, null, null, null);
+    final skPaint = paint?.toSkPaint();
+    skCanvas.saveLayer(skPaint, null, null, null, canvasKit.TileMode.Clamp);
+    skPaint?.delete();
   }
 
-  void saveLayerWithFilter(ui.Rect bounds, ui.ImageFilter filter,
-      [CkPaint? paint]) {
+  void saveLayerWithFilter(ui.Rect bounds, ui.ImageFilter filter, [CkPaint? paint]) {
     final CkManagedSkImageFilterConvertible convertible;
     if (filter is ui.ColorFilter) {
       convertible = createCkColorFilter(filter as EngineColorFilter)!;
     } else {
       convertible = filter as CkManagedSkImageFilterConvertible;
     }
-    convertible.imageFilter((SkImageFilter filter) {
+    // There are 2 ImageFilter objects applied here. The filter in the paint
+    // object is applied to the contents and its default tile mode is decal
+    // (automatically applied by toSkPaint).
+    // The filter supplied as an argument to this function [convertible] will
+    // be applied to the backdrop and its default tile mode will be mirror.
+    // We also pass in the blur tile mode as an argument to saveLayer because
+    // that operation will not adopt the tile mode from the backdrop filter
+    // and instead needs it supplied to the saveLayer call itself as a
+    // separate argument.
+    convertible.withSkImageFilter((SkImageFilter filter) {
+      final skPaint = paint?.toSkPaint(/*ui.TileMode.decal*/);
       skCanvas.saveLayer(
-        paint?.skiaObject,
+        skPaint,
         toSkRect(bounds),
         filter,
         0,
+        toSkTileMode(convertible.backdropTileMode ?? ui.TileMode.mirror),
       );
-    });
+      skPaint?.delete();
+    }, defaultBlurTileMode: ui.TileMode.mirror);
   }
 
   void scale(double sx, double sy) {
@@ -322,6 +325,10 @@ class CkCanvas {
 
   void translate(double dx, double dy) {
     skCanvas.translate(dx, dy);
+  }
+
+  bool quickReject(ui.Rect rect) {
+    return skCanvas.quickReject(toSkRect(rect));
   }
 
   Float32List getLocalToDevice() {

@@ -45,24 +45,21 @@ std::optional<Entity> LinearToSrgbFilterContents::RenderFilter(
                                const ContentContext& renderer,
                                const Entity& entity, RenderPass& pass) -> bool {
     pass.SetCommandLabel("Linear to sRGB Filter");
-    pass.SetStencilReference(entity.GetClipDepth());
 
     auto options = OptionsFromPassAndEntity(pass, entity);
     options.primitive_type = PrimitiveType::kTriangleStrip;
     pass.SetPipeline(renderer.GetLinearToSrgbFilterPipeline(options));
 
     auto size = input_snapshot->texture->GetSize();
-
-    VertexBufferBuilder<VS::PerVertexData> vtx_builder;
-    vtx_builder.AddVertices({
-        {Point(0, 0)},
-        {Point(1, 0)},
-        {Point(0, 1)},
-        {Point(1, 1)},
-    });
+    std::array<VS::PerVertexData, 4> vertices = {
+        VS::PerVertexData{Point(0, 0)},
+        VS::PerVertexData{Point(1, 0)},
+        VS::PerVertexData{Point(0, 1)},
+        VS::PerVertexData{Point(1, 1)},
+    };
 
     auto& host_buffer = renderer.GetTransientsBuffer();
-    pass.SetVertexBuffer(vtx_builder.CreateVertexBuffer(host_buffer));
+    pass.SetVertexBuffer(CreateVertexBuffer(vertices, host_buffer));
 
     VS::FrameInfo frame_info;
     frame_info.mvp = Entity::GetShaderTransform(
@@ -96,7 +93,6 @@ std::optional<Entity> LinearToSrgbFilterContents::RenderFilter(
 
   Entity sub_entity;
   sub_entity.SetContents(std::move(contents));
-  sub_entity.SetClipDepth(entity.GetClipDepth());
   sub_entity.SetBlendMode(entity.GetBlendMode());
   return sub_entity;
 }

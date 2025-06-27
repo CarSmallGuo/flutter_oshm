@@ -1,15 +1,17 @@
 // Copyright 2013 The Flutter Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
+@TestOn('vm')
+library;
 
 import 'dart:io' as io;
 
 import 'package:header_guard_check/src/header_file.dart';
-import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as p;
 import 'package:source_span/source_span.dart';
+import 'package:test/test.dart';
 
-Future<int> main(List<String> args) async {
+Future<int> main() async {
   void withTestFile(String path, String contents, void Function(io.File) fn) {
     // Create a temporary file and delete it when we're done.
     final io.Directory tempDir = io.Directory.systemTemp.createTempSync('header_guard_check_test');
@@ -152,11 +154,7 @@ Future<int> main(List<String> args) async {
         'foo+bar+baz.h',
       ];
       for (final String input in inputs) {
-        final HeaderFile headerFile = HeaderFile.from(
-          input,
-          guard: null,
-          pragmaOnce: null,
-        );
+        final HeaderFile headerFile = HeaderFile.from(input, guard: null, pragmaOnce: null);
         expect(headerFile.computeExpectedName(engineRoot: ''), endsWith('FOO_BAR_BAZ_H_'));
       }
     });
@@ -221,10 +219,7 @@ Future<int> main(List<String> args) async {
     });
 
     test('parses a header file with a #pragma once', () {
-      final String input = <String>[
-        '#pragma once',
-        '',
-      ].join('\n');
+      final String input = <String>['#pragma once', ''].join('\n');
       withTestFile('foo.h', input, (io.File file) {
         final HeaderFile headerFile = HeaderFile.parse(file.path);
         expect(headerFile.pragmaOnce, isNotNull);
@@ -232,22 +227,21 @@ Future<int> main(List<String> args) async {
     });
 
     test('fixes a file that uses #pragma once', () {
-      final String input = <String>[
-        '#pragma once',
-        '',
-        '// ...',
-      ].join('\n');
+      final String input = <String>['#pragma once', '', '// ...'].join('\n');
       withTestFile('foo.h', input, (io.File file) {
         final HeaderFile headerFile = HeaderFile.parse(file.path);
         expect(headerFile.fix(engineRoot: p.dirname(file.path)), isTrue);
-        expect(file.readAsStringSync(), <String>[
-          '#ifndef FLUTTER_FOO_H_',
-          '#define FLUTTER_FOO_H_',
-          '',
-          '// ...',
-          '#endif  // FLUTTER_FOO_H_',
-          '',
-        ].join('\n'));
+        expect(
+          file.readAsStringSync(),
+          <String>[
+            '#ifndef FLUTTER_FOO_H_',
+            '#define FLUTTER_FOO_H_',
+            '',
+            '// ...',
+            '#endif  // FLUTTER_FOO_H_',
+            '',
+          ].join('\n'),
+        );
       });
     });
 
@@ -261,13 +255,16 @@ Future<int> main(List<String> args) async {
       withTestFile('foo.h', input, (io.File file) {
         final HeaderFile headerFile = HeaderFile.parse(file.path);
         expect(headerFile.fix(engineRoot: p.dirname(file.path)), isTrue);
-        expect(file.readAsStringSync(), <String>[
-          '#ifndef FLUTTER_FOO_H_',
-          '#define FLUTTER_FOO_H_',
-          '',
-          '#endif  // FLUTTER_FOO_H_',
-          '',
-        ].join('\n'));
+        expect(
+          file.readAsStringSync(),
+          <String>[
+            '#ifndef FLUTTER_FOO_H_',
+            '#define FLUTTER_FOO_H_',
+            '',
+            '#endif  // FLUTTER_FOO_H_',
+            '',
+          ].join('\n'),
+        );
       });
     });
 
@@ -287,23 +284,26 @@ Future<int> main(List<String> args) async {
       withTestFile('foo.h', input, (io.File file) {
         final HeaderFile headerFile = HeaderFile.parse(file.path);
         expect(headerFile.fix(engineRoot: p.dirname(file.path)), isTrue);
-        expect(file.readAsStringSync(), <String>[
-          '// 1.',
-          '// 2.',
-          '// 3.',
-          '',
-          '#ifndef FLUTTER_FOO_H_',
-          '#define FLUTTER_FOO_H_',
-          '',
-          "#import 'flutter/shell/platform/darwin/Flutter.h'",
-          '',
-          '@protocl Flutter',
-          '',
-          '@end',
-          '',
-          '#endif  // FLUTTER_FOO_H_',
-          '',
-        ].join('\n'));
+        expect(
+          file.readAsStringSync(),
+          <String>[
+            '// 1.',
+            '// 2.',
+            '// 3.',
+            '',
+            '#ifndef FLUTTER_FOO_H_',
+            '#define FLUTTER_FOO_H_',
+            '',
+            "#import 'flutter/shell/platform/darwin/Flutter.h'",
+            '',
+            '@protocl Flutter',
+            '',
+            '@end',
+            '',
+            '#endif  // FLUTTER_FOO_H_',
+            '',
+          ].join('\n'),
+        );
       });
     });
 

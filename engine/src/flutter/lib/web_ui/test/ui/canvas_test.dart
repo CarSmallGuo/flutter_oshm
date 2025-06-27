@@ -18,15 +18,8 @@ void main() {
 }
 
 Future<void> testMain() async {
-  setUpUnitTests(
-    setUpTestViewDimensions: false,
-  );
+  setUpUnitTests(setUpTestViewDimensions: false);
 
-  final bool deviceClipRoundsOut = renderer is! HtmlRenderer;
-  runCanvasTests(deviceClipRoundsOut: deviceClipRoundsOut);
-}
-
-void runCanvasTests({required bool deviceClipRoundsOut}) {
   setUp(() {
     EngineSemantics.debugResetSemantics();
   });
@@ -37,7 +30,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       expect(value.length, equals(16));
       for (int r = 0; r < 4; r++) {
         for (int c = 0; c < 4; c++) {
-          expect(value[r*4 + c], within(from: expected[r*4 + c]));
+          expect(value[r * 4 + c], within(from: expected[r * 4 + c]));
         }
       }
     }
@@ -53,7 +46,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       } on TestFailure {
         return;
       }
-      throw TestFailure('transforms were too close to equal'); // ignore: only_throw_errors
+      throw TestFailure('transforms were too close to equal');
     }
 
     test('ui.Canvas.translate affects canvas.getTransform', () {
@@ -99,7 +92,11 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.PictureRecorder recorder = ui.PictureRecorder();
       final ui.Canvas canvas = ui.Canvas(recorder);
       canvas.skew(12, 14.5);
-      final Float64List matrix = (Matrix4.identity()..setEntry(0, 1, 12)..setEntry(1, 0, 14.5)).toFloat64();
+      final Float64List matrix =
+          (Matrix4.identity()
+                ..setEntry(0, 1, 12)
+                ..setEntry(1, 0, 14.5))
+              .toFloat64();
       final Float64List curMatrix = canvas.getTransform();
       transformsClose(curMatrix, matrix);
       canvas.skew(10, 10);
@@ -111,7 +108,11 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
     test('Canvas.transform affects canvas.getTransform', () async {
       final ui.PictureRecorder recorder = ui.PictureRecorder();
       final ui.Canvas canvas = ui.Canvas(recorder);
-      final Float64List matrix = (Matrix4.identity()..translate(12.0, 14.5)..scale(12.0, 14.5)).toFloat64();
+      final Float64List matrix =
+          (Matrix4.identity()
+                ..translate(12.0, 14.5)
+                ..scale(12.0, 14.5))
+              .toFloat64();
       canvas.transform(matrix);
       final Float64List curMatrix = canvas.getTransform();
       transformsClose(curMatrix, matrix);
@@ -123,9 +124,9 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
   });
 
   void rectsClose(ui.Rect value, ui.Rect expected) {
-    expect(value.left,   closeTo(expected.left,   1e-6));
-    expect(value.top,    closeTo(expected.top,    1e-6));
-    expect(value.right,  closeTo(expected.right,  1e-6));
+    expect(value.left, closeTo(expected.left, 1e-6));
+    expect(value.top, closeTo(expected.top, 1e-6));
+    expect(value.right, closeTo(expected.right, 1e-6));
     expect(value.bottom, closeTo(expected.bottom, 1e-6));
   }
 
@@ -135,7 +136,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
     } on TestFailure {
       return;
     }
-    throw TestFailure('transforms were too close to equal'); // ignore: only_throw_errors
+    throw TestFailure('transforms were too close to equal');
   }
 
   group('ui.Canvas clip tests', () {
@@ -144,23 +145,22 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.Canvas canvas = ui.Canvas(recorder, const ui.Rect.fromLTRB(0, 0, 100, 100));
       const ui.Rect clipRawBounds = ui.Rect.fromLTRB(10.2, 11.3, 20.4, 25.7);
       const ui.Rect clipExpandedBounds = ui.Rect.fromLTRB(10, 11, 21, 26);
-      final ui.Rect clipDestBounds = deviceClipRoundsOut ? clipExpandedBounds : clipRawBounds;
       canvas.clipRect(clipRawBounds);
 
       // Save initial return values for testing restored values
       final ui.Rect initialLocalBounds = canvas.getLocalClipBounds();
       final ui.Rect initialDestinationBounds = canvas.getDestinationClipBounds();
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
 
       canvas.save();
       canvas.clipRect(const ui.Rect.fromLTRB(0, 0, 15, 15));
       // Both clip bounds have changed
       rectsNotClose(canvas.getLocalClipBounds(), clipExpandedBounds);
-      rectsNotClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsNotClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       // Previous return values have not changed
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -172,7 +172,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       const ui.Rect scaledExpandedBounds = ui.Rect.fromLTRB(5, 5.5, 10.5, 13);
       rectsClose(canvas.getLocalClipBounds(), scaledExpandedBounds);
       // Destination bounds are unaffected by transform
-      rectsClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -185,7 +185,6 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.Canvas canvas = ui.Canvas(recorder, const ui.Rect.fromLTRB(0, 0, 100, 100));
       const ui.Rect clipRawBounds = ui.Rect.fromLTRB(10.2, 11.3, 20.4, 25.7);
       const ui.Rect clipExpandedBounds = ui.Rect.fromLTRB(10, 11, 21, 26);
-      final ui.Rect clipDestBounds = deviceClipRoundsOut ? clipExpandedBounds : clipRawBounds;
       final ui.RRect clip = ui.RRect.fromRectAndRadius(clipRawBounds, const ui.Radius.circular(3));
       canvas.clipRRect(clip);
 
@@ -193,16 +192,16 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.Rect initialLocalBounds = canvas.getLocalClipBounds();
       final ui.Rect initialDestinationBounds = canvas.getDestinationClipBounds();
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
 
       canvas.save();
       canvas.clipRect(const ui.Rect.fromLTRB(0, 0, 15, 15));
       // Both clip bounds have changed
       rectsNotClose(canvas.getLocalClipBounds(), clipExpandedBounds);
-      rectsNotClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsNotClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       // Previous return values have not changed
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -214,7 +213,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       const ui.Rect scaledExpandedBounds = ui.Rect.fromLTRB(5, 5.5, 10.5, 13);
       rectsClose(canvas.getLocalClipBounds(), scaledExpandedBounds);
       // Destination bounds are unaffected by transform
-      rectsClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -227,24 +226,26 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.Canvas canvas = ui.Canvas(recorder, const ui.Rect.fromLTRB(0, 0, 100, 100));
       const ui.Rect clipRawBounds = ui.Rect.fromLTRB(10.2, 11.3, 20.4, 25.7);
       const ui.Rect clipExpandedBounds = ui.Rect.fromLTRB(10, 11, 21, 26);
-      final ui.Rect clipDestBounds = deviceClipRoundsOut ? clipExpandedBounds : clipRawBounds;
-      final ui.Path clip = ui.Path()..addRect(clipRawBounds)..addOval(clipRawBounds);
+      final ui.Path clip =
+          ui.Path()
+            ..addRect(clipRawBounds)
+            ..addOval(clipRawBounds);
       canvas.clipPath(clip);
 
       // Save initial return values for testing restored values
       final ui.Rect initialLocalBounds = canvas.getLocalClipBounds();
       final ui.Rect initialDestinationBounds = canvas.getDestinationClipBounds();
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
 
       canvas.save();
       canvas.clipRect(const ui.Rect.fromLTRB(0, 0, 15, 15));
       // Both clip bounds have changed
       rectsNotClose(canvas.getLocalClipBounds(), clipExpandedBounds);
-      rectsNotClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsNotClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       // Previous return values have not changed
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -256,7 +257,7 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       const ui.Rect scaledExpandedBounds = ui.Rect.fromLTRB(5, 5.5, 10.5, 13);
       rectsClose(canvas.getLocalClipBounds(), scaledExpandedBounds);
       // Destination bounds are unaffected by transform
-      rectsClose(canvas.getDestinationClipBounds(), clipDestBounds);
+      rectsClose(canvas.getDestinationClipBounds(), clipExpandedBounds);
       canvas.restore();
 
       // save/restore returned the values to their original values
@@ -269,14 +270,13 @@ void runCanvasTests({required bool deviceClipRoundsOut}) {
       final ui.Canvas canvas = ui.Canvas(recorder, const ui.Rect.fromLTRB(0, 0, 100, 100));
       const ui.Rect clipRawBounds = ui.Rect.fromLTRB(10.2, 11.3, 20.4, 25.7);
       const ui.Rect clipExpandedBounds = ui.Rect.fromLTRB(10, 11, 21, 26);
-      final ui.Rect clipDestBounds = deviceClipRoundsOut ? clipExpandedBounds : clipRawBounds;
       canvas.clipRect(clipRawBounds);
 
       // Save initial return values for testing restored values
       final ui.Rect initialLocalBounds = canvas.getLocalClipBounds();
       final ui.Rect initialDestinationBounds = canvas.getDestinationClipBounds();
       rectsClose(initialLocalBounds, clipExpandedBounds);
-      rectsClose(initialDestinationBounds, clipDestBounds);
+      rectsClose(initialDestinationBounds, clipExpandedBounds);
 
       canvas.clipRect(const ui.Rect.fromLTRB(0, 0, 15, 15), clipOp: ui.ClipOp.difference);
       expect(canvas.getLocalClipBounds(), initialLocalBounds);

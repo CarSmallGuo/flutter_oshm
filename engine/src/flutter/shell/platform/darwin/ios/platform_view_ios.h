@@ -9,8 +9,6 @@
 
 #include "flutter/fml/closure.h"
 #include "flutter/fml/macros.h"
-#include "flutter/fml/platform/darwin/scoped_nsobject.h"
-#include "flutter/fml/platform/darwin/weak_nsobject.h"
 #include "flutter/shell/common/platform_view.h"
 #import "flutter/shell/platform/darwin/common/framework/Headers/FlutterTexture.h"
 #import "flutter/shell/platform/darwin/ios/framework/Headers/FlutterViewController.h"
@@ -32,7 +30,7 @@ namespace flutter {
  * The shell provides and requests for UI related data and this PlatformView subclass fulfills
  * it with iOS specific capabilities. As an example, the iOS embedding (the `FlutterEngine` and the
  * `FlutterViewController`) sends pointer data to the shell and receives the shell's request for a
- * Skia GrDirectContext and supplies it.
+ * Impeller AiksContext and supplies it.
  *
  * Despite the name "view", this class is unrelated to UIViews on iOS and doesn't have the same
  * lifecycle. It's a long lived bridge owned by the `FlutterEngine` and can be attached and
@@ -42,13 +40,13 @@ class PlatformViewIOS final : public PlatformView {
  public:
   PlatformViewIOS(PlatformView::Delegate& delegate,
                   const std::shared_ptr<IOSContext>& context,
-                  const std::shared_ptr<FlutterPlatformViewsController>& platform_views_controller,
+                  __weak FlutterPlatformViewsController* platform_views_controller,
                   const flutter::TaskRunners& task_runners);
 
   explicit PlatformViewIOS(
       PlatformView::Delegate& delegate,
       IOSRenderingAPI rendering_api,
-      const std::shared_ptr<FlutterPlatformViewsController>& platform_views_controller,
+      __weak FlutterPlatformViewsController* platform_views_controller,
       const flutter::TaskRunners& task_runners,
       const std::shared_ptr<fml::ConcurrentTaskRunner>& worker_task_runner,
       const std::shared_ptr<const fml::SyncSwitch>& is_gpu_disabled_sync_switch);
@@ -59,14 +57,14 @@ class PlatformViewIOS final : public PlatformView {
    * Returns the `FlutterViewController` currently attached to the `FlutterEngine` owning
    * this PlatformViewIOS.
    */
-  fml::WeakNSObject<FlutterViewController> GetOwnerViewController() const;
+  FlutterViewController* GetOwnerViewController() const __attribute__((cf_audited_transfer));
 
   /**
    * Updates the `FlutterViewController` currently attached to the `FlutterEngine` owning
    * this PlatformViewIOS. This should be updated when the `FlutterEngine`
    * is given a new `FlutterViewController`.
    */
-  void SetOwnerViewController(const fml::WeakNSObject<FlutterViewController>& owner_controller);
+  void SetOwnerViewController(__weak FlutterViewController* owner_controller);
 
   /**
    * Called one time per `FlutterViewController` when the `FlutterViewController`'s
@@ -88,6 +86,36 @@ class PlatformViewIOS final : public PlatformView {
 
   // |PlatformView|
   void SetSemanticsEnabled(bool enabled) override;
+
+  // |PlatformView|
+  void HandlePlatformMessage(std::unique_ptr<flutter::PlatformMessage> message) override;
+
+  // |PlatformView|
+  std::unique_ptr<Surface> CreateRenderingSurface() override;
+
+  // |PlatformView|
+  std::shared_ptr<ExternalViewEmbedder> CreateExternalViewEmbedder() override;
+
+  // |PlatformView|
+  std::shared_ptr<impeller::Context> GetImpellerContext() const override;
+
+  // |PlatformView|
+  void SetAccessibilityFeatures(int32_t flags) override;
+
+  // |PlatformView|
+  void UpdateSemantics(int64_t view_id,
+                       flutter::SemanticsNodeUpdates update,
+                       flutter::CustomAccessibilityActionUpdates actions) override;
+
+  // |PlatformView|
+  std::unique_ptr<VsyncWaiter> CreateVSyncWaiter() override;
+
+  // |PlatformView|
+  void OnPreEngineRestart() const override;
+
+  // |PlatformView|
+  std::unique_ptr<std::vector<std::string>> ComputePlatformResolvedLocales(
+      const std::vector<std::string>& supported_locale_data) override;
 
   /** Accessor for the `IOSContext` associated with the platform view. */
   const std::shared_ptr<IOSContext>& GetIosContext() { return ios_context_; }
@@ -133,50 +161,17 @@ class PlatformViewIOS final : public PlatformView {
     std::function<void(bool)> set_semantics_enabled_;
   };
 
-  fml::WeakNSObject<FlutterViewController> owner_controller_;
+  __weak FlutterViewController* owner_controller_;
   // Since the `ios_surface_` is created on the platform thread but
   // used on the raster thread we need to protect it with a mutex.
   std::mutex ios_surface_mutex_;
   std::unique_ptr<IOSSurface> ios_surface_;
   std::shared_ptr<IOSContext> ios_context_;
-  const std::shared_ptr<FlutterPlatformViewsController>& platform_views_controller_;
+  __weak FlutterPlatformViewsController* platform_views_controller_;
   AccessibilityBridgeManager accessibility_bridge_;
-  fml::scoped_nsprotocol<FlutterTextInputPlugin*> text_input_plugin_;
   ScopedObserver dealloc_view_controller_observer_;
   std::vector<std::string> platform_resolved_locale_;
   std::shared_ptr<PlatformMessageHandlerIos> platform_message_handler_;
-
-  // |PlatformView|
-  void HandlePlatformMessage(std::unique_ptr<flutter::PlatformMessage> message) override;
-
-  // |PlatformView|
-  std::unique_ptr<Surface> CreateRenderingSurface() override;
-
-  // |PlatformView|
-  std::shared_ptr<ExternalViewEmbedder> CreateExternalViewEmbedder() override;
-
-  // |PlatformView|
-  sk_sp<GrDirectContext> CreateResourceContext() const override;
-
-  // |PlatformView|
-  std::shared_ptr<impeller::Context> GetImpellerContext() const override;
-
-  // |PlatformView|
-  void SetAccessibilityFeatures(int32_t flags) override;
-
-  // |PlatformView|
-  void UpdateSemantics(flutter::SemanticsNodeUpdates update,
-                       flutter::CustomAccessibilityActionUpdates actions) override;
-
-  // |PlatformView|
-  std::unique_ptr<VsyncWaiter> CreateVSyncWaiter() override;
-
-  // |PlatformView|
-  void OnPreEngineRestart() const override;
-
-  // |PlatformView|
-  std::unique_ptr<std::vector<std::string>> ComputePlatformResolvedLocales(
-      const std::vector<std::string>& supported_locale_data) override;
 
   FML_DISALLOW_COPY_AND_ASSIGN(PlatformViewIOS);
 };

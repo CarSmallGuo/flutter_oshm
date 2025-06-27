@@ -25,9 +25,9 @@
 #include "flutter/fml/time/time_delta.h"
 #include "flutter/fml/time/time_point.h"
 #if IMPELLER_SUPPORTS_RENDERING
-#include "impeller/aiks/aiks_context.h"  // nogncheck
-#include "impeller/core/formats.h"       // nogncheck
-#include "impeller/renderer/context.h"   // nogncheck
+#include "impeller/core/formats.h"               // nogncheck
+#include "impeller/display_list/aiks_context.h"  // nogncheck
+#include "impeller/renderer/context.h"           // nogncheck
 #include "impeller/typographer/backends/skia/typographer_context_skia.h"  // nogncheck
 #endif  // IMPELLER_SUPPORTS_RENDERING
 #include "flutter/lib/ui/snapshot_delegate.h"
@@ -38,7 +38,7 @@
 #include "third_party/skia/include/core/SkImage.h"
 #include "third_party/skia/include/core/SkRect.h"
 #include "third_party/skia/include/core/SkRefCnt.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 #if !IMPELLER_SUPPORTS_RENDERING
 namespace impeller {
@@ -261,11 +261,12 @@ class Rasterizer final : public SnapshotDelegate,
   //----------------------------------------------------------------------------
   /// @brief      Deallocate the resources for displaying a view.
   ///
-  ///             This method must be called when a view is removed.
+  ///             This method must be called on the raster task runner when a
+  ///             view is removed from the engine.
   ///
-  ///             The rasterizer don't need views to be registered. Last-frame
-  ///             states for views are recorded when layer trees are rasterized
-  ///             to the view and used during `Rasterizer::DrawLastLayerTrees`.
+  ///             When the rasterizer is requested to draw an unrecognized view,
+  ///             it implicitly allocates necessary resources. These resources
+  ///             must be explicitly deallocated.
   ///
   /// @param[in]  view_id  The ID of the view.
   ///
@@ -642,11 +643,21 @@ class Rasterizer final : public SnapshotDelegate,
       const SkImageInfo& image_info) override;
 
   // |SnapshotDelegate|
-  sk_sp<DlImage> MakeRasterSnapshot(sk_sp<DisplayList> display_list,
-                                    SkISize picture_size) override;
+  void MakeRasterSnapshot(
+      sk_sp<DisplayList> display_list,
+      SkISize picture_size,
+      std::function<void(sk_sp<DlImage>)> callback) override;
+
+  // |SnapshotDelegate|
+  sk_sp<DlImage> MakeRasterSnapshotSync(sk_sp<DisplayList> display_list,
+                                        SkISize picture_size) override;
 
   // |SnapshotDelegate|
   sk_sp<SkImage> ConvertToRasterImage(sk_sp<SkImage> image) override;
+
+  // |SnapshotDelegate|
+  void CacheRuntimeStage(
+      const std::shared_ptr<impeller::RuntimeStage>& runtime_stage) override;
 
   // |Stopwatch::Delegate|
   /// Time limit for a smooth frame.
@@ -657,6 +668,15 @@ class Rasterizer final : public SnapshotDelegate,
   // |SnapshotController::Delegate|
   const std::unique_ptr<Surface>& GetSurface() const override {
     return surface_;
+  }
+
+  // |SnapshotController::Delegate|
+  bool IsAiksContextInitialized() const override {
+#if IMPELLER_SUPPORTS_RENDERING
+    return surface_ && surface_->GetAiksContext();
+#else
+    return false;
+#endif
   }
 
   // |SnapshotController::Delegate|
@@ -734,10 +754,9 @@ class Rasterizer final : public SnapshotDelegate,
   static bool ShouldResubmitFrame(const DoDrawResult& result);
   static DrawStatus ToDrawStatus(DoDrawStatus status);
 
-  bool use_last_layer_tree_ = false;
   bool is_torn_down_ = false;
   Delegate& delegate_;
-  MakeGpuImageBehavior gpu_image_behavior_;
+  [[maybe_unused]] MakeGpuImageBehavior gpu_image_behavior_;
   std::weak_ptr<impeller::Context> impeller_context_;
   std::unique_ptr<Surface> surface_;
   std::unique_ptr<SnapshotSurfaceProducer> snapshot_surface_producer_;

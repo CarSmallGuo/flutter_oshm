@@ -35,14 +35,8 @@ def get_out_dir(args):
   if args.unoptimized:
     target_dir.append('unopt')
 
-  if args.target_os != 'ios' and args.interpreter:
-    target_dir.append('interpreter')
-
   if args.android_cpu != 'arm':
     target_dir.append(args.android_cpu)
-
-  if args.ios_cpu != 'arm64':
-    target_dir.append(args.ios_cpu)
 
   if args.mac_cpu != 'x64':
     target_dir.append(args.mac_cpu)
@@ -52,10 +46,6 @@ def get_out_dir(args):
 
   if args.linux_cpu is not None:
     target_dir.append(args.linux_cpu)
-
-
-#  if args.ohos_cpu is not None:
-#   target_dir.append(args.ohos_cpu)
 
   if args.windows_cpu != 'x64':
     target_dir.append(args.windows_cpu)
@@ -71,6 +61,9 @@ def get_out_dir(args):
 
   if args.darwin_extension_safe:
     target_dir.append('extension_safe')
+
+  if args.slimpeller:
+    target_dir.append('slimpeller')
 
   if args.target_dir != '':
     target_dir = [args.target_dir]
@@ -221,6 +214,13 @@ def buildtools_dir():
   return '%s-%s' % (host_os, host_cpu)
 
 
+def get_dart_path():
+  new_dart_path = os.path.join(SRC_ROOT, 'flutter', 'third_party', 'dart')
+  if os.path.exists(new_dart_path):
+    return new_dart_path
+  return os.path.join(SRC_ROOT, 'third_party', 'dart')
+
+
 def setup_rbe(args):
   rbe_gn_args = {}
   # RBE is default-off. If it is not asked for, then silently keep all default
@@ -233,6 +233,15 @@ def setup_rbe(args):
   # When running in CI, the recipes use their own rbe install, and take
   # care of starting and stopping the compiler proxy.
   running_on_luci = os.environ.get('LUCI_CONTEXT') is not None
+
+  # The default is 'racing', which eagerly attempts to use the local machine
+  # to run build actions. This is not a performance improvement in CI where the
+  # 'local machine' is nearly always a VM anyway, and is not any more powerful
+  # than the 'remote' RBE workers. Only  attempt a 'local' build if the remote
+  # worker times-out or otherwise fails. See also docs on RbeExecStrategy in the
+  # engine_build_config package under tools/pkg.
+  if running_on_luci:
+    rbe_gn_args['rbe_exec_strategy'] = 'remote_local_fallback'
 
   if args.rbe_server_address:
     rbe_gn_args['rbe_server_address'] = args.rbe_server_address
@@ -468,6 +477,9 @@ def to_gn_args(args):
       raise Exception('--simulator is only supported for iOS')
 
   print('args.target_os:%s' % args.target_os)
+  if args.slimpeller and args.target_os != 'ios':
+    raise Exception('--slimpeller is only supported for iOS.')
+
   runtime_mode = args.runtime_mode
 
   gn_args = {}
@@ -506,6 +518,10 @@ def to_gn_args(args):
     gn_args['enable_unittests'] = False
 
   # Skia GN args.
+  gn_args['skia_use_libpng_decode'] = True
+  gn_args['skia_use_libpng_encode'] = True
+  gn_args['skia_use_rust_png_decode'] = False
+  gn_args['skia_use_rust_png_encode'] = False
   gn_args['skia_use_dng_sdk'] = False  # RAW image handling.
   gn_args['skia_enable_pdf'] = False  # PDF handling.
   gn_args['skia_use_x11'] = False  # Never add the X11 dependency (only takes effect on Linux).
@@ -523,6 +539,10 @@ def to_gn_args(args):
     gn_args['is_clang'] = True
   else:
     gn_args['is_clang'] = args.clang
+  if args.target_os == 'ios' or args.slimpeller:
+    gn_args['skia_enable_graphite'] = False
+    gn_args['skia_enable_ganesh'] = False
+    gn_args['slimpeller'] = True
 
   if args.target_os == 'android' or args.target_os == 'ios':
     gn_args['skia_gl_standard'] = 'gles'
@@ -620,12 +640,12 @@ def to_gn_args(args):
   else:
     gn_args['dart_runtime_mode'] = runtime_mode
 
-  gn_args['concurrent_dart_jobs'] = get_concurrent_jobs('1GB', '1GB')
+  gn_args['concurrent_toolchain_jobs'] = get_concurrent_jobs('1GB', '100MB')
 
   # Hardcoding this avoids invoking a relatively expensive python script from
   # GN, but removes the ability to use git-worktrees in the Dart checkout from
   # within the Engine repo, but it's unlikely anyone is using that.
-  gn_args['default_git_folder'] = os.path.join(SRC_ROOT, 'third_party', 'dart', '.git')
+  gn_args['default_git_folder'] = os.path.join(get_dart_path(), '.git')
 
   # By default, the Dart GN build will invoke a relatively expensive python
   # script to calculate an SDK "hash" that ensures compatibility between the
@@ -718,6 +738,14 @@ def to_gn_args(args):
   if args.arm_float_abi:
     gn_args['arm_float_abi'] = args.arm_float_abi
 
+  if args.dart_dynamic_modules:
+    if not args.prebuilt_dart_sdk:
+      print('--dart-dynamic-modules can only be used with --no-prebuilt-dart-sdk')
+    gn_args['dart_dynamic_modules'] = True
+
+  if args.no_enable_unittests:
+    gn_args['dart_dynamic_modules'] = False
+
   # If we have a prebuilt for the Dart SDK for the target architecture, then
   # use it instead of building a new one.
   if args.prebuilt_dart_sdk:
@@ -756,6 +784,12 @@ def to_gn_args(args):
     gn_args['build_embedder_examples'] = args.build_embedder_examples
 
   gn_args['stripped_symbols'] = args.stripped
+  if args.stripped is True:
+    gn_args['stripped_symbols'] = True
+  elif args.stripped is False:
+    gn_args['stripped_symbols'] = False
+  else:
+    gn_args['stripped_symbols'] = args.target_os != 'android'
 
   if args.msan:
     gn_args['is_msan'] = True
@@ -816,7 +850,6 @@ def to_gn_args(args):
     malioc_path = os.environ.get('MALIOC_PATH')
   if malioc_path:
     gn_args['impeller_malioc_path'] = malioc_path
-    gn_args['impeller_concurrent_malioc_jobs'] = get_concurrent_jobs('1GB', '100MB')
 
   if args.use_glfw_swiftshader:
     if get_host_os() == 'mac':
@@ -896,9 +929,9 @@ def to_gn_wasm_args(args, gn_args):
   gn_args['skia_gl_standard'] = 'webgl'
   gn_args['skia_enable_ganesh'] = True
   gn_args['skia_enable_skottie'] = False
-  gn_args['skia_enable_sksl_tracing'] = False
   gn_args['icu_use_data_file'] = False
   gn_args['skia_use_freetype'] = True
+  gn_args['flutter_use_freetype_woff2'] = True
   gn_args['skia_use_harfbuzz'] = True
   gn_args['skia_use_fontconfig'] = False
   gn_args['skia_use_libheif'] = False
@@ -928,12 +961,10 @@ def to_gn_wasm_args(args, gn_args):
 
 
 def run_impeller_cmake(args):
-  impeller_cmake_dir = os.path.join('third_party', 'impeller-cmake-example')
+  impeller_cmake_dir = os.path.join('flutter', 'third_party', 'impeller-cmake-example')
   if not os.path.isdir(os.path.join(SRC_ROOT, impeller_cmake_dir)):
     print('The Impeller cmake example directory "{}" does not exist'.format(impeller_cmake_dir))
     return 1
-  goma_gn_args = setup_goma(args)
-  goma_dir = goma_gn_args['goma_dir']
   cmake_cmd = [
       'python3',
       os.path.join(SRC_ROOT, 'flutter', 'ci', 'impeller_cmake_build_test.py'),
@@ -1107,7 +1138,7 @@ def parse_args(args):
   parser.add_argument(
       '--xcode-symlinks',
       action='store_true',
-      help='Set to true for builds targeting macOS or iOS when using goma. If '
+      help='Set to true for builds targeting macOS or iOS when using RBE. If '
       'set, symlinks to the Xcode provided sysroot and SDKs will be '
       'created in a generated folder, which will avoid potential backend '
       'errors in Fuchsia RBE. Instead of specifying the flag on each '
@@ -1257,15 +1288,18 @@ def parse_args(args):
       help='Use mallinfo2 to collect malloc stats.'
   )
 
-  # Impeller flags.
   parser.add_argument(
-      '--prebuilt-impellerc',
-      default=None,
-      type=str,
-      help='Absolute path to a prebuilt impellerc. ' +
-      'Do not use this outside of CI or with impellerc from a different engine version.'
+      '--dart-dynamic-modules',
+      default=False,
+      action='store_true',
+      help='Whether to include the Dart dynamic module interpreter in the Dart '
+      'sdk build. Must be used with --no-prebuilt-dart-sdk.'
+  )
+  parser.add_argument(
+      '--no-dart-dynamic-modules', dest='dart-dynamic-modules', action='store_false'
   )
 
+  # Impeller flags.
   parser.add_argument(
       '--enable-impeller-3d',
       default=False,
@@ -1291,6 +1325,17 @@ def parse_args(args):
   # Sanitizers.
   parser.add_argument('--asan', default=False, action='store_true')
   parser.add_argument('--hwasan', default=False, action='store_true')
+  parser.add_argument(
+      '--slimpeller',
+      default=False,
+      action='store_true',
+      help='Enable optimizations that attempt to reduce binary size of the ' +
+      'Flutter engine by assuming only the Impeller rendering engine is supported.' +
+      'See [go/slimpeller-dashboard](https://github.com/orgs/flutter/projects/21) for details.'
+  )
+
+  # Sanitizers.
+  parser.add_argument('--asan', default=False, action='store_true')
   parser.add_argument('--lsan', default=False, action='store_true')
   parser.add_argument('--msan', default=False, action='store_true')
   parser.add_argument('--tsan', default=False, action='store_true')

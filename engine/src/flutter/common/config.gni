@@ -27,11 +27,12 @@ declare_args() {
   # Whether to include backtrace support.
   enable_backtrace = true
 
-  # Whether to include --fapplication-extension when build iOS framework.
-  # This is currently a test flag and does not work properly.
-  #TODO(cyanglaz): Remove above comment about test flag when the entire iOS embedder supports app extension
-  #https://github.com/flutter/flutter/issues/124289
-  darwin_extension_safe = false
+  # Whether binary size optimizations with the assumption that Impeller is the
+  # only supported rendering engine are enabled.
+  #
+  # See [go/slimpeller-dashboard](https://github.com/orgs/flutter/projects/21)
+  # for details.
+  slimpeller = false
 }
 
 # feature_defines_list ---------------------------------------------------------
@@ -66,18 +67,21 @@ if (flutter_runtime_mode == "debug") {
   feature_defines_list += [ "FLUTTER_RUNTIME_MODE=0" ]
 }
 
+if (slimpeller) {
+  feature_defines_list += [ "SLIMPELLER=1" ]
+}
+
 if (is_ios || is_mac) {
   flutter_cflags_objc = [
     "-Werror=overriding-method-mismatch",
     "-Werror=undeclared-selector",
+    "-fobjc-arc",
   ]
   if (is_mac) {
     flutter_cflags_objc += [ "-fapplication-extension" ]
   }
 
   flutter_cflags_objcc = flutter_cflags_objc
-  flutter_cflags_objc_arc = flutter_cflags_objc + [ "-fobjc-arc" ]
-  flutter_cflags_objcc_arc = flutter_cflags_objc_arc
 }
 
 # A combo of host os name and cpu is used in several locations to
@@ -151,6 +155,6 @@ if (flutter_prebuilt_dart_sdk) {
 # TODO: We can't build the engine artifacts for arm (32-bit) right now;
 # see https://github.com/flutter/flutter/issues/74322
 build_engine_artifacts =
-    flutter_build_engine_artifacts &&
+    flutter_build_engine_artifacts && !is_android &&
     (current_toolchain == host_toolchain ||
      (is_linux && !is_chromeos && current_cpu != "arm") || is_mac || is_win || is_ohos)

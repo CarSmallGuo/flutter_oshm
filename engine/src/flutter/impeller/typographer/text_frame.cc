@@ -3,13 +3,24 @@
 // found in the LICENSE file.
 
 #include "impeller/typographer/text_frame.h"
+#include "flutter/display_list/geometry/dl_path.h"  // nogncheck
+#include "fml/status.h"
+#include "impeller/geometry/scalar.h"
+#include "impeller/typographer/font.h"
+#include "impeller/typographer/font_glyph_pair.h"
 
 namespace impeller {
 
 TextFrame::TextFrame() = default;
 
-TextFrame::TextFrame(std::vector<TextRun>& runs, Rect bounds, bool has_color)
-    : runs_(std::move(runs)), bounds_(bounds), has_color_(has_color) {}
+TextFrame::TextFrame(std::vector<TextRun>& runs,
+                     Rect bounds,
+                     bool has_color,
+                     const PathCreator& path_creator)
+    : runs_(std::move(runs)),
+      bounds_(bounds),
+      has_color_(has_color),
+      path_creator_(path_creator) {}
 
 TextFrame::~TextFrame() = default;
 
@@ -30,62 +41,149 @@ GlyphAtlas::Type TextFrame::GetAtlasType() const {
                     : GlyphAtlas::Type::kAlphaBitmap;
 }
 
-bool TextFrame::MaybeHasOverlapping() const {
-  if (runs_.size() > 1) {
-    return true;
-  }
-  auto glyph_positions = runs_[0].GetGlyphPositions();
-  if (glyph_positions.size() > 10) {
-    return true;
-  }
-  if (glyph_positions.size() == 1) {
-    return false;
-  }
-  // To avoid quadradic behavior the overlapping is checked against an
-  // accumulated bounds rect. This gives faster but less precise information
-  // on text runs.
-  auto first_position = glyph_positions[0];
-  auto overlapping_rect = Rect::MakeOriginSize(
-      first_position.position + first_position.glyph.bounds.GetOrigin(),
-      first_position.glyph.bounds.GetSize());
-  for (auto i = 1u; i < glyph_positions.size(); i++) {
-    auto glyph_position = glyph_positions[i];
-    auto glyph_rect = Rect::MakeOriginSize(
-        glyph_position.position + glyph_position.glyph.bounds.GetOrigin(),
-        glyph_position.glyph.bounds.GetSize());
-    auto intersection = glyph_rect.Intersection(overlapping_rect);
-    if (intersection.has_value()) {
-      return true;
-    }
-    overlapping_rect = overlapping_rect.Union(glyph_rect);
-  }
-  return false;
+bool TextFrame::HasColor() const {
+  return has_color_;
 }
+
+namespace {
+constexpr uint32_t kDenominator = 200;
+constexpr int32_t kMaximumTextScale = 48;
+constexpr Rational kZero(0, kDenominator);
+}  // namespace
 
 // static
-Scalar TextFrame::RoundScaledFontSize(Scalar scale, Scalar point_size) {
-  return std::round(scale * 100) / 100;
+Rational TextFrame::RoundScaledFontSize(Scalar scale) {
+  if (scale > kMaximumTextScale) {
+    return Rational(kMaximumTextScale * kDenominator, kDenominator);
+  }
+  // An arbitrarily chosen maximum text scale to ensure that regardless of the
+  // CTM, a glyph will fit in the atlas. If we clamp significantly, this may
+  // reduce fidelity but is preferable to the alternative of failing to render.
+  Rational result = Rational(std::round(scale * kDenominator), kDenominator);
+  return result < kZero ? kZero : result;
 }
 
-void TextFrame::CollectUniqueFontGlyphPairs(FontGlyphMap& glyph_map,
-                                            Scalar scale) const {
-  for (const TextRun& run : GetRuns()) {
-    const Font& font = run.GetFont();
-    auto rounded_scale =
-        RoundScaledFontSize(scale, font.GetMetrics().point_size);
-    auto& set = glyph_map[{font, rounded_scale}];
-    for (const TextRun::GlyphPosition& glyph_position :
-         run.GetGlyphPositions()) {
-#if false
-// Glyph size error due to RoundScaledFontSize usage above.
-if (rounded_scale != scale) {
-  auto delta = std::abs(rounded_scale - scale);
-  FML_LOG(ERROR) << glyph_position.glyph.bounds.size * delta;
+Rational TextFrame::RoundScaledFontSize(Rational scale) {
+  Rational result = Rational(
+      std::round((scale.GetNumerator() * static_cast<Scalar>(kDenominator))) /
+          scale.GetDenominator(),
+      kDenominator);
+  return std::clamp(result, Rational(0, kDenominator),
+                    Rational(kMaximumTextScale * kDenominator, kDenominator));
 }
-#endif
-      set.insert(glyph_position.glyph);
-    }
+
+static constexpr SubpixelPosition ComputeFractionalPosition(Scalar value) {
+  value += 0.125;
+  value = (value - floorf(value));
+  if (value < 0.25) {
+    return SubpixelPosition::kSubpixel00;
   }
+  if (value < 0.5) {
+    return SubpixelPosition::kSubpixel10;
+  }
+  if (value < 0.75) {
+    return SubpixelPosition::kSubpixel20;
+  }
+  return SubpixelPosition::kSubpixel30;
+}
+
+// Compute subpixel position for glyphs based on X position and provided
+// max basis length (scale).
+// This logic is based on the SkPackedGlyphID logic in SkGlyph.h
+// static
+SubpixelPosition TextFrame::ComputeSubpixelPosition(
+    const TextRun::GlyphPosition& glyph_position,
+    AxisAlignment alignment,
+    const Matrix& transform) {
+  Point pos = transform * glyph_position.position;
+  switch (alignment) {
+    case AxisAlignment::kNone:
+      return SubpixelPosition::kSubpixel00;
+    case AxisAlignment::kX:
+      return ComputeFractionalPosition(pos.x);
+    case AxisAlignment::kY:
+      return static_cast<SubpixelPosition>(ComputeFractionalPosition(pos.y)
+                                           << 2);
+    case AxisAlignment::kAll:
+      return static_cast<SubpixelPosition>(
+          ComputeFractionalPosition(pos.x) |
+          (ComputeFractionalPosition(pos.y) << 2));
+  }
+}
+
+Matrix TextFrame::GetOffsetTransform() const {
+  return transform_ * Matrix::MakeTranslation(offset_);
+}
+
+void TextFrame::SetPerFrameData(Rational scale,
+                                Point offset,
+                                const Matrix& transform,
+                                std::optional<GlyphProperties> properties) {
+  bound_values_.clear();
+  scale_ = scale;
+  offset_ = offset;
+  properties_ = properties;
+  transform_ = transform;
+}
+
+Rational TextFrame::GetScale() const {
+  return scale_;
+}
+
+Point TextFrame::GetOffset() const {
+  return offset_;
+}
+
+std::optional<GlyphProperties> TextFrame::GetProperties() const {
+  return properties_;
+}
+
+void TextFrame::AppendFrameBounds(const FrameBounds& frame_bounds) {
+  bound_values_.push_back(frame_bounds);
+}
+
+void TextFrame::ClearFrameBounds() {
+  bound_values_.clear();
+}
+
+fml::StatusOr<flutter::DlPath> TextFrame::GetPath() const {
+  if (path_creator_) {
+    return path_creator_();
+  }
+  return fml::Status(fml::StatusCode::kCancelled, "no path creator specified.");
+}
+
+bool TextFrame::IsFrameComplete() const {
+  size_t run_size = 0;
+  for (const auto& x : runs_) {
+    run_size += x.GetGlyphCount();
+  }
+  return bound_values_.size() == run_size;
+}
+
+const Font& TextFrame::GetFont() const {
+  return runs_[0].GetFont();
+}
+
+std::optional<Glyph> TextFrame::AsSingleGlyph() const {
+  if (runs_.size() == 1 && runs_[0].GetGlyphCount() == 1) {
+    return runs_[0].GetGlyphPositions()[0].glyph;
+  }
+  return std::nullopt;
+}
+
+const FrameBounds& TextFrame::GetFrameBounds(size_t index) const {
+  FML_DCHECK(index < bound_values_.size());
+  return bound_values_[index];
+}
+
+std::pair<size_t, intptr_t> TextFrame::GetAtlasGenerationAndID() const {
+  return std::make_pair(generation_, atlas_id_);
+}
+
+void TextFrame::SetAtlasGeneration(size_t value, intptr_t atlas_id) {
+  generation_ = value;
+  atlas_id_ = atlas_id;
 }
 
 }  // namespace impeller

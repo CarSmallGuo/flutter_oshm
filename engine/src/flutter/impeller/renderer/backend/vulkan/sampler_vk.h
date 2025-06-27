@@ -5,7 +5,6 @@
 #ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_SAMPLER_VK_H_
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_VULKAN_SAMPLER_VK_H_
 
-#include "flutter/fml/macros.h"
 #include "impeller/base/backend_cast.h"
 #include "impeller/core/sampler.h"
 #include "impeller/renderer/backend/vulkan/shared_object_vk.h"
@@ -19,7 +18,7 @@ class YUVConversionVK;
 class SamplerVK final : public Sampler, public BackendCast<SamplerVK, Sampler> {
  public:
   SamplerVK(const vk::Device& device,
-            SamplerDescriptor desc,
+            const SamplerDescriptor&,
             std::shared_ptr<YUVConversionVK> yuv_conversion = {});
 
   // |Sampler|
@@ -38,6 +37,7 @@ class SamplerVK final : public Sampler, public BackendCast<SamplerVK, Sampler> {
   const vk::Device device_;
   SharedHandleVK<vk::Sampler> sampler_;
   std::shared_ptr<YUVConversionVK> yuv_conversion_;
+  bool mips_disabled_workaround_ = false;
   bool is_valid_ = false;
 
   SamplerVK(const SamplerVK&) = delete;

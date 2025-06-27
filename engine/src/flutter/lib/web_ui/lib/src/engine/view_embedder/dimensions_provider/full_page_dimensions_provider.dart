@@ -4,11 +4,11 @@
 
 import 'dart:async';
 
-import 'package:ui/src/engine/browser_detection.dart';
 import 'package:ui/src/engine/display.dart';
 import 'package:ui/src/engine/dom.dart';
 import 'package:ui/src/engine/window.dart';
 import 'package:ui/ui.dart' as ui show Size;
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
 import 'dimensions_provider.dart';
 
@@ -26,14 +26,13 @@ class FullPageDimensionsProvider extends DimensionsProvider {
     // Determine what 'resize' event we'll be listening to.
     // This is needed for older browsers (Firefox < 91, Safari < 13)
     // TODO(dit): Clean this up, https://github.com/flutter/flutter/issues/117105
-    final DomEventTarget resizeEventTarget =
-        domWindow.visualViewport ?? domWindow;
+    final DomEventTarget resizeEventTarget = domWindow.visualViewport ?? domWindow;
 
     // Subscribe to the 'resize' event, and convert it to a ui.Size stream.
     _domResizeSubscription = DomSubscription(
       resizeEventTarget,
       'resize',
-      _onVisualViewportResize,
+      createDomEventListener(_onVisualViewportResize),
     );
   }
 
@@ -56,7 +55,6 @@ class FullPageDimensionsProvider extends DimensionsProvider {
   void close() {
     super.close();
     _domResizeSubscription.cancel();
-    // ignore:unawaited_futures
     _onResizeStreamController.close();
   }
 
@@ -71,7 +69,7 @@ class FullPageDimensionsProvider extends DimensionsProvider {
     final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
 
     if (viewport != null) {
-      if (operatingSystem == OperatingSystem.iOs) {
+      if (ui_web.browser.operatingSystem == ui_web.OperatingSystem.iOs) {
         /// Chrome on iOS reports incorrect viewport.height when app
         /// starts in portrait orientation and the phone is rotated to
         /// landscape.
@@ -92,25 +90,18 @@ class FullPageDimensionsProvider extends DimensionsProvider {
       windowInnerWidth = domWindow.innerWidth! * devicePixelRatio;
       windowInnerHeight = domWindow.innerHeight! * devicePixelRatio;
     }
-    return ui.Size(
-      windowInnerWidth,
-      windowInnerHeight,
-    );
+    return ui.Size(windowInnerWidth, windowInnerHeight);
   }
 
   @override
-  ViewPadding computeKeyboardInsets(
-    double physicalHeight,
-    bool isEditingOnMobile,
-  ) {
+  ViewPadding computeKeyboardInsets(double physicalHeight, bool isEditingOnMobile) {
     final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
     final DomVisualViewport? viewport = domWindow.visualViewport;
     late double windowInnerHeight;
 
     if (viewport != null) {
-      if (operatingSystem == OperatingSystem.iOs && !isEditingOnMobile) {
-        windowInnerHeight =
-            domDocument.documentElement!.clientHeight * devicePixelRatio;
+      if (ui_web.browser.operatingSystem == ui_web.OperatingSystem.iOs && !isEditingOnMobile) {
+        windowInnerHeight = domDocument.documentElement!.clientHeight * devicePixelRatio;
       } else {
         windowInnerHeight = viewport.height! * devicePixelRatio;
       }

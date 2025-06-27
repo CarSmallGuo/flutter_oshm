@@ -10,17 +10,12 @@
 #include <utility>
 #include <vector>
 
+#include "flutter/assets/native_assets.h"
 #include "flutter/common/settings.h"
-#include "flutter/fml/make_copyable.h"
 #include "flutter/fml/trace_event.h"
-#include "flutter/lib/snapshot/snapshot.h"
 #include "flutter/lib/ui/text/font_collection.h"
 #include "flutter/shell/common/animator.h"
-#include "flutter/shell/common/platform_view.h"
-#include "flutter/shell/common/shell.h"
-#include "impeller/runtime_stage/runtime_stage.h"
 #include "rapidjson/document.h"
-#include "third_party/dart/runtime/include/dart_tools_api.h"
 
 namespace flutter {
 
@@ -74,7 +69,6 @@ Engine::Engine(Delegate& delegate,
                fml::WeakPtr<IOManager> io_manager,
                const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
                fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
-               std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
                const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
                impeller::RuntimeStageBackend runtime_stage_type)
     : Engine(delegate,
@@ -105,10 +99,11 @@ Engine::Engine(Delegate& delegate,
           image_generator_registry_.GetWeakPtr(),  // image generator registry
           settings_.advisory_script_uri,           // advisory script uri
           settings_.advisory_script_entrypoint,    // advisory script entrypoint
-          std::move(volatile_path_tracker),        // volatile path tracker
-          vm.GetConcurrentWorkerTaskRunner(),      // concurrent task runner
-          settings_.enable_impeller,               // enable impeller
-          runtime_stage_type,                      // runtime stage type
+          settings_
+              .skia_deterministic_rendering_on_cpu,  // deterministic rendering
+          vm.GetConcurrentWorkerTaskRunner(),        // concurrent task runner
+          settings_.enable_impeller,                 // enable impeller
+          runtime_stage_type,                        // runtime stage type
       });
 }
 
@@ -195,6 +190,11 @@ bool Engine::UpdateAssetManager(
     font_collection_->RegisterTestFonts();
   }
 
+  if (native_assets_manager_ == nullptr) {
+    native_assets_manager_ = std::make_shared<NativeAssetsManager>();
+  }
+  native_assets_manager_->RegisterNativeAssets(asset_manager_);
+
   return true;
 }
 
@@ -244,8 +244,10 @@ Engine::RunStatus Engine::Run(RunConfiguration configuration) {
           configuration.GetEntrypoint(),             //
           configuration.GetEntrypointLibrary(),      //
           configuration.GetEntrypointArgs(),         //
-          configuration.TakeIsolateConfiguration())  //
-  ) {
+          configuration.TakeIsolateConfiguration(),  //
+          native_assets_manager_,                    //
+          configuration.GetEngineId()))              //
+  {
     return RunStatus::Failure;
   }
 
@@ -293,16 +295,26 @@ bool Engine::UIIsolateHasLivePorts() {
   return runtime_controller_->HasLivePorts();
 }
 
+bool Engine::UIIsolateHasPendingMicrotasks() {
+  return runtime_controller_->HasPendingMicrotasks();
+}
+
 tonic::DartErrorHandleType Engine::GetUIIsolateLastError() {
   return runtime_controller_->GetLastError();
 }
 
-void Engine::AddView(int64_t view_id, const ViewportMetrics& view_metrics) {
-  runtime_controller_->AddView(view_id, view_metrics);
+void Engine::AddView(int64_t view_id,
+                     const ViewportMetrics& view_metrics,
+                     std::function<void(bool added)> callback) {
+  runtime_controller_->AddView(view_id, view_metrics, std::move(callback));
 }
 
 bool Engine::RemoveView(int64_t view_id) {
   return runtime_controller_->RemoveView(view_id);
+}
+
+bool Engine::SendViewFocusEvent(const ViewFocusEvent& event) {
+  return runtime_controller_->SendViewFocusEvent(event);
 }
 
 void Engine::SetViewportMetrics(int64_t view_id,
@@ -438,10 +450,11 @@ void Engine::DispatchPointerDataPacket(
   pointer_data_dispatcher_->DispatchPacket(std::move(packet), trace_flow_id);
 }
 
-void Engine::DispatchSemanticsAction(int node_id,
+void Engine::DispatchSemanticsAction(int64_t view_id,
+                                     int node_id,
                                      SemanticsAction action,
                                      fml::MallocMapping args) {
-  runtime_controller_->DispatchSemanticsAction(node_id, action,
+  runtime_controller_->DispatchSemanticsAction(view_id, node_id, action,
                                                std::move(args));
 }
 
@@ -489,9 +502,11 @@ void Engine::Render(int64_t view_id,
   animator_->Render(view_id, std::move(layer_tree), device_pixel_ratio);
 }
 
-void Engine::UpdateSemantics(SemanticsNodeUpdates update,
+void Engine::UpdateSemantics(int64_t view_id,
+                             SemanticsNodeUpdates update,
                              CustomAccessibilityActionUpdates actions) {
-  delegate_.OnEngineUpdateSemantics(std::move(update), std::move(actions));
+  delegate_.OnEngineUpdateSemantics(view_id, std::move(update),
+                                    std::move(actions));
 }
 
 void Engine::HandlePlatformMessage(std::unique_ptr<PlatformMessage> message) {
@@ -519,6 +534,10 @@ std::unique_ptr<std::vector<std::string>> Engine::ComputePlatformResolvedLocale(
 double Engine::GetScaledFontSize(double unscaled_font_size,
                                  int configuration_id) const {
   return delegate_.GetScaledFontSize(unscaled_font_size, configuration_id);
+}
+
+void Engine::RequestViewFocusChange(const ViewFocusChangeRequest& request) {
+  delegate_.RequestViewFocusChange(request);
 }
 
 void Engine::SetNeedsReportTimings(bool needs_reporting) {
@@ -624,6 +643,10 @@ void Engine::SetDisplays(const std::vector<DisplayData>& displays) {
 
 void Engine::ShutdownPlatformIsolates() {
   runtime_controller_->ShutdownPlatformIsolates();
+}
+
+void Engine::FlushMicrotaskQueue() {
+  runtime_controller_->FlushMicrotaskQueue();
 }
 
 }  // namespace flutter

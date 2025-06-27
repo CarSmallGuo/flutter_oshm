@@ -35,11 +35,11 @@ TEST(RasterCache, MetricsOmitUnpopulatedEntries) {
   size_t threshold = 2;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -95,11 +95,11 @@ TEST(RasterCache, ThresholdIsRespectedForDisplayList) {
   size_t threshold = 2;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -143,54 +143,15 @@ TEST(RasterCache, ThresholdIsRespectedForDisplayList) {
   ASSERT_TRUE(display_list_item.Draw(paint_context, &dummy_canvas, &paint));
 }
 
-TEST(RasterCache, SetCheckboardCacheImages) {
-  size_t threshold = 1;
-  flutter::RasterCache cache(threshold);
-
-  SkMatrix matrix = SkMatrix::I();
-  auto display_list = GetSampleDisplayList();
-
-  LayerStateStack preroll_state_stack;
-  preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
-
-  FixedRefreshRateStopwatch raster_time;
-  FixedRefreshRateStopwatch ui_time;
-  PaintContextHolder paint_context_holder = GetSamplePaintContextHolder(
-      preroll_state_stack, &cache, &raster_time, &ui_time);
-  auto& paint_context = paint_context_holder.paint_context;
-  auto dummy_draw_function = [](DlCanvas* canvas) {};
-  bool did_draw_checkerboard = false;
-  auto draw_checkerboard = [&](DlCanvas* canvas, const SkRect&) {
-    did_draw_checkerboard = true;
-  };
-  RasterCache::Context r_context = {
-      // clang-format off
-      .gr_context         = paint_context.gr_context,
-      .dst_color_space    = paint_context.dst_color_space,
-      .matrix             = matrix,
-      .logical_rect       = display_list->bounds(),
-      .flow_type          = "RasterCacheFlow::DisplayList",
-      // clang-format on
-  };
-
-  cache.SetCheckboardCacheImages(false);
-  cache.Rasterize(r_context, nullptr, dummy_draw_function, draw_checkerboard);
-  ASSERT_FALSE(did_draw_checkerboard);
-
-  cache.SetCheckboardCacheImages(true);
-  cache.Rasterize(r_context, nullptr, dummy_draw_function, draw_checkerboard);
-  ASSERT_TRUE(did_draw_checkerboard);
-}
-
 TEST(RasterCache, AccessThresholdOfZeroDisablesCachingForDisplayList) {
   size_t threshold = 0;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -220,11 +181,11 @@ TEST(RasterCache, PictureCacheLimitPerFrameIsRespectedWhenZeroForDisplayList) {
   size_t picture_cache_limit_per_frame = 0;
   flutter::RasterCache cache(3, picture_cache_limit_per_frame);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -263,12 +224,12 @@ TEST(RasterCache, EvictUnusedCacheEntries) {
   size_t threshold = 1;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list_1 = GetSampleDisplayList();
   auto display_list_2 = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -373,15 +334,22 @@ TEST(RasterCache, DeviceRectRoundOutForDisplayList) {
   size_t threshold = 1;
   flutter::RasterCache cache(threshold);
 
-  SkRect logical_rect = SkRect::MakeLTRB(28, 0, 354.56731, 310.288);
+  DlRect logical_rect = DlRect::MakeLTRB(28, 0, 354.56731, 310.288);
   DisplayListBuilder builder(logical_rect);
   builder.DrawRect(logical_rect, DlPaint(DlColor::kRed()));
   sk_sp<DisplayList> display_list = builder.Build();
 
-  SkMatrix ctm = SkMatrix::MakeAll(1.3312, 0, 233, 0, 1.3312, 206, 0, 0, 1);
+  // clang-format off
+  DlMatrix ctm(
+      1.3312,      0, 0, 0,
+           0, 1.3312, 0, 0,
+           0,      0, 1, 0,
+         233,    206, 0, 1
+  );
+  // clang-format on
   DlPaint paint;
 
-  MockCanvas canvas(1000, 1000);
+  DisplayListBuilder canvas(1000, 1000);
   canvas.SetTransform(ctm);
 
   LayerStateStack preroll_state_stack;
@@ -422,13 +390,13 @@ TEST(RasterCache, NestedOpCountMetricUsedForDisplayList) {
   size_t threshold = 1;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   auto display_list = GetSampleNestedDisplayList();
   ASSERT_EQ(display_list->op_count(), 1u);
   ASSERT_EQ(display_list->op_count(true), 36u);
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -469,7 +437,7 @@ TEST(RasterCache, NaiveComplexityScoringDisplayList) {
   size_t threshold = 1;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrix = SkMatrix::I();
+  DlMatrix matrix;
 
   // Five raster ops will not be cached
   auto display_list = GetSampleDisplayList(5);
@@ -479,7 +447,7 @@ TEST(RasterCache, NaiveComplexityScoringDisplayList) {
   ASSERT_EQ(display_list->op_count(), 5u);
   ASSERT_FALSE(calculator->ShouldBeCached(complexity_score));
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
@@ -540,20 +508,20 @@ TEST(RasterCache, DisplayListWithSingularMatrixIsNotCached) {
   size_t threshold = 2;
   flutter::RasterCache cache(threshold);
 
-  SkMatrix matrices[] = {
-      SkMatrix::Scale(0, 1),
-      SkMatrix::Scale(1, 0),
-      SkMatrix::Skew(1, 1),
+  DlMatrix matrices[] = {
+      DlMatrix::MakeScale({0.0f, 1.0f, 1.0f}),
+      DlMatrix::MakeScale({1.0f, 0.0f, 1.0f}),
+      DlMatrix::MakeSkew(1, 1),
   };
   int matrix_count = sizeof(matrices) / sizeof(matrices[0]);
 
   auto display_list = GetSampleDisplayList();
 
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
   DlPaint paint;
 
   LayerStateStack preroll_state_stack;
-  preroll_state_stack.set_preroll_delegate(kGiantRect, SkMatrix::I());
+  preroll_state_stack.set_preroll_delegate(kGiantRect, DlMatrix());
   LayerStateStack paint_state_stack;
   preroll_state_stack.set_delegate(&dummy_canvas);
 
@@ -589,16 +557,14 @@ TEST(RasterCache, DisplayListWithSingularMatrixIsNotCached) {
 }
 
 TEST(RasterCache, PrepareLayerTransform) {
-  SkRect child_bounds = SkRect::MakeLTRB(10, 10, 50, 50);
-  SkPath child_path = SkPath().addOval(child_bounds);
+  DlRect child_bounds = DlRect::MakeLTRB(10, 10, 50, 50);
+  DlPath child_path = DlPath::MakeOval(child_bounds);
   auto child_layer = MockLayer::Make(child_path);
-  auto blur_filter =
-      std::make_shared<DlBlurImageFilter>(5, 5, DlTileMode::kClamp);
+  auto blur_filter = DlBlurImageFilter::Make(5, 5, DlTileMode::kClamp);
   auto blur_layer = std::make_shared<ImageFilterLayer>(blur_filter);
-  SkMatrix matrix = SkMatrix::Scale(2, 2);
+  DlMatrix matrix = DlMatrix::MakeScale({2.0f, 2.0f, 1.0f});
   auto transform_layer = std::make_shared<TransformLayer>(matrix);
-  SkMatrix cache_matrix = SkMatrix::Translate(-20, -20);
-  cache_matrix.preConcat(matrix);
+  DlMatrix cache_matrix = DlMatrix::MakeTranslation({-20.0f, -20.0f}) * matrix;
   child_layer->set_expected_paint_matrix(cache_matrix);
 
   blur_layer->Add(child_layer);
@@ -606,7 +572,7 @@ TEST(RasterCache, PrepareLayerTransform) {
 
   size_t threshold = 2;
   MockRasterCache cache(threshold);
-  MockCanvas dummy_canvas(1000, 1000);
+  DisplayListBuilder dummy_canvas(1000, 1000);
 
   LayerStateStack preroll_state_stack;
   preroll_state_stack.set_preroll_delegate(kGiantRect, matrix);
@@ -789,13 +755,13 @@ using RasterCacheTest = LayerTest;
 TEST_F(RasterCacheTest, RasterCacheKeyIDLayerChildrenIds) {
   auto layer = std::make_shared<ContainerLayer>();
 
-  const SkPath child_path = SkPath().addRect(SkRect::MakeWH(5.0f, 5.0f));
+  const DlPath child_path = DlPath::MakeRect(DlRect::MakeWH(5.0f, 5.0f));
   auto mock_layer = std::make_shared<MockLayer>(child_path);
   layer->Add(mock_layer);
 
   auto display_list = GetSampleDisplayList();
-  auto display_list_layer = std::make_shared<DisplayListLayer>(
-      SkPoint::Make(0.0f, 0.0f), display_list, false, false);
+  auto display_list_layer =
+      std::make_shared<DisplayListLayer>(DlPoint(), display_list, false, false);
   layer->Add(display_list_layer);
 
   auto ids = RasterCacheKeyID::LayerChildrenIds(layer.get()).value();

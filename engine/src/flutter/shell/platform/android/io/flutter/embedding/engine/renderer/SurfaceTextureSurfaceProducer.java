@@ -52,7 +52,19 @@ final class SurfaceTextureSurfaceProducer
   @Override
   public void release() {
     texture.release();
+    surface.release();
+    surface = null;
     released = true;
+  }
+
+  @Override
+  public void setCallback(Callback callback) {
+    // Intentionally blank: SurfaceTextures don't get platform notifications or cleanup.
+  }
+
+  @Override
+  public boolean handlesCropAndRotation() {
+    return true;
   }
 
   @Override

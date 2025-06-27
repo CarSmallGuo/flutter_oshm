@@ -30,12 +30,15 @@ mixin CompositionAwareMixin {
   /// The name of the browser composition event type that triggers on ending a composition.
   static const String _kCompositionEnd = 'compositionend';
 
-  late final DomEventListener _compositionStartListener =
-      createDomEventListener(_handleCompositionStart);
-  late final DomEventListener _compositionUpdateListener =
-      createDomEventListener(_handleCompositionUpdate);
-  late final DomEventListener _compositionEndListener =
-      createDomEventListener(_handleCompositionEnd);
+  late final DomEventListener _compositionStartListener = createDomEventListener(
+    _handleCompositionStart,
+  );
+  late final DomEventListener _compositionUpdateListener = createDomEventListener(
+    _handleCompositionUpdate,
+  );
+  late final DomEventListener _compositionEndListener = createDomEventListener(
+    _handleCompositionEnd,
+  );
 
   /// The currently composing text in the `domElement`.
   ///
@@ -56,17 +59,17 @@ mixin CompositionAwareMixin {
     domElement.removeEventListener(_kCompositionEnd, _compositionEndListener);
   }
 
-  JSVoid _handleCompositionStart(DomEvent event) {
+  void _handleCompositionStart(DomEvent event) {
     composingText = null;
   }
 
-  JSVoid _handleCompositionUpdate(DomEvent event) {
-    if (domInstanceOfString(event, 'CompositionEvent')) {
+  void _handleCompositionUpdate(DomEvent event) {
+    if (event.isA<DomCompositionEvent>()) {
       composingText = (event as DomCompositionEvent).data;
     }
   }
 
-  JSVoid _handleCompositionEnd(DomEvent event) {
+  void _handleCompositionEnd(DomEvent event) {
     composingText = null;
   }
 

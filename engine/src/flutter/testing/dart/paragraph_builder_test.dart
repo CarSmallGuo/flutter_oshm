@@ -4,7 +4,7 @@
 
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 
 void main() {
   test('Should be able to build and layout a paragraph', () {
@@ -19,10 +19,11 @@ void main() {
   });
 
   test('PushStyle should not segfault after build()', () {
-    final ParagraphBuilder paragraphBuilder =
-        ParagraphBuilder(ParagraphStyle());
+    final ParagraphBuilder paragraphBuilder = ParagraphBuilder(ParagraphStyle());
     paragraphBuilder.build();
-    expect(() { paragraphBuilder.pushStyle(TextStyle()); }, throwsStateError);
+    expect(() {
+      paragraphBuilder.pushStyle(TextStyle());
+    }, throwsStateError);
   });
 
   test('GetRectsForRange smoke test', () {

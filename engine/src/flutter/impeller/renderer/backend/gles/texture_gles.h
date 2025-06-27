@@ -5,6 +5,9 @@
 #ifndef FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_TEXTURE_GLES_H_
 #define FLUTTER_IMPELLER_RENDERER_BACKEND_GLES_TEXTURE_GLES_H_
 
+#include <bitset>
+
+#include "fml/logging.h"
 #include "impeller/base/backend_cast.h"
 #include "impeller/core/texture.h"
 #include "impeller/renderer/backend/gles/handle_gles.h"
@@ -22,18 +25,63 @@ class TextureGLES final : public Texture,
     kRenderBufferMultisampled,
   };
 
-  enum class IsWrapped {
-    kWrapped,
-  };
+  //----------------------------------------------------------------------------
+  /// @brief      Create a texture by wrapping an external framebuffer object
+  ///             whose lifecycle is owned by the caller.
+  ///
+  ///             This is useful for creating a render target for the default
+  ///             window managed framebuffer.
+  ///
+  /// @param[in]  reactor  The reactor
+  /// @param[in]  desc     The description
+  /// @param[in]  fbo      The fbo
+  ///
+  /// @return     If a texture representation of the framebuffer could be
+  ///             created.
+  ///
+  static std::shared_ptr<TextureGLES> WrapFBO(
+      std::shared_ptr<ReactorGLES> reactor,
+      TextureDescriptor desc,
+      GLuint fbo);
 
-  TextureGLES(ReactorGLES::Ref reactor, TextureDescriptor desc);
+  //----------------------------------------------------------------------------
+  /// @brief      Create a texture by wrapping an external OpenGL texture
+  ///             handle. Ownership of the texture handle is assumed by the
+  ///             reactor.
+  ///
+  /// @param[in]  reactor          The reactor
+  /// @param[in]  desc             The description
+  /// @param[in]  external_handle  The external handle
+  ///
+  /// @return     If a texture representation of the framebuffer could be
+  ///             created.
+  ///
+  static std::shared_ptr<TextureGLES> WrapTexture(
+      std::shared_ptr<ReactorGLES> reactor,
+      TextureDescriptor desc,
+      HandleGLES external_handle);
 
-  TextureGLES(ReactorGLES::Ref reactor,
-              TextureDescriptor desc,
-              IsWrapped wrapped);
+  //----------------------------------------------------------------------------
+  /// @brief      Create a "texture" that is never expected to be bound/unbound
+  ///             explicitly or initialized in any way. It only exists to setup
+  ///             a render pass description.
+  ///
+  /// @param[in]  reactor  The reactor
+  /// @param[in]  desc     The description
+  ///
+  /// @return     If a texture placeholder could be created.
+  ///
+  static std::shared_ptr<TextureGLES> CreatePlaceholder(
+      std::shared_ptr<ReactorGLES> reactor,
+      TextureDescriptor desc);
+
+  TextureGLES(std::shared_ptr<ReactorGLES> reactor, TextureDescriptor desc);
 
   // |Texture|
   ~TextureGLES() override;
+
+  // |Texture|
+  bool IsValid() const override;
 
   std::optional<GLuint> GetGLHandle() const;
 
@@ -52,24 +100,74 @@ class TextureGLES final : public Texture,
 
   Type GetType() const;
 
-  bool IsWrapped() const { return is_wrapped_; }
+  bool IsWrapped() const;
+
+  std::optional<GLuint> GetFBO() const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Indicates that all texture storage has already been allocated
+  ///             and contents initialized.
+  ///
+  ///             This is similar to calling `MarkSliceInitialized` with all
+  ///             slices.
+  ///
+  /// @see        MarkSliceInitialized.
+  ///
+  void MarkContentsInitialized();
+
+  //----------------------------------------------------------------------------
+  /// @brief      Indicates that a specific texture slice has been initialized.
+  ///
+  /// @param[in]  slice  The slice to mark as being initialized.
+  ///
+  void MarkSliceInitialized(size_t slice) const;
+
+  bool IsSliceInitialized(size_t slice) const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Attach a sync fence to this texture that will be waited on
+  ///             before encoding a rendering operation that references it.
+  ///
+  /// @param[in]  fence  A handle to a sync fence.
+  ///
+  void SetFence(HandleGLES fence);
+
+  /// Store the FBO object for recycling in the 2D renderer.
+  ///
+  /// The color0 texture used by the 2D renderer will use this texture
+  /// object to store the associated FBO the first time it is used.
+  void SetCachedFBO(HandleGLES fbo);
+
+  /// Retrieve the cached FBO object, or a dead handle if there is no object.
+  const HandleGLES& GetCachedFBO() const;
+
+  // Visible for testing.
+  std::optional<HandleGLES> GetSyncFence() const;
+
+  // visible for testing
+  Type ComputeTypeForBinding(GLenum target) const;
 
  private:
-  friend class AllocatorMTL;
-
-  ReactorGLES::Ref reactor_;
+  std::shared_ptr<ReactorGLES> reactor_;
   const Type type_;
   HandleGLES handle_;
-  mutable bool contents_initialized_ = false;
+  mutable std::optional<HandleGLES> fence_ = std::nullopt;
+  mutable std::bitset<6> slices_initialized_ = 0;
   const bool is_wrapped_;
+  const std::optional<GLuint> wrapped_fbo_;
+  HandleGLES cached_fbo_ = HandleGLES::DeadHandle();
   bool is_valid_ = false;
 
   TextureGLES(std::shared_ptr<ReactorGLES> reactor,
               TextureDescriptor desc,
-              bool is_wrapped);
+              std::optional<GLuint> fbo,
+              std::optional<HandleGLES> external_handle);
 
   // |Texture|
   void SetLabel(std::string_view label) override;
+
+  // |Texture|
+  void SetLabel(std::string_view label, std::string_view trailing) override;
 
   // |Texture|
   bool OnSetContents(const uint8_t* contents,
@@ -79,9 +177,6 @@ class TextureGLES final : public Texture,
   // |Texture|
   bool OnSetContents(std::shared_ptr<const fml::Mapping> mapping,
                      size_t slice) override;
-
-  // |Texture|
-  bool IsValid() const override;
 
   // |Texture|
   ISize GetSize() const override;

@@ -1,8 +1,13 @@
 name: gen_web_keyboard_keymap
 description: Generates keyboard layouts for Web from external sources.
+publish_to: none
 
+# Required for workspace support.
 environment:
-  sdk: '>=3.2.0-0 <4.0.0'
+  sdk: ^3.7.0-0
+
+# This package is managed as part of the engine workspace.
+resolution: workspace
 
 dependencies:
   args: any

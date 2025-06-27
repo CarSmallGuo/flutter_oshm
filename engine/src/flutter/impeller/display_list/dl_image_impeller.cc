@@ -4,11 +4,22 @@
 
 #include "impeller/display_list/dl_image_impeller.h"
 
-#include "impeller/aiks/aiks_context.h"
+#include "impeller/display_list/aiks_context.h"
 #include "impeller/entity/contents/filters/filter_contents.h"
 
 namespace impeller {
 
+#if FML_OS_IOS_SIMULATOR
+sk_sp<DlImageImpeller> DlImageImpeller::Make(std::shared_ptr<Texture> texture,
+                                             OwningContext owning_context,
+                                             bool is_fake_image) {
+  if (!texture && !is_fake_image) {
+    return nullptr;
+  }
+  return sk_sp<DlImageImpeller>(
+      new DlImageImpeller(std::move(texture), owning_context, is_fake_image));
+}
+#else
 sk_sp<DlImageImpeller> DlImageImpeller::Make(std::shared_ptr<Texture> texture,
                                              OwningContext owning_context) {
   if (!texture) {
@@ -17,6 +28,7 @@ sk_sp<DlImageImpeller> DlImageImpeller::Make(std::shared_ptr<Texture> texture,
   return sk_sp<DlImageImpeller>(
       new DlImageImpeller(std::move(texture), owning_context));
 }
+#endif  // FML_OS_IOS_SIMULATOR
 
 sk_sp<DlImageImpeller> DlImageImpeller::MakeFromYUVTextures(
     AiksContext* aiks_context,
@@ -29,7 +41,7 @@ sk_sp<DlImageImpeller> DlImageImpeller::MakeFromYUVTextures(
   auto yuv_to_rgb_filter_contents = FilterContents::MakeYUVToRGBFilter(
       std::move(y_texture), std::move(uv_texture), yuv_color_space);
   impeller::Entity entity;
-  entity.SetBlendMode(impeller::BlendMode::kSource);
+  entity.SetBlendMode(impeller::BlendMode::kSrc);
   auto snapshot = yuv_to_rgb_filter_contents->RenderToSnapshot(
       aiks_context->GetContentContext(),  // renderer
       entity,                             // entity
@@ -45,8 +57,20 @@ sk_sp<DlImageImpeller> DlImageImpeller::MakeFromYUVTextures(
 }
 
 DlImageImpeller::DlImageImpeller(std::shared_ptr<Texture> texture,
-                                 OwningContext owning_context)
-    : texture_(std::move(texture)), owning_context_(owning_context) {}
+                                 OwningContext owning_context
+#ifdef FML_OS_IOS_SIMULATOR
+                                 ,
+                                 bool is_fake_image
+#endif  // FML_OS_IOS_SIMULATOR
+                                 )
+    : texture_(std::move(texture)),
+      owning_context_(owning_context)
+#ifdef FML_OS_IOS_SIMULATOR
+      ,
+      is_fake_image_(is_fake_image)
+#endif  // #ifdef FML_OS_IOS_SIMULATOR
+{
+}
 
 // |DlImage|
 DlImageImpeller::~DlImageImpeller() = default;
@@ -83,6 +107,13 @@ bool DlImageImpeller::isUIThreadSafe() const {
 SkISize DlImageImpeller::dimensions() const {
   const auto size = texture_ ? texture_->GetSize() : ISize{};
   return SkISize::Make(size.width, size.height);
+}
+
+// |DlImage|
+flutter::DlISize DlImageImpeller::GetSize() const {
+  // texture |GetSize()| returns a 64-bit size, but we need a 32-bit size,
+  // so we need to convert to DlISize (the 32-bit variant) either way.
+  return texture_ ? flutter::DlISize(texture_->GetSize()) : flutter::DlISize();
 }
 
 // |DlImage|

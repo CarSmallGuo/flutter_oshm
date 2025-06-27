@@ -22,14 +22,11 @@ void main() {
 }
 
 Future<void> testMain() async {
-  await bootstrapAndRunApp(withImplicitView: true);
+  setUpImplicitView();
 
   test('EngineSemanticsOwner auto-enables semantics on update', () async {
     expect(semantics().semanticsEnabled, isFalse);
-    expect(
-        EnginePlatformDispatcher
-            .instance.accessibilityFeatures.accessibleNavigation,
-        isFalse);
+    expect(EnginePlatformDispatcher.instance.accessibilityFeatures.accessibleNavigation, isFalse);
 
     final DomElement placeholder = domDocument.querySelector('flt-semantics-placeholder')!;
 
@@ -41,10 +38,7 @@ Future<void> testMain() async {
     tester.apply();
 
     expect(semantics().semanticsEnabled, isTrue);
-    expect(
-      EnginePlatformDispatcher.instance.accessibilityFeatures.accessibleNavigation,
-      isTrue,
-    );
+    expect(EnginePlatformDispatcher.instance.accessibilityFeatures.accessibleNavigation, isTrue);
 
     // The placeholder should be removed
     expect(placeholder.isConnected, isFalse);

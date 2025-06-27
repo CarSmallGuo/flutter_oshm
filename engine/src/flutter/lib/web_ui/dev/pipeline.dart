@@ -89,10 +89,11 @@ abstract class ProcessStep implements PipelineStep {
 }
 
 class _PipelineStepFailure {
-  _PipelineStepFailure(this.step, this.error);
+  _PipelineStepFailure(this.step, this.error, this.stackTrace);
 
   final PipelineStep step;
   final Object error;
+  final StackTrace stackTrace;
 }
 
 /// Executes a sequence of asynchronous tasks, typically as part of a build/test
@@ -133,8 +134,8 @@ class Pipeline {
       _currentStepFuture = step.run();
       try {
         await _currentStepFuture;
-      } catch (e) {
-        failures.add(_PipelineStepFailure(step, e));
+      } catch (error, stackTrace) {
+        failures.add(_PipelineStepFailure(step, error, stackTrace));
       } finally {
         _currentStep = null;
       }
@@ -145,7 +146,7 @@ class Pipeline {
       _status = PipelineStatus.error;
       print('Pipeline experienced the following failures:');
       for (final _PipelineStepFailure failure in failures) {
-        print('  "${failure.step.description}": ${failure.error}');
+        print('  "${failure.step.description}": ${failure.error}\n${failure.stackTrace}');
       }
       throw ToolExit('Test pipeline failed.');
     }
@@ -184,11 +185,8 @@ typedef WatchEventPredicate = bool Function(WatchEvent event);
 /// The [ignore] callback can be used to customize the watching behavior to
 /// ignore certain files.
 class PipelineWatcher {
-  PipelineWatcher({
-    required this.dir,
-    required this.pipeline,
-    this.ignore,
-  }) : watcher = DirectoryWatcher(dir);
+  PipelineWatcher({required this.dir, required this.pipeline, this.ignore})
+    : watcher = DirectoryWatcher(dir);
 
   /// The path of the directory to watch for changes.
   final String dir;
@@ -265,7 +263,7 @@ class PipelineWatcher {
     try {
       await pipeline.run();
       _pipelineSucceeded(runCount);
-    } catch(error, stackTrace) {
+    } catch (error, stackTrace) {
       // The error is printed but not rethrown. This is because in watch mode
       // failures are expected. The idea is that the developer corrects the
       // error, saves the file, and the pipeline reruns.

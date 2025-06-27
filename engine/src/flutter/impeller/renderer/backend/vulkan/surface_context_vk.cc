@@ -5,6 +5,7 @@
 #include "impeller/renderer/backend/vulkan/surface_context_vk.h"
 
 #include "flutter/fml/trace_event.h"
+#include "impeller/core/runtime_types.h"
 #include "impeller/renderer/backend/vulkan/command_pool_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/swapchain/khr/khr_swapchain_vk.h"
@@ -14,7 +15,7 @@
 namespace impeller {
 
 SurfaceContextVK::SurfaceContextVK(const std::shared_ptr<ContextVK>& parent)
-    : parent_(parent) {}
+    : Context(parent->GetFlags()), parent_(parent) {}
 
 SurfaceContextVK::~SurfaceContextVK() = default;
 
@@ -59,19 +60,29 @@ const std::shared_ptr<const Capabilities>& SurfaceContextVK::GetCapabilities()
   return parent_->GetCapabilities();
 }
 
+std::shared_ptr<const IdleWaiter> SurfaceContextVK::GetIdleWaiter() const {
+  return parent_->GetIdleWaiter();
+}
+
 void SurfaceContextVK::Shutdown() {
   parent_->Shutdown();
 }
 
 bool SurfaceContextVK::SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                         const ISize& size) {
-  auto swapchain = KHRSwapchainVK::Create(parent_, std::move(surface), size);
-  if (!swapchain) {
-    VALIDATION_LOG << "Could not create swapchain.";
-    return false;
-  }
-  if (!swapchain->IsValid()) {
-    VALIDATION_LOG << "Could not create valid swapchain.";
+  return SetSwapchain(SwapchainVK::Create(parent_, std::move(surface), size));
+}
+
+void SurfaceContextVK::TeardownSwapchain() {
+  // When background the application, tear down the swapchain to release memory
+  // from the images. When returning to the foreground, SetWindowSurface will be
+  // called which will re-create the swapchain.
+  swapchain_.reset();
+}
+
+bool SurfaceContextVK::SetSwapchain(std::shared_ptr<SwapchainVK> swapchain) {
+  if (!swapchain || !swapchain->IsValid()) {
+    VALIDATION_LOG << "Invalid swapchain.";
     return false;
   }
   swapchain_ = std::move(swapchain);
@@ -88,11 +99,20 @@ std::unique_ptr<Surface> SurfaceContextVK::AcquireNextSurface() {
   if (!surface) {
     return nullptr;
   }
+  MarkFrameEnd();
+  return surface;
+}
+
+void SurfaceContextVK::MarkFrameEnd() {
   if (auto pipeline_library = parent_->GetPipelineLibrary()) {
     impeller::PipelineLibraryVK::Cast(*pipeline_library)
         .DidAcquireSurfaceFrame();
   }
-  parent_->GetCommandPoolRecycler()->Dispose();
+  parent_->DisposeThreadLocalCachedResources();
+  parent_->GetResourceAllocator()->DebugTraceMemoryStatistics();
+}
+
+parent_->GetCommandPoolRecycler()->Dispose();
   parent_->GetResourceAllocator()->DebugTraceMemoryStatistics();
   return surface;
 }
@@ -172,12 +192,31 @@ void SurfaceContextVK::InitializeCommonlyUsedShadersIfNeeded() const {
   parent_->InitializeCommonlyUsedShadersIfNeeded();
 }
 
-const ContextVK& SurfaceContextVK::GetParent() const {
-  return *parent_;
-}
-
 void SurfaceContextVK::DisposeThreadLocalCachedResources() {
   parent_->DisposeThreadLocalCachedResources();
+}
+
+const std::shared_ptr<ContextVK>& SurfaceContextVK::GetParent() const {
+  return parent_;
+}
+
+bool SurfaceContextVK::EnqueueCommandBuffer(
+    std::shared_ptr<CommandBuffer> command_buffer) {
+  return parent_->EnqueueCommandBuffer(std::move(command_buffer));
+}
+
+bool SurfaceContextVK::FlushCommandBuffers() {
+  return parent_->FlushCommandBuffers();
+}
+
+bool SurfaceContextVK::SubmitOnscreen(
+    std::shared_ptr<CommandBuffer> cmd_buffer) {
+  swapchain_->AddFinalCommandBuffer(std::move(cmd_buffer));
+  return true;
+}
+
+RuntimeStageBackend SurfaceContextVK::GetRuntimeStageBackend() const {
+  return parent_->GetRuntimeStageBackend();
 }
 
 }  // namespace impeller

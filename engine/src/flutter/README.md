@@ -37,7 +37,7 @@
    ```
 
    Windows构建环境：
-   可参考[官网](https://github.com/flutter/flutter/wiki/Compiling-the-engine#compiling-for-windows) 
+   可参考[官网](https://github.com/flutter/flutter/wiki/Compiling-the-engine#compiling-for-windows)
    "Compiling for Windows" 章节搭建Windows构建环境
 
 
@@ -46,7 +46,7 @@
    a) 创建名为 `engine` 的空目录
 
    b) 在 `engine` 目录内新建 `.gclient` 文件
-   
+
    c) 编辑 `.gclient` 文件：
    ```
     solutions = [
@@ -79,7 +79,7 @@
    ```shell
    flutter build hap --target-platform ohos-arm64 --release --local-engine=<DIR>/engine/src/out/ohos_release_arm64/ --local-engine-host=<DIR>//engine/src/out/host_release
    ```
-   
+
 6. 更新代码：在 `engine` 目录，执行`./ohos -b master`
 
 ## FAQ
@@ -131,7 +131,7 @@
    1. `debug/release`，复制 `libflutter.so`
    2. `profile`，复制 `libflutter.so` 和 `libvmservice_snapshot.so`
 
-3. 在 `shell/platform/ohos/flutter_embedding` 目录下，执行 
+3. 在 `shell/platform/ohos/flutter_embedding` 目录下，执行
 
     ```
      # buildMode可选值为: debug release profile

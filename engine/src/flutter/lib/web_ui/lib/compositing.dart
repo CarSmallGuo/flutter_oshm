@@ -18,6 +18,8 @@ abstract class ClipRectEngineLayer implements EngineLayer {}
 
 abstract class ClipRRectEngineLayer implements EngineLayer {}
 
+abstract class ClipRSuperellipseEngineLayer implements EngineLayer {}
+
 abstract class ClipPathEngineLayer implements EngineLayer {}
 
 abstract class OpacityEngineLayer implements EngineLayer {}
@@ -31,18 +33,10 @@ abstract class BackdropFilterEngineLayer implements EngineLayer {}
 abstract class ShaderMaskEngineLayer implements EngineLayer {}
 
 abstract class SceneBuilder {
-  factory SceneBuilder() =>
-    engine.renderer.createSceneBuilder();
+  factory SceneBuilder() => engine.renderer.createSceneBuilder();
 
-  OffsetEngineLayer pushOffset(
-    double dx,
-    double dy, {
-    OffsetEngineLayer? oldLayer,
-  });
-  TransformEngineLayer pushTransform(
-    Float64List matrix4, {
-    TransformEngineLayer? oldLayer,
-  });
+  OffsetEngineLayer pushOffset(double dx, double dy, {OffsetEngineLayer? oldLayer});
+  TransformEngineLayer pushTransform(Float64List matrix4, {TransformEngineLayer? oldLayer});
   ClipRectEngineLayer pushClipRect(
     Rect rect, {
     Clip clipBehavior = Clip.antiAlias,
@@ -52,6 +46,11 @@ abstract class SceneBuilder {
     RRect rrect, {
     required Clip clipBehavior,
     ClipRRectEngineLayer? oldLayer,
+  });
+  ClipRSuperellipseEngineLayer pushClipRSuperellipse(
+    RSuperellipse rsuperellipse, {
+    required Clip clipBehavior,
+    ClipRSuperellipseEngineLayer? oldLayer,
   });
   ClipPathEngineLayer pushClipPath(
     Path path, {
@@ -63,10 +62,7 @@ abstract class SceneBuilder {
     Offset offset = Offset.zero,
     OpacityEngineLayer? oldLayer,
   });
-  ColorFilterEngineLayer pushColorFilter(
-    ColorFilter filter, {
-    ColorFilterEngineLayer? oldLayer,
-  });
+  ColorFilterEngineLayer pushColorFilter(ColorFilter filter, {ColorFilterEngineLayer? oldLayer});
   ImageFilterEngineLayer pushImageFilter(
     ImageFilter filter, {
     Offset offset = Offset.zero,
@@ -76,6 +72,7 @@ abstract class SceneBuilder {
     ImageFilter filter, {
     BlendMode blendMode = BlendMode.srcOver,
     BackdropFilterEngineLayer? oldLayer,
+    int? backdropId,
   });
   ShaderMaskEngineLayer pushShaderMask(
     Shader shader,
@@ -107,9 +104,6 @@ abstract class SceneBuilder {
     double width = 0.0,
     double height = 0.0,
   });
-  void setRasterizerTracingThreshold(int frameInterval);
-  void setCheckerboardRasterCacheImages(bool checkerboard);
-  void setCheckerboardOffscreenLayers(bool checkerboard);
   Scene build();
   void setProperties(
     double width,

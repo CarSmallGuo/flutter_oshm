@@ -17,22 +17,11 @@ enum PointerChange {
   panZoomEnd,
 }
 
-enum PointerDeviceKind {
-  touch,
-  mouse,
-  stylus,
-  invertedStylus,
-  trackpad,
-  unknown
-}
+enum PointerDeviceKind { touch, mouse, stylus, invertedStylus, trackpad, unknown }
 
-enum PointerSignalKind {
-  none,
-  scroll,
-  scrollInertiaCancel,
-  scale,
-  unknown
-}
+enum PointerSignalKind { none, scroll, scrollInertiaCancel, scale, unknown }
+
+typedef PointerDataRespondCallback = void Function({bool allowPlatformDefault});
 
 class PointerData {
   const PointerData({
@@ -72,7 +61,8 @@ class PointerData {
     this.panDeltaY = 0.0,
     this.scale = 0.0,
     this.rotation = 0.0,
-  });
+    PointerDataRespondCallback? onRespond,
+  }) : _onRespond = onRespond;
   final int viewId;
   final int embedderId;
   final Duration timeStamp;
@@ -109,47 +99,54 @@ class PointerData {
   final double panDeltaY;
   final double scale;
   final double rotation;
+  final PointerDataRespondCallback? _onRespond;
+
+  void respond({required bool allowPlatformDefault}) {
+    if (_onRespond != null) {
+      _onRespond(allowPlatformDefault: allowPlatformDefault);
+    }
+  }
 
   @override
   String toString() => 'PointerData(viewId: $viewId, x: $physicalX, y: $physicalY)';
   String toStringFull() {
     return '$runtimeType('
-           'embedderId: $embedderId, '
-           'timeStamp: $timeStamp, '
-           'change: $change, '
-           'kind: $kind, '
-           'signalKind: $signalKind, '
-           'device: $device, '
-           'pointerIdentifier: $pointerIdentifier, '
-           'physicalX: $physicalX, '
-           'physicalY: $physicalY, '
-           'physicalDeltaX: $physicalDeltaX, '
-           'physicalDeltaY: $physicalDeltaY, '
-           'buttons: $buttons, '
-           'synthesized: $synthesized, '
-           'pressure: $pressure, '
-           'pressureMin: $pressureMin, '
-           'pressureMax: $pressureMax, '
-           'distance: $distance, '
-           'distanceMax: $distanceMax, '
-           'size: $size, '
-           'radiusMajor: $radiusMajor, '
-           'radiusMinor: $radiusMinor, '
-           'radiusMin: $radiusMin, '
-           'radiusMax: $radiusMax, '
-           'orientation: $orientation, '
-           'tilt: $tilt, '
-           'platformData: $platformData, '
-           'scrollDeltaX: $scrollDeltaX, '
-           'scrollDeltaY: $scrollDeltaY, '
-           'panX: $panX, '
-           'panY: $panY, '
-           'panDeltaX: $panDeltaX, '
-           'panDeltaY: $panDeltaY, '
-           'scale: $scale, '
-           'rotation: $rotation, '
-           'viewId: $viewId'
-           ')';
+        'embedderId: $embedderId, '
+        'timeStamp: $timeStamp, '
+        'change: $change, '
+        'kind: $kind, '
+        'signalKind: $signalKind, '
+        'device: $device, '
+        'pointerIdentifier: $pointerIdentifier, '
+        'physicalX: $physicalX, '
+        'physicalY: $physicalY, '
+        'physicalDeltaX: $physicalDeltaX, '
+        'physicalDeltaY: $physicalDeltaY, '
+        'buttons: $buttons, '
+        'synthesized: $synthesized, '
+        'pressure: $pressure, '
+        'pressureMin: $pressureMin, '
+        'pressureMax: $pressureMax, '
+        'distance: $distance, '
+        'distanceMax: $distanceMax, '
+        'size: $size, '
+        'radiusMajor: $radiusMajor, '
+        'radiusMinor: $radiusMinor, '
+        'radiusMin: $radiusMin, '
+        'radiusMax: $radiusMax, '
+        'orientation: $orientation, '
+        'tilt: $tilt, '
+        'platformData: $platformData, '
+        'scrollDeltaX: $scrollDeltaX, '
+        'scrollDeltaY: $scrollDeltaY, '
+        'panX: $panX, '
+        'panY: $panY, '
+        'panDeltaX: $panDeltaX, '
+        'panDeltaY: $panDeltaY, '
+        'scale: $scale, '
+        'rotation: $rotation, '
+        'viewId: $viewId'
+        ')';
   }
 }
 

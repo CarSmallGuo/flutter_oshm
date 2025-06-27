@@ -13,11 +13,6 @@ import 'package:ui/ui.dart' as ui;
 
 import '../../common/matchers.dart';
 
-/// CSS style applied to the root of the semantics tree.
-// TODO(yjbanov): this should be handled internally by [expectSemanticsTree].
-//                No need for every test to inject it.
-const String rootSemanticStyle = 'filter: opacity(0%); color: rgba(0, 0, 0, 0)';
-
 /// A convenience wrapper of the semantics API for building and inspecting the
 /// semantics tree in unit tests.
 class SemanticsTester {
@@ -37,7 +32,10 @@ class SemanticsTester {
     int flags = 0,
     bool? hasCheckedState,
     bool? isChecked,
+    bool? isSelectable,
     bool? isSelected,
+    bool? isExpandable,
+    bool? isExpanded,
     bool? isButton,
     bool? isLink,
     bool? isTextField,
@@ -60,6 +58,8 @@ class SemanticsTester {
     bool? isMultiline,
     bool? isSlider,
     bool? isKeyboardKey,
+    bool? hasRequiredState,
+    bool? isRequired,
 
     // Actions
     int actions = 0,
@@ -80,6 +80,7 @@ class SemanticsTester {
     bool? hasPaste,
     bool? hasDidGainAccessibilityFocus,
     bool? hasDidLoseAccessibilityFocus,
+    bool? hasFocus,
     bool? hasCustomAction,
     bool? hasDismiss,
     bool? hasMoveCursorForwardByWord,
@@ -116,6 +117,12 @@ class SemanticsTester {
     Float64List? transform,
     Int32List? additionalActions,
     List<SemanticsNodeUpdate>? children,
+    int? headingLevel,
+    String? linkUrl,
+    ui.SemanticsRole? role,
+    List<String>? controlsNodes,
+    ui.SemanticsValidationResult validationResult = ui.SemanticsValidationResult.none,
+    ui.SemanticsInputType inputType = ui.SemanticsInputType.none,
   }) {
     // Flags
     if (hasCheckedState ?? false) {
@@ -124,8 +131,17 @@ class SemanticsTester {
     if (isChecked ?? false) {
       flags |= ui.SemanticsFlag.isChecked.index;
     }
+    if (isSelectable ?? false) {
+      flags |= ui.SemanticsFlag.hasSelectedState.index;
+    }
     if (isSelected ?? false) {
       flags |= ui.SemanticsFlag.isSelected.index;
+    }
+    if (isExpandable ?? false) {
+      flags |= ui.SemanticsFlag.hasExpandedState.index;
+    }
+    if (isExpanded ?? false) {
+      flags |= ui.SemanticsFlag.isExpanded.index;
     }
     if (isButton ?? false) {
       flags |= ui.SemanticsFlag.isButton.index;
@@ -193,6 +209,12 @@ class SemanticsTester {
     if (isKeyboardKey ?? false) {
       flags |= ui.SemanticsFlag.isKeyboardKey.index;
     }
+    if (hasRequiredState ?? false) {
+      flags |= ui.SemanticsFlag.hasRequiredState.index;
+    }
+    if (isRequired ?? false) {
+      flags |= ui.SemanticsFlag.isRequired.index;
+    }
 
     // Actions
     if (hasTap ?? false) {
@@ -245,6 +267,9 @@ class SemanticsTester {
     }
     if (hasDidLoseAccessibilityFocus ?? false) {
       actions |= ui.SemanticsAction.didLoseAccessibilityFocus.index;
+    }
+    if (hasFocus ?? false) {
+      actions |= ui.SemanticsAction.focus.index;
     }
     if (hasCustomAction ?? false) {
       actions |= ui.SemanticsAction.customAction.index;
@@ -316,6 +341,12 @@ class SemanticsTester {
       childrenInTraversalOrder: childIds,
       childrenInHitTestOrder: childIds,
       additionalActions: additionalActions ?? Int32List(0),
+      headingLevel: headingLevel ?? 0,
+      linkUrl: linkUrl,
+      role: role ?? ui.SemanticsRole.none,
+      controlsNodes: controlsNodes,
+      validationResult: validationResult,
+      inputType: inputType,
     );
     _nodeUpdates.add(update);
     return update;
@@ -335,9 +366,9 @@ class SemanticsTester {
     return owner.debugSemanticsTree![id]!;
   }
 
-  /// Locates the [TextField] role manager of the semantics object with the give [id].
-  TextField getTextField(int id) {
-    return getSemanticsObject(id).primaryRole! as TextField;
+  /// Locates the [SemanticTextField] role of the semantics object with the give [id].
+  SemanticTextField getTextField(int id) {
+    return getSemanticsObject(id).semanticRole! as SemanticTextField;
   }
 
   void expectSemantics(String semanticsHtml) {
@@ -347,22 +378,16 @@ class SemanticsTester {
 
 /// Verifies the HTML structure of the current semantics tree.
 void expectSemanticsTree(EngineSemanticsOwner owner, String semanticsHtml) {
-  const List<String> ignoredStyleProperties = <String>['pointer-events'];
-  expect(
-    canonicalizeHtml(owner.semanticsHost.querySelector('flt-semantics')!.outerHTML!, ignoredStyleProperties: ignoredStyleProperties),
-    canonicalizeHtml(semanticsHtml),
-  );
+  expect(owner.semanticsHost.children.single, hasHtml(semanticsHtml));
 }
 
 /// Finds the first HTML element in the semantics tree used for scrolling.
 DomElement findScrollable(EngineSemanticsOwner owner) {
-  return owner.semanticsHost.querySelectorAll('flt-semantics').singleWhere(
-    (DomElement? element) {
-      return element!.style.overflow == 'hidden' ||
+  return owner.semanticsHost.querySelectorAll('flt-semantics').singleWhere((DomElement? element) {
+    return element!.style.overflow == 'hidden' ||
         element.style.overflowY == 'scroll' ||
         element.style.overflowX == 'scroll';
-    },
-  );
+  });
 }
 
 /// Logs semantics actions dispatched to [ui.PlatformDispatcher].
@@ -378,8 +403,7 @@ class SemanticsActionLogger {
     // fired.
     final Zone testZone = Zone.current;
 
-    ui.PlatformDispatcher.instance.onSemanticsActionEvent =
-        (ui.SemanticsActionEvent event) {
+    ui.PlatformDispatcher.instance.onSemanticsActionEvent = (ui.SemanticsActionEvent event) {
       _idLogController.add(event.nodeId);
       _actionLogController.add(event.type);
       testZone.run(() {
@@ -398,4 +422,10 @@ class SemanticsActionLogger {
   /// The actions that were dispatched to [ui.PlatformDispatcher].
   Stream<ui.SemanticsAction> get actionLog => _actionLog;
   late Stream<ui.SemanticsAction> _actionLog;
+}
+
+extension SemanticRoleExtension on SemanticRole {
+  /// Types of semantics behaviors used by this role.
+  List<Type> get debugSemanticBehaviorTypes =>
+      behaviors?.map((behavior) => behavior.runtimeType).toList() ?? const <Type>[];
 }

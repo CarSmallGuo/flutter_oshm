@@ -40,20 +40,45 @@ base class GpuContext extends NativeFieldWrapperClass1 {
     return PixelFormat.values[_getDefaultDepthStencilFormat()];
   }
 
+  /// The minimum alignment required when referencing uniform blocks stored in a
+  /// `DeviceBuffer`.
+  int get minimumUniformByteAlignment {
+    return _getMinimumUniformByteAlignment();
+  }
+
+  /// Whether the backend supports multisample anti-aliasing for offscreen
+  /// color and stencil attachments. A subset of OpenGLES-only devices do not
+  /// support this functionality.
+  ///
+  /// Any texture created via [createTexture] is an offscreen texture.
+  /// There is currently no way to render directly against the "onscreen"
+  /// texture that the framework renders to, so all Flutter GPU textures are
+  /// "offscreen".
+  bool get doesSupportOffscreenMSAA {
+    return _getSupportsOffscreenMSAA();
+  }
+
   /// Allocates a new region of GPU-resident memory.
   ///
   /// The [storageMode] must be either [StorageMode.hostVisible] or
   /// [StorageMode.devicePrivate], otherwise an exception will be thrown.
   ///
-  /// Returns [null] if the [DeviceBuffer] creation failed.
-  DeviceBuffer? createDeviceBuffer(StorageMode storageMode, int sizeInBytes) {
+  /// Throws an exception if the [DeviceBuffer] creation failed.
+  DeviceBuffer createDeviceBuffer(StorageMode storageMode, int sizeInBytes) {
     if (storageMode == StorageMode.deviceTransient) {
       throw Exception(
-          'DeviceBuffers cannot be set to StorageMode.deviceTransient');
+        'DeviceBuffers cannot be set to StorageMode.deviceTransient',
+      );
     }
-    DeviceBuffer result =
-        DeviceBuffer._initialize(this, storageMode, sizeInBytes);
-    return result.isValid ? result : null;
+    DeviceBuffer result = DeviceBuffer._initialize(
+      this,
+      storageMode,
+      sizeInBytes,
+    );
+    if (!result.isValid) {
+      throw Exception('DeviceBuffer creation failed');
+    }
+    return result;
   }
 
   /// Allocates a new region of host-visible GPU-resident memory, initialized
@@ -63,39 +88,55 @@ base class GpuContext extends NativeFieldWrapperClass1 {
   /// from the host, the [StorageMode] of the new [DeviceBuffer] is
   /// automatically set to [StorageMode.hostVisible].
   ///
-  /// Returns [null] if the [DeviceBuffer] creation failed.
-  DeviceBuffer? createDeviceBufferWithCopy(ByteData data) {
+  /// Throws an exception if the [DeviceBuffer] creation failed.
+  DeviceBuffer createDeviceBufferWithCopy(ByteData data) {
     DeviceBuffer result = DeviceBuffer._initializeWithHostData(this, data);
-    return result.isValid ? result : null;
+    if (!result.isValid) {
+      throw Exception('DeviceBuffer creation failed');
+    }
+    return result;
   }
 
-  HostBuffer createHostBuffer() {
-    return HostBuffer._initialize(this);
+  /// Creates a bump allocator that managed a [DeviceBuffer] block list.
+  ///
+  /// See also [HostBuffer].
+  HostBuffer createHostBuffer({
+    int blockLengthInBytes = HostBuffer.kDefaultBlockLengthInBytes,
+  }) {
+    return HostBuffer._initialize(this, blockLengthInBytes: blockLengthInBytes);
   }
 
   /// Allocates a new texture in GPU-resident memory.
   ///
-  /// Returns [null] if the [Texture] creation failed.
-  Texture? createTexture(StorageMode storageMode, int width, int height,
-      {PixelFormat format = PixelFormat.r8g8b8a8UNormInt,
-      sampleCount = 1,
-      TextureCoordinateSystem coordinateSystem =
-          TextureCoordinateSystem.renderToTexture,
-      bool enableRenderTargetUsage = true,
-      bool enableShaderReadUsage = true,
-      bool enableShaderWriteUsage = false}) {
+  /// Throws an exception if the [Texture] creation failed.
+  Texture createTexture(
+    StorageMode storageMode,
+    int width,
+    int height, {
+    PixelFormat format = PixelFormat.r8g8b8a8UNormInt,
+    sampleCount = 1,
+    TextureCoordinateSystem coordinateSystem =
+        TextureCoordinateSystem.renderToTexture,
+    bool enableRenderTargetUsage = true,
+    bool enableShaderReadUsage = true,
+    bool enableShaderWriteUsage = false,
+  }) {
     Texture result = Texture._initialize(
-        this,
-        storageMode,
-        format,
-        width,
-        height,
-        sampleCount,
-        coordinateSystem,
-        enableRenderTargetUsage,
-        enableShaderReadUsage,
-        enableShaderWriteUsage);
-    return result.isValid ? result : null;
+      this,
+      storageMode,
+      format,
+      width,
+      height,
+      sampleCount,
+      coordinateSystem,
+      enableRenderTargetUsage,
+      enableShaderReadUsage,
+      enableShaderWriteUsage,
+    );
+    if (!result.isValid) {
+      throw Exception('Texture creation failed');
+    }
+    return result;
   }
 
   /// Create a new command buffer that can be used to submit GPU commands.
@@ -104,26 +145,42 @@ base class GpuContext extends NativeFieldWrapperClass1 {
   }
 
   RenderPipeline createRenderPipeline(
-      Shader vertexShader, Shader fragmentShader) {
+    Shader vertexShader,
+    Shader fragmentShader,
+  ) {
     return RenderPipeline._(this, vertexShader, fragmentShader);
   }
 
   /// Associates the default Impeller context with this Context.
   @Native<Handle Function(Handle)>(
-      symbol: 'InternalFlutterGpu_Context_InitializeDefault')
+    symbol: 'InternalFlutterGpu_Context_InitializeDefault',
+  )
   external String? _initializeDefault();
 
   @Native<Int Function(Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_Context_GetDefaultColorFormat')
+    symbol: 'InternalFlutterGpu_Context_GetDefaultColorFormat',
+  )
   external int _getDefaultColorFormat();
 
   @Native<Int Function(Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_Context_GetDefaultStencilFormat')
+    symbol: 'InternalFlutterGpu_Context_GetDefaultStencilFormat',
+  )
   external int _getDefaultStencilFormat();
 
   @Native<Int Function(Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_Context_GetDefaultDepthStencilFormat')
+    symbol: 'InternalFlutterGpu_Context_GetDefaultDepthStencilFormat',
+  )
   external int _getDefaultDepthStencilFormat();
+
+  @Native<Int Function(Pointer<Void>)>(
+    symbol: 'InternalFlutterGpu_Context_GetMinimumUniformByteAlignment',
+  )
+  external int _getMinimumUniformByteAlignment();
+
+  @Native<Bool Function(Pointer<Void>)>(
+    symbol: 'InternalFlutterGpu_Context_GetSupportsOffscreenMSAA',
+  )
+  external bool _getSupportsOffscreenMSAA();
 }
 
 /// The default graphics context.

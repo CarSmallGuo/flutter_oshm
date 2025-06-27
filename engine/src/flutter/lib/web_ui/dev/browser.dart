@@ -42,10 +42,7 @@ abstract class BrowserEnvironment {
   /// browser in debug mode by pausing test execution after the code is loaded
   /// but before calling the `main()` function of the test, giving the
   /// developer a chance to set breakpoints.
-  Future<Browser> launchBrowserInstance(
-    Uri url, {
-    bool debug = false,
-  });
+  Future<Browser> launchBrowserInstance(Uri url, {bool debug = false});
 }
 
 /// An interface for running browser instances.
@@ -74,6 +71,12 @@ abstract class Browser {
   /// If there's a problem starting or running the browser, this will complete
   /// with an error.
   Future<void> get onExit;
+
+  /// A future that completes if the browser is notified about an uncaught
+  /// exception.
+  ///
+  /// Returns `null` if the browser does not support this.
+  Future<String>? get onUncaughtException => null;
 
   /// Closes the browser
   ///

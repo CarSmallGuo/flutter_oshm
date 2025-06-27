@@ -11,7 +11,6 @@ import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
 import '../engine.dart' show DimensionsProvider, registerHotRestartListener, renderer;
 import 'browser_detection.dart';
-import 'configuration.dart';
 import 'display.dart';
 import 'dom.dart';
 import 'initialization.dart';
@@ -44,7 +43,7 @@ int _nextViewId = kImplicitViewId + 1;
 ///
 /// In addition to everything defined in [ui.FlutterView], this class adds
 /// a few web-specific properties.
-base class EngineFlutterView implements ui.FlutterView {
+class EngineFlutterView implements ui.FlutterView {
   /// Creates a [ui.FlutterView] that can be used in multi-view mode.
   ///
   /// The [hostElement] parameter specifies the container in the DOM into which
@@ -52,9 +51,8 @@ base class EngineFlutterView implements ui.FlutterView {
   factory EngineFlutterView(
     EnginePlatformDispatcher platformDispatcher,
     DomElement hostElement, {
-      JsViewConstraints? viewConstraints,
-    }
-  ) = _EngineFlutterViewImpl;
+    JsViewConstraints? viewConstraints,
+  }) = _EngineFlutterViewImpl;
 
   EngineFlutterView._(
     this.viewId,
@@ -63,11 +61,10 @@ base class EngineFlutterView implements ui.FlutterView {
     // multi-view mode, the host element is required for each view (as reflected
     // by the public `EngineFlutterView` constructor).
     DomElement? hostElement, {
-      JsViewConstraints? viewConstraints,
-    }
-  )   : _jsViewConstraints = viewConstraints,
-        embeddingStrategy = EmbeddingStrategy.create(hostElement: hostElement),
-        dimensionsProvider = DimensionsProvider.create(hostElement: hostElement) {
+    JsViewConstraints? viewConstraints,
+  }) : _jsViewConstraints = viewConstraints,
+       embeddingStrategy = EmbeddingStrategy.create(hostElement: hostElement),
+       dimensionsProvider = DimensionsProvider.create(hostElement: hostElement) {
     // The embeddingStrategy will take care of cleaning up the rootElement on
     // hot restart.
     embeddingStrategy.attachViewRoot(dom.rootElement);
@@ -75,7 +72,6 @@ base class EngineFlutterView implements ui.FlutterView {
     _resizeSubscription = onResize.listen(_didResize);
     _globalHtmlAttributes.applyAttributes(
       viewId: viewId,
-      autoDetectRenderer: FlutterConfiguration.flutterWebAutoDetect,
       rendererTag: renderer.rendererTag,
       buildMode: buildMode,
     );
@@ -135,11 +131,6 @@ base class EngineFlutterView implements ui.FlutterView {
     semantics.updateSemantics(update);
   }
 
-  // TODO(yjbanov): How should this look like for multi-view?
-  //                https://github.com/flutter/flutter/issues/137445
-  late final AccessibilityAnnouncements accessibilityAnnouncements =
-      AccessibilityAnnouncements(hostElement: dom.announcementsHost);
-
   late final GlobalHtmlAttributes _globalHtmlAttributes = GlobalHtmlAttributes(
     rootElement: dom.rootElement,
     hostElement: embeddingStrategy.hostElement,
@@ -162,7 +153,7 @@ base class EngineFlutterView implements ui.FlutterView {
 
   final JsViewConstraints? _jsViewConstraints;
 
-  late final EngineSemanticsOwner semantics = EngineSemanticsOwner(dom.semanticsHost);
+  late final EngineSemanticsOwner semantics = EngineSemanticsOwner(viewId, dom.semanticsHost);
 
   @override
   ui.Size get physicalSize {
@@ -181,7 +172,7 @@ base class EngineFlutterView implements ui.FlutterView {
   /// so it can push/shrink inside its `hostElement`. That way, a Flutter app
   /// can change the layout of the container page.
   ///
-  /// ```
+  /// ```none
   /// <p>Some HTML content...</p>
   /// +--- (div) hostElement ------------------------------------+
   /// | +--- rootElement ---------------------+                  |
@@ -315,11 +306,14 @@ base class EngineFlutterView implements ui.FlutterView {
     // Return false if the previous dimensions are not set.
     if (_physicalSize != null) {
       // First confirm both height and width are effected.
-      if (_physicalSize!.height != newPhysicalSize.height && _physicalSize!.width != newPhysicalSize.width) {
+      if (_physicalSize!.height != newPhysicalSize.height &&
+          _physicalSize!.width != newPhysicalSize.width) {
         // If prior to rotation height is bigger than width it should be the
         // opposite after the rotation and vice versa.
-        if ((_physicalSize!.height > _physicalSize!.width && newPhysicalSize.height < newPhysicalSize.width) ||
-            (_physicalSize!.width > _physicalSize!.height && newPhysicalSize.width < newPhysicalSize.height)) {
+        if ((_physicalSize!.height > _physicalSize!.width &&
+                newPhysicalSize.height < newPhysicalSize.width) ||
+            (_physicalSize!.width > _physicalSize!.height &&
+                newPhysicalSize.width < newPhysicalSize.height)) {
           // Rotation detected
           return true;
         }
@@ -340,17 +334,14 @@ final class _EngineFlutterViewImpl extends EngineFlutterView {
   _EngineFlutterViewImpl(
     EnginePlatformDispatcher platformDispatcher,
     DomElement hostElement, {
-      JsViewConstraints? viewConstraints,
-    }
-  ) : super._(_nextViewId++, platformDispatcher, hostElement, viewConstraints: viewConstraints);
+    JsViewConstraints? viewConstraints,
+  }) : super._(_nextViewId++, platformDispatcher, hostElement, viewConstraints: viewConstraints);
 }
 
 /// The Web implementation of [ui.SingletonFlutterWindow].
 final class EngineFlutterWindow extends EngineFlutterView implements ui.SingletonFlutterWindow {
-  EngineFlutterWindow._(
-    EnginePlatformDispatcher platformDispatcher,
-    DomElement? hostElement,
-  ) : super._(kImplicitViewId, platformDispatcher, hostElement) {
+  EngineFlutterWindow._(EnginePlatformDispatcher platformDispatcher, DomElement? hostElement)
+    : super._(kImplicitViewId, platformDispatcher, hostElement) {
     if (ui_web.isCustomUrlStrategySet) {
       _browserHistory = createHistoryForExistingState(ui_web.urlStrategy);
     }
@@ -396,6 +387,9 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
   bool get nativeSpellCheckServiceDefined => platformDispatcher.nativeSpellCheckServiceDefined;
 
   @override
+  bool get supportsShowingSystemContextMenu => platformDispatcher.supportsShowingSystemContextMenu;
+
+  @override
   bool get brieflyShowPassword => platformDispatcher.brieflyShowPassword;
 
   @override
@@ -412,7 +406,8 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
   ui.Brightness get platformBrightness => platformDispatcher.platformBrightness;
 
   @override
-  ui.VoidCallback? get onPlatformBrightnessChanged => platformDispatcher.onPlatformBrightnessChanged;
+  ui.VoidCallback? get onPlatformBrightnessChanged =>
+      platformDispatcher.onPlatformBrightnessChanged;
   @override
   set onPlatformBrightnessChanged(ui.VoidCallback? callback) {
     platformDispatcher.onPlatformBrightnessChanged = callback;
@@ -520,8 +515,7 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
   /// Handles the browser history integration to allow users to use the back
   /// button, etc.
   BrowserHistory get browserHistory {
-    return _browserHistory ??=
-        createHistoryForExistingState(_urlStrategyForInitialization);
+    return _browserHistory ??= createHistoryForExistingState(_urlStrategyForInitialization);
   }
 
   ui_web.UrlStrategy? get _urlStrategyForInitialization {
@@ -531,7 +525,7 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
   }
 
   BrowserHistory?
-      _browserHistory; // Must be either SingleEntryBrowserHistory or MultiEntriesBrowserHistory.
+  _browserHistory; // Must be either SingleEntryBrowserHistory or MultiEntriesBrowserHistory.
 
   Future<void> _useSingleEntryBrowserHistory() async {
     // Recreate the browser history mode that's appropriate for the existing
@@ -543,8 +537,7 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
     // with a single-entry history.
     //
     // See: https://github.com/flutter/flutter/issues/79241
-    _browserHistory ??=
-        createHistoryForExistingState(_urlStrategyForInitialization);
+    _browserHistory ??= createHistoryForExistingState(_urlStrategyForInitialization);
 
     if (_browserHistory is SingleEntryBrowserHistory) {
       return;
@@ -567,8 +560,7 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
     // with a multi-entry history.
     //
     // See: https://github.com/flutter/flutter/issues/79241
-    _browserHistory ??=
-        createHistoryForExistingState(_urlStrategyForInitialization);
+    _browserHistory ??= createHistoryForExistingState(_urlStrategyForInitialization);
 
     if (_browserHistory is MultiEntriesBrowserHistory) {
       return;
@@ -662,50 +654,6 @@ final class EngineFlutterWindow extends EngineFlutterView implements ui.Singleto
       return false;
     });
   }
-
-  // TODO(mdebbar): Deprecate this and remove it.
-  // https://github.com/flutter/flutter/issues/127395
-  void debugOverrideDevicePixelRatio(double? value) {
-    assert(() {
-      printWarning(
-        'The window.debugOverrideDevicePixelRatio API is deprecated and will '
-        'be removed in a future release. Please use '
-        '`debugOverrideDevicePixelRatio` from `dart:ui_web` instead.',
-      );
-      return true;
-    }());
-    display.debugOverrideDevicePixelRatio(value);
-  }
-
-  // TODO(mdebbar): Deprecate this and remove it.
-  // https://github.com/flutter/flutter/issues/127395
-  ui.Size? get webOnlyDebugPhysicalSizeOverride {
-    assert(() {
-      printWarning(
-        'The webOnlyDebugPhysicalSizeOverride API is deprecated and will be '
-        'removed in a future release. Please use '
-        '`SingletonFlutterWindow.debugPhysicalSizeOverride` from `dart:ui_web` '
-        'instead.',
-      );
-      return true;
-    }());
-    return debugPhysicalSizeOverride;
-  }
-
-  // TODO(mdebbar): Deprecate this and remove it.
-  // https://github.com/flutter/flutter/issues/127395
-  set webOnlyDebugPhysicalSizeOverride(ui.Size? value) {
-    assert(() {
-      printWarning(
-        'The webOnlyDebugPhysicalSizeOverride API is deprecated and will be '
-        'removed in a future release. Please use '
-        '`SingletonFlutterWindow.debugPhysicalSizeOverride` from `dart:ui_web` '
-        'instead.',
-      );
-      return true;
-    }());
-    debugPhysicalSizeOverride = value;
-  }
 }
 
 /// The window singleton.
@@ -725,14 +673,9 @@ EngineFlutterWindow? _window;
 
 /// Initializes the [window] (aka the implicit view), if it's not already
 /// initialized.
-EngineFlutterWindow ensureImplicitViewInitialized({
-  DomElement? hostElement,
-}) {
+EngineFlutterWindow ensureImplicitViewInitialized({DomElement? hostElement}) {
   if (_window == null) {
-    _window = EngineFlutterView.implicit(
-      EnginePlatformDispatcher.instance,
-      hostElement,
-    );
+    _window = EngineFlutterView.implicit(EnginePlatformDispatcher.instance, hostElement);
     EnginePlatformDispatcher.instance.viewManager.registerView(_window!);
   }
   return _window!;
@@ -779,8 +722,7 @@ class ViewConstraints implements ui.ViewConstraints {
   /// The resulting ViewConstraints object will be multiplied by devicePixelRatio
   /// later to compute the physicalViewConstraints, which is what the framework
   /// uses.
-  factory ViewConstraints.fromJs(
-    JsViewConstraints? constraints, ui.Size currentLogicalSize) {
+  factory ViewConstraints.fromJs(JsViewConstraints? constraints, ui.Size currentLogicalSize) {
     if (constraints == null) {
       return ViewConstraints.tight(currentLogicalSize);
     }
@@ -803,14 +745,16 @@ class ViewConstraints implements ui.ViewConstraints {
 
   @override
   bool isSatisfiedBy(ui.Size size) {
-    return (minWidth <= size.width) && (size.width <= maxWidth) &&
-           (minHeight <= size.height) && (size.height <= maxHeight);
+    return (minWidth <= size.width) &&
+        (size.width <= maxWidth) &&
+        (minHeight <= size.height) &&
+        (size.height <= maxHeight);
   }
 
   @override
   bool get isTight => minWidth >= maxWidth && minHeight >= maxHeight;
 
-  ViewConstraints operator*(double factor) {
+  ViewConstraints operator *(double factor) {
     return ViewConstraints(
       minWidth: minWidth * factor,
       maxWidth: maxWidth * factor,
@@ -820,7 +764,7 @@ class ViewConstraints implements ui.ViewConstraints {
   }
 
   @override
-  ViewConstraints operator/(double factor) {
+  ViewConstraints operator /(double factor) {
     return ViewConstraints(
       minWidth: minWidth / factor,
       maxWidth: maxWidth / factor,
@@ -837,11 +781,11 @@ class ViewConstraints implements ui.ViewConstraints {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is ViewConstraints
-        && other.minWidth == minWidth
-        && other.maxWidth == maxWidth
-        && other.minHeight == minHeight
-        && other.maxHeight == maxHeight;
+    return other is ViewConstraints &&
+        other.minWidth == minWidth &&
+        other.maxWidth == maxWidth &&
+        other.minHeight == minHeight &&
+        other.maxHeight == maxHeight;
   }
 
   @override
@@ -852,8 +796,10 @@ class ViewConstraints implements ui.ViewConstraints {
     if (minWidth == double.infinity && minHeight == double.infinity) {
       return 'ViewConstraints(biggest)';
     }
-    if (minWidth == 0 && maxWidth == double.infinity &&
-        minHeight == 0 && maxHeight == double.infinity) {
+    if (minWidth == 0 &&
+        maxWidth == double.infinity &&
+        minHeight == 0 &&
+        maxHeight == double.infinity) {
       return 'ViewConstraints(unconstrained)';
     }
     String describe(double min, double max, String dim) {

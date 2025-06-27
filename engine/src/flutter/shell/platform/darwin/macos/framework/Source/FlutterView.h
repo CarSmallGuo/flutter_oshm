@@ -7,23 +7,10 @@
 
 #import <Cocoa/Cocoa.h>
 
+#import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterViewController.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterSurfaceManager.h"
-#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterThreadSynchronizer.h"
 
 #include <stdint.h>
-
-typedef int64_t FlutterViewId;
-
-/**
- * The view ID for APIs that don't support multi-view.
- *
- * Some single-view APIs will eventually be replaced by their multi-view
- * variant. During the deprecation period, the single-view APIs will coexist with
- * and work with the multi-view APIs as if the other views don't exist.  For
- * backward compatibility, single-view APIs will always operate on the view with
- * this ID. Also, the first view assigned to the engine will also have this ID.
- */
-constexpr FlutterViewId kFlutterImplicitViewId = 0ll;
 
 /**
  * Delegate for FlutterView.
@@ -53,8 +40,8 @@ constexpr FlutterViewId kFlutterImplicitViewId = 0ll;
 - (nullable instancetype)initWithMTLDevice:(nonnull id<MTLDevice>)device
                               commandQueue:(nonnull id<MTLCommandQueue>)commandQueue
                                   delegate:(nonnull id<FlutterViewDelegate>)delegate
-                        threadSynchronizer:(nonnull FlutterThreadSynchronizer*)threadSynchronizer
-                                    viewId:(int64_t)viewId NS_DESIGNATED_INITIALIZER;
+                            viewIdentifier:(FlutterViewIdentifier)viewIdentifier
+    NS_DESIGNATED_INITIALIZER;
 
 - (nullable instancetype)initWithFrame:(NSRect)frameRect
                            pixelFormat:(nullable NSOpenGLPixelFormat*)format NS_UNAVAILABLE;
@@ -76,6 +63,18 @@ constexpr FlutterViewId kFlutterImplicitViewId = 0ll;
  * with.
  */
 - (void)setBackgroundColor:(nonnull NSColor*)color;
+
+/**
+ * Called from the engine to notify the view that mouse cursor was updated while
+ * the mouse is over the view. The view is responsible from restoring the cursor
+ * when the mouse enters the view from another subview.
+ */
+- (void)didUpdateMouseCursor:(nonnull NSCursor*)cursor;
+
+/**
+ * Called from the controller to unblock resize synchronizer when shutting down.
+ */
+- (void)shutDown;
 
 @end
 

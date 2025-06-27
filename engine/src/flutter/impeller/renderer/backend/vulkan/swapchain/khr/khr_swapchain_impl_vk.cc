@@ -8,23 +8,17 @@
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/command_buffer_vk.h"
-#include "impeller/renderer/backend/vulkan/command_encoder_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/gpu_tracer_vk.h"
-#include "impeller/renderer/backend/vulkan/swapchain/khr/khr_surface_vk.h"
 #include "impeller/renderer/backend/vulkan/swapchain/khr/khr_swapchain_image_vk.h"
+#include "impeller/renderer/backend/vulkan/swapchain/surface_vk.h"
+#include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "impeller/renderer/context.h"
-#include "vulkan/vulkan_structs.hpp"
 
 namespace impeller {
 
-static constexpr size_t kMaxFramesInFlight = 3u;
-
-// Number of frames to poll for orientation changes. For example `1u` means
-// that the orientation will be polled every frame, while `2u` means that the
-// orientation will be polled every other frame.
-static constexpr size_t kPollFramesForOrientation = 1u;
+static constexpr size_t kMaxFramesInFlight = 2u;
 
 struct KHRFrameSynchronizerVK {
   vk::UniqueFence acquire;
@@ -33,6 +27,8 @@ struct KHRFrameSynchronizerVK {
   std::shared_ptr<CommandBuffer> final_cmd_buffer;
   std::shared_ptr<CommandBuffer> ready_cmd_buffer;
   bool is_valid = false;
+  // Whether the renderer attached an onscreen command buffer to render to.
+  bool has_onscreen = false;
 
   explicit KHRFrameSynchronizerVK(const vk::Device& device) {
     auto acquire_res = device.createFenceUnique(
@@ -202,10 +198,9 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
       );
 #endif
   swapchain_info.imageArrayLayers = 1u;
-  // Swapchain images are primarily used as color attachments (via resolve),
-  // blit targets, or input attachments.
+  // Swapchain images are primarily used as color attachments (via resolve) or
+  // input attachments.
   swapchain_info.imageUsage = vk::ImageUsageFlagBits::eColorAttachment |
-                              vk::ImageUsageFlagBits::eTransferDst |
                               vk::ImageUsageFlagBits::eInputAttachment;
   swapchain_info.preTransform = vk::SurfaceTransformFlagBitsKHR::eIdentity;
   swapchain_info.compositeAlpha = composite.value();
@@ -240,48 +235,6 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   texture_desc.size = ISize::MakeWH(swapchain_info.imageExtent.width,
                                     swapchain_info.imageExtent.height);
 
-  // Allocate a single onscreen MSAA texture and Depth+Stencil Texture to
-  // be shared by all swapchain images.
-  TextureDescriptor msaa_desc;
-  msaa_desc.storage_mode = StorageMode::kDeviceTransient;
-  msaa_desc.type = TextureType::kTexture2DMultisample;
-#ifdef __OHOS__
-  msaa_desc.sample_count = SampleCount::kCount2;
-#else
-  msaa_desc.sample_count = SampleCount::kCount4;
-#endif
-  msaa_desc.format = texture_desc.format;
-  msaa_desc.size = texture_desc.size;
-  msaa_desc.usage = TextureUsage::kRenderTarget;
-
-  // The depth+stencil configuration matches the configuration used by
-  // RenderTarget::SetupDepthStencilAttachments and matching the swapchain
-  // image dimensions and sample count.
-  TextureDescriptor depth_stencil_desc;
-  depth_stencil_desc.storage_mode = StorageMode::kDeviceTransient;
-  if (enable_msaa) {
-    depth_stencil_desc.type = TextureType::kTexture2DMultisample;
-#ifdef __OHOS__
-    depth_stencil_desc.sample_count = SampleCount::kCount2;
-#else
-    depth_stencil_desc.sample_count = SampleCount::kCount4;
-#endif
-  } else {
-    depth_stencil_desc.type = TextureType::kTexture2D;
-    depth_stencil_desc.sample_count = SampleCount::kCount1;
-  }
-  depth_stencil_desc.format =
-      context->GetCapabilities()->GetDefaultDepthStencilFormat();
-  depth_stencil_desc.size = texture_desc.size;
-  depth_stencil_desc.usage = TextureUsage::kRenderTarget;
-
-  std::shared_ptr<Texture> msaa_texture;
-  if (enable_msaa) {
-    msaa_texture = context->GetResourceAllocator()->CreateTexture(msaa_desc);
-  }
-  std::shared_ptr<Texture> depth_stencil_texture =
-      context->GetResourceAllocator()->CreateTexture(depth_stencil_desc);
-
   std::vector<std::shared_ptr<KHRSwapchainImageVK>> swapchain_images;
   for (const auto& image : images) {
     auto swapchain_image = std::make_shared<KHRSwapchainImageVK>(
@@ -293,9 +246,6 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
       VALIDATION_LOG << "Could not create swapchain image.";
       return;
     }
-    swapchain_image->SetMSAATexture(msaa_texture);
-    swapchain_image->SetDepthStencilTexture(depth_stencil_texture);
-
     ContextVK::SetDebugName(
         vk_context.GetDevice(), swapchain_image->GetImage(),
         "SwapchainImage" + std::to_string(swapchain_images.size()));
@@ -332,6 +282,8 @@ KHRSwapchainImplVK::KHRSwapchainImplVK(const std::shared_ptr<Context>& context,
   surface_ = std::move(surface);
   surface_format_ = swapchain_info.imageFormat;
   swapchain_ = std::move(swapchain);
+  transients_ = std::make_shared<SwapchainTransientsVK>(context, texture_desc,
+                                                        enable_msaa);
   images_ = std::move(swapchain_images);
   synchronizers_ = std::move(synchronizers);
   current_frame_ = synchronizers_.size() - 1u;
@@ -346,6 +298,38 @@ KHRSwapchainImplVK::~KHRSwapchainImplVK() {
 
 const ISize& KHRSwapchainImplVK::GetSize() const {
   return size_;
+}
+
+std::optional<ISize> KHRSwapchainImplVK::GetCurrentUnderlyingSurfaceSize()
+    const {
+  if (!IsValid()) {
+    return std::nullopt;
+  }
+
+  auto context = context_.lock();
+  if (!context) {
+    return std::nullopt;
+  }
+
+  auto& vk_context = ContextVK::Cast(*context);
+  const auto [result, surface_caps] =
+      vk_context.GetPhysicalDevice().getSurfaceCapabilitiesKHR(surface_.get());
+  if (result != vk::Result::eSuccess) {
+    return std::nullopt;
+  }
+
+  // From the spec: `currentExtent` is the current width and height of the
+  // surface, or the special value (0xFFFFFFFF, 0xFFFFFFFF) indicating that the
+  // surface size will be determined by the extent of a swapchain targeting the
+  // surface.
+  constexpr uint32_t kCurrentExtentsPlaceholder = 0xFFFFFFFF;
+  if (surface_caps.currentExtent.width == kCurrentExtentsPlaceholder ||
+      surface_caps.currentExtent.height == kCurrentExtentsPlaceholder) {
+    return std::nullopt;
+  }
+
+  return ISize::MakeWH(surface_caps.currentExtent.width,
+                       surface_caps.currentExtent.height);
 }
 
 bool KHRSwapchainImplVK::IsValid() const {
@@ -400,11 +384,15 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   //----------------------------------------------------------------------------
   /// Get the next image index.
   ///
+  /// @bug  Non-infinite timeouts are not supported on some older Android
+  ///       devices and the only indication we get is log spam which serves to
+  ///       add confusion. Just use an infinite timeout instead of being
+  ///       defensive.
   auto [acq_result, index] = context.GetDevice().acquireNextImageKHR(
-      *swapchain_,          // swapchain
-      1'000'000'000,        // timeout (ns) 1000ms
-      *sync->render_ready,  // signal semaphore
-      nullptr               // fence
+      *swapchain_,                           // swapchain
+      std::numeric_limits<uint64_t>::max(),  // timeout (ns)
+      *sync->render_ready,                   // signal semaphore
+      nullptr                                // fence
   );
 
   switch (acq_result) {
@@ -482,18 +470,24 @@ KHRSwapchainImplVK::AcquireResult KHRSwapchainImplVK::AcquireNextDrawable() {
   }
 
   uint32_t image_index = index;
-  return AcquireResult{KHRSurfaceVK::WrapSwapchainImage(
-      context_strong,  // context
-      image,           // swapchain image
+  return AcquireResult{SurfaceVK::WrapSwapchainImage(
+      transients_,  // transients
+      image,        // swapchain image
       [weak_swapchain = weak_from_this(), image, image_index]() -> bool {
         auto swapchain = weak_swapchain.lock();
         if (!swapchain) {
           return false;
         }
         return swapchain->Present(image, image_index);
-      },            // swap callback
-      enable_msaa_  //
+      }  // swap callback
       )};
+}
+
+void KHRSwapchainImplVK::AddFinalCommandBuffer(
+    std::shared_ptr<CommandBuffer> cmd_buffer) {
+  const auto& sync = synchronizers_[current_frame_];
+  sync->final_cmd_buffer = std::move(cmd_buffer);
+  sync->has_onscreen = true;
 }
 
 bool KHRSwapchainImplVK::Present(
@@ -511,14 +505,16 @@ bool KHRSwapchainImplVK::Present(
   //----------------------------------------------------------------------------
   /// Transition the image to color-attachment-optimal.
   ///
-  sync->final_cmd_buffer = context.CreateCommandBuffer();
+  if (!sync->has_onscreen) {
+    sync->final_cmd_buffer = context.CreateCommandBuffer();
+  }
+  sync->has_onscreen = false;
   if (!sync->final_cmd_buffer) {
     return false;
   }
 
-  auto vk_final_cmd_buffer = CommandBufferVK::Cast(*sync->final_cmd_buffer)
-                                 .GetEncoder()
-                                 ->GetCommandBuffer();
+  auto vk_final_cmd_buffer =
+      CommandBufferVK::Cast(*sync->final_cmd_buffer).GetCommandBuffer();
   {
     BarrierVK barrier;
     barrier.new_layout = vk::ImageLayout::ePresentSrcKHR;

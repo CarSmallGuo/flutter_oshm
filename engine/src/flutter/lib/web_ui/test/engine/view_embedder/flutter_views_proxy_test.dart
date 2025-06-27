@@ -17,28 +17,24 @@ void main() {
 
 Future<void> doTests() async {
   group('FlutterViewManagerProxy', () {
-    final EnginePlatformDispatcher platformDispatcher =
-        EnginePlatformDispatcher.instance;
-    final FlutterViewManager viewManager =
-        FlutterViewManager(platformDispatcher);
-    final FlutterViewManagerProxy views =
-        FlutterViewManagerProxy(viewManager: viewManager);
+    final EnginePlatformDispatcher platformDispatcher = EnginePlatformDispatcher.instance;
+    final FlutterViewManager viewManager = FlutterViewManager(platformDispatcher);
+    final FlutterViewManagerProxy views = FlutterViewManagerProxy(viewManager: viewManager);
 
     late EngineFlutterView view;
     late int viewId;
     late DomElement hostElement;
 
     int registerViewWithOptions(Map<String, Object?> options) {
-      final JsFlutterViewOptions jsOptions =
-          options.toJSAnyDeep as JsFlutterViewOptions;
+      final JsFlutterViewOptions jsOptions = options.toJSAnyDeep as JsFlutterViewOptions;
       viewManager.registerView(view, jsViewOptions: jsOptions);
       return viewId;
     }
 
     setUp(() {
-      view = EngineFlutterView(platformDispatcher, createDomElement('div'));
-      viewId = view.viewId;
       hostElement = createDomElement('div');
+      view = EngineFlutterView(platformDispatcher, hostElement);
+      viewId = view.viewId;
     });
 
     tearDown(() {
@@ -52,9 +48,29 @@ Future<void> doTests() async {
       });
 
       test('can retrieve hostElement for a known view', () {
-        final int viewId = registerViewWithOptions(<String, Object?>{
-          'hostElement': hostElement,
-        });
+        final int viewId = registerViewWithOptions(<String, Object?>{'hostElement': hostElement});
+
+        final JSAny? element = views.getHostElement(viewId);
+
+        expect(element, hostElement);
+      });
+
+      test('can retrieve hostElement for an implicit view with default host element', () {
+        final view = EngineFlutterView.implicit(platformDispatcher, null);
+        final viewId = view.viewId;
+        viewManager.registerView(view);
+        addTearDown(() => viewManager.unregisterView(viewId));
+
+        final JSAny? element = views.getHostElement(viewId);
+
+        expect(element, domDocument.body);
+      });
+
+      test('can retrieve hostElement for an implicit view with custom host element', () {
+        final view = EngineFlutterView.implicit(platformDispatcher, hostElement);
+        final viewId = view.viewId;
+        viewManager.registerView(view);
+        addTearDown(() => viewManager.unregisterView(viewId));
 
         final JSAny? element = views.getHostElement(viewId);
 
@@ -78,8 +94,7 @@ Future<void> doTests() async {
           },
         });
 
-        final InitialData? element =
-            views.getInitialData(viewId) as InitialData?;
+        final InitialData? element = views.getInitialData(viewId) as InitialData?;
 
         expect(element, isNotNull);
         expect(element!.someInt, 42);
@@ -91,17 +106,11 @@ Future<void> doTests() async {
 }
 
 // The JS-interop definition of the `initialData` object passed to the views of this app.
-@JS()
-@staticInterop
-class InitialData {}
-
-/// The attributes of the [InitialData] object.
-extension InitialDataExtension on InitialData {
+extension type InitialData._(JSObject _) implements JSObject {
   external int get someInt;
   external String? get someString;
 
   @JS('decimals')
   external JSArray<JSNumber> get _decimals;
-  List<double> get decimals =>
-      _decimals.toDart.map((JSNumber e) => e.toDartDouble).toList();
+  List<double> get decimals => _decimals.toDart.map((JSNumber e) => e.toDartDouble).toList();
 }

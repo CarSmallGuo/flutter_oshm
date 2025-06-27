@@ -16,14 +16,14 @@
 #include "impeller/entity/vk/framebuffer_blend_shaders_vk.h"
 #include "impeller/entity/vk/modern_shaders_vk.h"
 #include "impeller/fixtures/vk/fixtures_shaders_vk.h"
+#include "impeller/fixtures/vk/modern_fixtures_shaders_vk.h"
 #include "impeller/playground/imgui/vk/imgui_shaders_vk.h"
 #include "impeller/renderer/backend/vulkan/context_vk.h"
 #include "impeller/renderer/backend/vulkan/formats_vk.h"
 #include "impeller/renderer/backend/vulkan/surface_context_vk.h"
-#include "impeller/renderer/backend/vulkan/swapchain/khr/khr_surface_vk.h"
+#include "impeller/renderer/backend/vulkan/swapchain/surface_vk.h"
 #include "impeller/renderer/backend/vulkan/texture_vk.h"
 #include "impeller/renderer/vk/compute_shaders_vk.h"
-#include "impeller/scene/shaders/vk/scene_shaders_vk.h"
 
 namespace impeller {
 
@@ -40,16 +40,21 @@ ShaderLibraryMappingsForPlayground() {
       std::make_shared<fml::NonOwnedMapping>(
           impeller_fixtures_shaders_vk_data,
           impeller_fixtures_shaders_vk_length),
+      std::make_shared<fml::NonOwnedMapping>(
+          impeller_modern_fixtures_shaders_vk_data,
+          impeller_modern_fixtures_shaders_vk_length),
       std::make_shared<fml::NonOwnedMapping>(impeller_imgui_shaders_vk_data,
                                              impeller_imgui_shaders_vk_length),
-      std::make_shared<fml::NonOwnedMapping>(impeller_scene_shaders_vk_data,
-                                             impeller_scene_shaders_vk_length),
       std::make_shared<fml::NonOwnedMapping>(
           impeller_compute_shaders_vk_data, impeller_compute_shaders_vk_length),
   };
 }
 
-vk::UniqueInstance PlaygroundImplVK::global_instance_;
+// A global Vulkan instance that is reused across all Vulkan playgrounds.
+// This instance is kept for the entire process lifetime. It is not cleaned
+// up during shutdown to avoid conflicts with destruction of other globals
+// in dependencies like the Vulkan validation layers.
+VkInstance PlaygroundImplVK::global_instance_ = VK_NULL_HANDLE;
 
 void PlaygroundImplVK::DestroyWindowHandle(WindowHandle handle) {
   if (!handle) {
@@ -88,6 +93,9 @@ PlaygroundImplVK::PlaygroundImplVK(PlaygroundSwitches switches)
   context_settings.shader_libraries_data = ShaderLibraryMappingsForPlayground();
   context_settings.cache_directory = fml::paths::GetCachesDirectory();
   context_settings.enable_validation = switches_.enable_vulkan_validation;
+  context_settings.fatal_missing_validations =
+      switches_.enable_vulkan_validation;
+  context_settings.flags = switches_.flags;
 
   auto context_vk = ContextVK::Create(std::move(context_settings));
   if (!context_vk || !context_vk->IsValid()) {
@@ -203,7 +211,7 @@ void PlaygroundImplVK::InitGlobalVulkanInstance() {
   auto instance_result = vk::createInstanceUnique(instance_info);
   FML_CHECK(instance_result.result == vk::Result::eSuccess)
       << "Unable to initialize global Vulkan instance";
-  global_instance_ = std::move(instance_result.value);
+  global_instance_ = instance_result.value.release();
 }
 
 fml::Status PlaygroundImplVK::SetCapabilities(
@@ -227,6 +235,15 @@ bool PlaygroundImplVK::IsVulkanDriverPresent() {
                     "that does not support Vulkan.";
 #endif  // TARGET_OS_MAC
   return false;
+}
+
+// |PlaygroundImpl|
+Playground::VKProcAddressResolver
+PlaygroundImplVK::CreateVKProcAddressResolver() const {
+  return [](void* instance, const char* proc_name) -> void* {
+    return reinterpret_cast<void*>(::glfwGetInstanceProcAddress(
+        reinterpret_cast<VkInstance>(instance), proc_name));
+  };
 }
 
 }  // namespace impeller

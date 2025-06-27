@@ -9,23 +9,18 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as path;
+import 'package:test/test.dart';
 
 import 'impeller_enabled.dart';
 import 'shader_test_file_utils.dart';
 
 void main() async {
-  bool assertsEnabled = false;
-  assert(() {
-    assertsEnabled = true;
-    return true;
-  }());
-
   test('impellerc produces reasonable JSON encoded IPLR files', () async {
     final Directory directory = shaderDirectory('iplr-json');
     final Object? rawData = convert.json.decode(
-      File(path.join(directory.path, 'ink_sparkle.frag.iplr')).readAsStringSync());
+      File(path.join(directory.path, 'ink_sparkle.frag.iplr')).readAsStringSync(),
+    );
 
     expect(rawData is Map<String, Object?>, true);
 
@@ -62,9 +57,7 @@ void main() async {
   });
 
   test('FragmentShader setSampler throws with out-of-bounds index', () async {
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
     final Image blueGreenImage = await _createBlueGreenImage();
     final FragmentShader fragmentShader = program.fragmentShader();
 
@@ -79,142 +72,138 @@ void main() async {
     }
   });
 
-  test('FragmentShader with sampler asserts if sampler is missing when assigned to paint', () async {
-    if (!assertsEnabled) {
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+  test(
+    'FragmentShader with sampler asserts if sampler is missing when assigned to paint',
+    () async {
+      final FragmentProgram program = await FragmentProgram.fromAsset(
+        'blue_green_sampler.frag.iplr',
+      );
+      final FragmentShader fragmentShader = program.fragmentShader();
+
+      try {
+        Paint().shader = fragmentShader;
+        fail('Expected to throw');
+      } catch (err) {
+        expect(err.toString(), contains('Invalid FragmentShader blue_green_sampler.frag.iplr'));
+      } finally {
+        fragmentShader.dispose();
+      }
+    },
+  );
+
+  test('FragmentShader setImageSampler asserts if image is disposed', () async {
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
+    final Image blueGreenImage = await _createBlueGreenImage();
     final FragmentShader fragmentShader = program.fragmentShader();
 
     try {
-      Paint().shader = fragmentShader;
-      fail('Expected to throw');
-    } catch (err) {
-      expect(err.toString(), contains('Invalid FragmentShader blue_green_sampler.frag.iplr'));
+      blueGreenImage.dispose();
+      expect(
+        () {
+          fragmentShader.setImageSampler(0, blueGreenImage);
+        },
+        throwsA(
+          isA<AssertionError>().having(
+            (AssertionError e) => e.message,
+            'message',
+            contains('Image has been disposed'),
+          ),
+        ),
+      );
     } finally {
       fragmentShader.dispose();
     }
   });
 
   test('Disposed FragmentShader on Paint', () async {
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
     final Image blueGreenImage = await _createBlueGreenImage();
 
-    final FragmentShader shader = program.fragmentShader()
-      ..setImageSampler(0, blueGreenImage);
+    final FragmentShader shader = program.fragmentShader()..setImageSampler(0, blueGreenImage);
     shader.dispose();
-    try {
-      final Paint paint = Paint()..shader = shader;  // ignore: unused_local_variable
-      if (assertsEnabled) {
-        fail('Unreachable');
-      }
-    } catch (e) {
-      expect(e.toString(), contains('Attempted to set a disposed shader'));
-    }
+    expect(
+      () {
+        Paint().shader = shader;
+      },
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.message,
+          'message',
+          contains('Attempted to set a disposed shader'),
+        ),
+      ),
+    );
     blueGreenImage.dispose();
   });
 
   test('Disposed FragmentShader setFloat', () async {
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'uniforms.frag.iplr',
-    );
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 0.0);
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniforms.frag.iplr');
+    final FragmentShader shader = program.fragmentShader()..setFloat(0, 0.0);
     shader.dispose();
-    try {
-      shader.setFloat(0, 0.0);
-      if (assertsEnabled) {
-        fail('Unreachable');
-      }
-    } catch (e) {
-      if (assertsEnabled) {
-        expect(
-          e.toString(),
+
+    expect(
+      () {
+        shader.setFloat(0, 0.0);
+      },
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.message,
+          'message',
           contains('Tried to accesss uniforms on a disposed Shader'),
-        );
-      } else {
-        expect(e is RangeError, true);
-      }
-    }
+        ),
+      ),
+    );
   });
 
   test('Disposed FragmentShader setImageSampler', () async {
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
     final Image blueGreenImage = await _createBlueGreenImage();
 
-    final FragmentShader shader = program.fragmentShader()
-      ..setImageSampler(0, blueGreenImage);
+    final FragmentShader shader = program.fragmentShader()..setImageSampler(0, blueGreenImage);
     shader.dispose();
-    try {
-      shader.setImageSampler(0, blueGreenImage);
-      if (assertsEnabled) {
-        fail('Unreachable');
-      }
-    } on AssertionError catch (e) {
-      expect(
-        e.toString(),
-        contains('Tried to access uniforms on a disposed Shader'),
-      );
-    } on StateError catch (e) {
-      expect(
-        e.toString(),
-        contains('the native peer has been collected'),
-      );
-    }
+    expect(
+      () {
+        shader.setImageSampler(0, blueGreenImage);
+      },
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.message,
+          'message',
+          contains('Tried to access uniforms on a disposed Shader'),
+        ),
+      ),
+    );
     blueGreenImage.dispose();
   });
 
   test('Disposed FragmentShader dispose', () async {
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'uniforms.frag.iplr',
-    );
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 0.0);
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniforms.frag.iplr');
+    final FragmentShader shader = program.fragmentShader()..setFloat(0, 0.0);
     shader.dispose();
-    try {
-      shader.dispose();
-      if (assertsEnabled) {
-        fail('Unreachable');
-      }
-    } catch (e) {
-      if (assertsEnabled) {
-        expect(e is AssertionError, true);
-      } else {
-        expect(e is StateError, true);
-      }
-    }
+    expect(
+      () {
+        shader.dispose();
+      },
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.message,
+          'message',
+          contains('Shader cannot be disposed more than once'),
+        ),
+      ),
+    );
   });
 
   test('FragmentShader simple shader renders correctly', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'functions.frag.iplr',
-    );
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 1.0);
+    final FragmentProgram program = await FragmentProgram.fromAsset('functions.frag.iplr');
+    final FragmentShader shader = program.fragmentShader()..setFloat(0, 1.0);
     await _expectShaderRendersGreen(shader);
     shader.dispose();
   });
 
   test('Reused FragmentShader simple shader renders correctly', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'functions.frag.iplr',
-    );
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 1.0);
+    final FragmentProgram program = await FragmentProgram.fromAsset('functions.frag.iplr');
+    final FragmentShader shader = program.fragmentShader()..setFloat(0, 1.0);
     await _expectShaderRendersGreen(shader);
 
     shader.setFloat(0, 0.0);
@@ -224,58 +213,37 @@ void main() async {
   });
 
   test('FragmentShader blue-green image renders green', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
     final Image blueGreenImage = await _createBlueGreenImage();
-    final FragmentShader shader = program.fragmentShader()
-      ..setImageSampler(0, blueGreenImage);
+    final FragmentShader shader = program.fragmentShader()..setImageSampler(0, blueGreenImage);
     await _expectShaderRendersGreen(shader);
     shader.dispose();
     blueGreenImage.dispose();
   });
 
   test('FragmentShader blue-green image renders green - GPU image', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'blue_green_sampler.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('blue_green_sampler.frag.iplr');
     final Image blueGreenImage = _createBlueGreenImageSync();
-    final FragmentShader shader = program.fragmentShader()
-      ..setImageSampler(0, blueGreenImage);
+    final FragmentShader shader = program.fragmentShader()..setImageSampler(0, blueGreenImage);
     await _expectShaderRendersGreen(shader);
     shader.dispose();
     blueGreenImage.dispose();
   });
 
   test('FragmentShader with uniforms renders correctly', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'uniforms.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniforms.frag.iplr');
 
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 0.0)
-      ..setFloat(1, 0.25)
-      ..setFloat(2, 0.75)
-      ..setFloat(3, 0.0)
-      ..setFloat(4, 0.0)
-      ..setFloat(5, 0.0)
-      ..setFloat(6, 1.0);
+    final FragmentShader shader =
+        program.fragmentShader()
+          ..setFloat(0, 0.0)
+          ..setFloat(1, 0.25)
+          ..setFloat(2, 0.75)
+          ..setFloat(3, 0.0)
+          ..setFloat(4, 0.0)
+          ..setFloat(5, 0.0)
+          ..setFloat(6, 1.0);
 
-    final ByteData renderedBytes = (await _imageByteDataFromShader(
-      shader: shader,
-    ))!;
+    final ByteData renderedBytes = (await _imageByteDataFromShader(shader: shader))!;
 
     expect(toFloat(renderedBytes.getUint8(0)), closeTo(0.0, epsilon));
     expect(toFloat(renderedBytes.getUint8(1)), closeTo(0.25, epsilon));
@@ -286,13 +254,7 @@ void main() async {
   });
 
   test('FragmentShader shader with array uniforms renders correctly', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'uniform_arrays.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniform_arrays.frag.iplr');
 
     final FragmentShader shader = program.fragmentShader();
     for (int i = 0; i < 20; i++) {
@@ -308,9 +270,7 @@ void main() async {
       print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
       return;
     }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'ink_sparkle.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('ink_sparkle.frag.iplr');
     final FragmentShader shader = program.fragmentShader();
 
     await _imageByteDataFromShader(shader: shader);
@@ -321,13 +281,7 @@ void main() async {
   });
 
   test('FragmentShader Uniforms are sorted correctly', () async {
-    if (impellerEnabled) {
-      print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
-      return;
-    }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'uniforms_sorted.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniforms_sorted.frag.iplr');
 
     // The shader will not render green if the compiler doesn't keep the
     // uniforms in the right order.
@@ -341,12 +295,28 @@ void main() async {
     shader.dispose();
   });
 
+  test('FragmentShader Uniforms with interleaved textures are sorted ', () async {
+    final FragmentProgram program = await FragmentProgram.fromAsset('uniform_ordering.frag.iplr');
+
+    // The shader will not render green if the compiler doesn't keep the
+    // uniforms in the right order.
+    final FragmentShader shader = program.fragmentShader();
+    shader.setFloat(0, 1);
+    shader.setFloat(1, 2);
+    shader.setFloat(2, 3);
+
+    final Image blueGreenImage = _createBlueGreenImageSync();
+    shader.setImageSampler(0, blueGreenImage);
+
+    await _expectShaderRendersGreen(shader);
+
+    shader.dispose();
+  });
+
   test('fromAsset throws an exception on invalid assetKey', () async {
     bool throws = false;
     try {
-      await FragmentProgram.fromAsset(
-        '<invalid>',
-      );
+      await FragmentProgram.fromAsset('<invalid>');
     } catch (e) {
       throws = true;
     }
@@ -356,9 +326,7 @@ void main() async {
   test('fromAsset throws an exception on invalid data', () async {
     bool throws = false;
     try {
-      await FragmentProgram.fromAsset(
-        'DashInNooglerHat.jpg',
-      );
+      await FragmentProgram.fromAsset('DashInNooglerHat.jpg');
     } catch (e) {
       throws = true;
     }
@@ -373,8 +341,7 @@ void main() async {
     final FragmentProgram program = await FragmentProgram.fromAsset(
       'no_builtin_redefinition.frag.iplr',
     );
-    final FragmentShader shader = program.fragmentShader()
-      ..setFloat(0, 1.0);
+    final FragmentShader shader = program.fragmentShader()..setFloat(0, 1.0);
     await _expectShaderRendersGreen(shader);
     shader.dispose();
   });
@@ -384,12 +351,110 @@ void main() async {
       print('Skipped for Impeller - https://github.com/flutter/flutter/issues/122823');
       return;
     }
-    final FragmentProgram program = await FragmentProgram.fromAsset(
-      'no_uniforms.frag.iplr',
-    );
+    final FragmentProgram program = await FragmentProgram.fromAsset('no_uniforms.frag.iplr');
     final FragmentShader shader = program.fragmentShader();
     await _expectShaderRendersGreen(shader);
     shader.dispose();
+  });
+
+  test('ImageFilter.shader errors if shader does not have correct uniform layout', () async {
+    if (!impellerEnabled) {
+      print('Skipped for Skia');
+      return;
+    }
+    const List<String> shaders = [
+      'no_uniforms.frag.iplr',
+      'missing_size.frag.iplr',
+      'missing_texture.frag.iplr',
+    ];
+    const List<(bool, bool)> errors = [(true, true), (true, false), (false, false)];
+    for (int i = 0; i < 3; i++) {
+      final String fileName = shaders[i];
+      final FragmentProgram program = await FragmentProgram.fromAsset(fileName);
+      final FragmentShader shader = program.fragmentShader();
+
+      Object? error;
+      try {
+        ImageFilter.shader(shader);
+      } catch (err) {
+        error = err;
+      }
+      expect(error is StateError, true);
+      final (floatError, samplerError) = errors[i];
+      if (floatError) {
+        expect(error.toString(), contains('shader has fewer than two float'));
+      }
+      if (samplerError) {
+        expect(error.toString(), contains('shader is missing a sampler uniform'));
+      }
+    }
+  });
+
+  test('Shader Compiler appropriately pads vec3 uniform arrays', () async {
+    if (!impellerEnabled) {
+      print('Skipped for Skia');
+      return;
+    }
+
+    final FragmentProgram program = await FragmentProgram.fromAsset('vec3_uniform.frag.iplr');
+    final FragmentShader shader = program.fragmentShader();
+
+    // Set the last vec3 in the uniform array to green. The shader will read this
+    // value, and if the uniforms were padded correctly will render green.
+    shader.setFloat(12, 0);
+    shader.setFloat(13, 1.0);
+    shader.setFloat(14, 0);
+
+    await _expectShaderRendersGreen(shader);
+  });
+
+  test('ImageFilter.shader can be applied to canvas operations', () async {
+    if (!impellerEnabled) {
+      print('Skipped for Skia');
+      return;
+    }
+    final FragmentProgram program = await FragmentProgram.fromAsset('filter_shader.frag.iplr');
+    final FragmentShader shader = program.fragmentShader();
+    final PictureRecorder recorder = PictureRecorder();
+    final Canvas canvas = Canvas(recorder);
+    canvas.drawPaint(
+      Paint()
+        ..color = const Color(0xFFFF0000)
+        ..imageFilter = ImageFilter.shader(shader),
+    );
+    final Image image = await recorder.endRecording().toImage(1, 1);
+    final ByteData data = (await image.toByteData())!;
+    final Color color = Color(data.buffer.asUint32List()[0]);
+
+    expect(color, const Color(0xFF00FF00));
+  });
+
+  // For an explaination of the problem see https://github.com/flutter/flutter/issues/163302 .
+  test('ImageFilter.shader equality checks consider uniform values', () async {
+    if (!impellerEnabled) {
+      print('Skipped for Skia');
+      return;
+    }
+    final FragmentProgram program = await FragmentProgram.fromAsset('filter_shader.frag.iplr');
+    final FragmentShader shader = program.fragmentShader();
+    final ImageFilter filter = ImageFilter.shader(shader);
+
+    // The same shader is equal to itself.
+    expect(filter, filter);
+    expect(identical(filter, filter), true);
+
+    final ImageFilter filter_2 = ImageFilter.shader(shader);
+
+    // The different shader is equal as long as uniforms are identical.
+    expect(filter, filter_2);
+    expect(identical(filter, filter_2), false);
+
+    // Not equal if uniforms change.
+    shader.setFloat(0, 1);
+    final ImageFilter filter_3 = ImageFilter.shader(shader);
+
+    expect(filter, isNot(filter_3));
+    expect(identical(filter, filter_3), false);
   });
 
   if (impellerEnabled) {
@@ -402,7 +467,6 @@ void main() async {
     path.join('supported_glsl_op_shaders', 'iplr'),
     '.iplr',
   );
-  expect(iplrSupportedGLSLOpShaders.isNotEmpty, true);
   _expectFragmentShadersRenderGreen(iplrSupportedGLSLOpShaders);
 
   // Test all supported instructions. See lib/spirv/lib/src/constants.dart
@@ -410,7 +474,6 @@ void main() async {
     path.join('supported_op_shaders', 'iplr'),
     '.iplr',
   );
-  expect(iplrSupportedOpShaders.isNotEmpty, true);
   _expectFragmentShadersRenderGreen(iplrSupportedOpShaders);
 }
 
@@ -418,11 +481,13 @@ void main() async {
 // Keeping the outer loop of the test synchronous allows for easy printing
 // of the file name within the test case.
 void _expectFragmentShadersRenderGreen(Map<String, FragmentProgram> programs) {
+  if (programs.isEmpty) {
+    fail('No shaders found.');
+  }
   for (final String key in programs.keys) {
     test('FragmentProgram $key renders green', () async {
       final FragmentProgram program = programs[key]!;
-      final FragmentShader shader = program.fragmentShader()
-        ..setFloat(0, 1.0);
+      final FragmentShader shader = program.fragmentShader()..setFloat(0, 1.0);
       await _expectShaderRendersGreen(shader);
       shader.dispose();
     });
@@ -430,10 +495,8 @@ void _expectFragmentShadersRenderGreen(Map<String, FragmentProgram> programs) {
 }
 
 Future<void> _expectShaderRendersColor(Shader shader, Color color) async {
-  final ByteData renderedBytes = (await _imageByteDataFromShader(
-    shader: shader,
-    imageDimension: _shaderImageDimension,
-  ))!;
+  final ByteData renderedBytes =
+      (await _imageByteDataFromShader(shader: shader, imageDimension: _shaderImageDimension))!;
   for (final int c in renderedBytes.buffer.asUint32List()) {
     expect(toHexString(c), toHexString(color.value));
   }
@@ -457,10 +520,7 @@ Future<ByteData?> _imageByteDataFromShader({
   final Paint paint = Paint()..shader = shader;
   canvas.drawPaint(paint);
   final Picture picture = recorder.endRecording();
-  final Image image = await picture.toImage(
-    imageDimension,
-    imageDimension,
-  );
+  final Image image = await picture.toImage(imageDimension, imageDimension);
   return image.toByteData();
 }
 
@@ -468,10 +528,7 @@ Future<ByteData?> _imageByteDataFromShader({
 // $FLUTTER_BUILD_DIRECTORY/gen/flutter/lib/spirv/test/$leafFolderName
 // This is synchronous so that tests can be inside of a loop with
 // the proper test name.
-Future<Map<String, FragmentProgram>> _loadShaderAssets(
-    String leafFolderName,
-    String ext,
-  ) async {
+Future<Map<String, FragmentProgram>> _loadShaderAssets(String leafFolderName, String ext) async {
   final Map<String, FragmentProgram> out = SplayTreeMap<String, FragmentProgram>();
 
   final Directory directory = shaderDirectory(leafFolderName);
@@ -480,14 +537,10 @@ Future<Map<String, FragmentProgram>> _loadShaderAssets(
   }
 
   await Future.forEach(
-    directory
-      .listSync()
-      .where((FileSystemEntity entry) => path.extension(entry.path) == ext),
+    directory.listSync().where((FileSystemEntity entry) => path.extension(entry.path) == ext),
     (FileSystemEntity entry) async {
       final String key = path.basenameWithoutExtension(entry.path);
-      out[key] = await FragmentProgram.fromAsset(
-        path.basename(entry.path),
-      );
+      out[key] = await FragmentProgram.fromAsset(path.basename(entry.path));
     },
   );
   return out;
@@ -516,12 +569,12 @@ Future<Image> _createBlueGreenImage() async {
   int i = 0;
   for (int y = 0; y < length; y++) {
     for (int x = 0; x < length; x++) {
-      if (x < length/2) {
-        pixels[i+2] = 0xFF;  // blue channel
+      if (x < length / 2) {
+        pixels[i + 2] = 0xFF; // blue channel
       } else {
-        pixels[i+1] = 0xFF;  // green channel
+        pixels[i + 1] = 0xFF; // green channel
       }
-      pixels[i+3] = 0xFF;  // alpha channel
+      pixels[i + 3] = 0xFF; // alpha channel
       i += bytesPerPixel;
     }
   }
@@ -533,6 +586,7 @@ Future<Image> _createBlueGreenImage() async {
   );
   final Codec codec = await descriptor.instantiateCodec();
   final FrameInfo frame = await codec.getNextFrame();
+  codec.dispose();
   return frame.image;
 }
 

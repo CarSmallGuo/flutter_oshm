@@ -42,20 +42,14 @@ const String kVoronoiShaderSksl = r'''
 ''';
 
 Future<void> testMain() async {
-  setUpUnitTests(
-    withImplicitView: true,
-    setUpTestViewDimensions: false,
-  );
+  setUpUnitTests(withImplicitView: true, setUpTestViewDimensions: false);
 
   const ui.Rect region = ui.Rect.fromLTWH(0, 0, 300, 300);
 
   late FakeAssetScope assetScope;
   setUp(() {
     assetScope = fakeAssetManager.pushAssetScope();
-    assetScope.setAsset(
-      'voronoi_shader',
-      ByteData.sublistView(utf8.encode(kVoronoiShaderSksl))
-    );
+    assetScope.setAsset('voronoi_shader', ByteData.sublistView(utf8.encode(kVoronoiShaderSksl)));
   });
 
   tearDown(() {
@@ -82,5 +76,25 @@ Future<void> testMain() async {
     // Make sure we can reuse the shader object with a new uniform value.
     shader.setFloat(0, 25.0);
     await drawCircle('fragment_shader_voronoi_tile25px.png');
-  }, skip: isHtml); // Fragment shaders are not supported by the HTML renderer.
+
+    // Test reusing a Paint object with the same shader.
+    final ui.Paint reusablePaint = ui.Paint()..shader = shader;
+
+    Future<void> drawCircleReusePaint(String goldenFilename) async {
+      final ui.PictureRecorder recorder = ui.PictureRecorder();
+      final ui.Canvas canvas = ui.Canvas(recorder, region);
+      canvas.drawCircle(const ui.Offset(150, 150), 100, reusablePaint);
+
+      await drawPictureUsingCurrentRenderer(recorder.endRecording());
+
+      await matchGoldenFile(goldenFilename, region: region);
+    }
+
+    shader.setFloat(0, 10.0);
+    await drawCircleReusePaint('fragment_shader_voronoi_tile10px_reuse_paint.png');
+
+    // Make sure we can reuse the shader object with a new uniform value and the same Paint object.
+    shader.setFloat(0, 25.0);
+    await drawCircleReusePaint('fragment_shader_voronoi_tile25px_reuse_paint.png');
+  });
 }

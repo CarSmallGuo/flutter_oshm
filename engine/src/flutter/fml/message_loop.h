@@ -67,10 +67,6 @@ class MessageLoop {
   fml::RefPtr<fml::TaskRunner> task_runner_;
 
   MessageLoop(void* platform_loop);
-
-  fml::RefPtr<MessageLoopImpl> GetLoopImpl() const;
-
-  FML_DISALLOW_COPY_AND_ASSIGN(MessageLoop);
 };
 
 }  // namespace fml

@@ -8,8 +8,6 @@
 #include <atomic>
 
 #include "flutter/fml/concurrent_message_loop.h"
-#include "flutter/fml/macros.h"
-#include "flutter/fml/mapping.h"
 #include "flutter/fml/unique_fd.h"
 #include "impeller/base/backend_cast.h"
 #include "impeller/base/thread.h"
@@ -17,6 +15,7 @@
 #include "impeller/renderer/backend/vulkan/pipeline_cache_vk.h"
 #include "impeller/renderer/backend/vulkan/pipeline_vk.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
+#include "impeller/renderer/pipeline.h"
 #include "impeller/renderer/pipeline_library.h"
 
 namespace impeller {
@@ -44,11 +43,11 @@ class PipelineLibraryVK final
   std::shared_ptr<fml::ConcurrentTaskRunner> worker_task_runner_;
   Mutex pipelines_mutex_;
   PipelineMap pipelines_ IPLR_GUARDED_BY(pipelines_mutex_);
-  Mutex compute_pipelines_mutex_;
-  ComputePipelineMap compute_pipelines_ IPLR_GUARDED_BY(
-      compute_pipelines_mutex_);
+  ComputePipelineMap compute_pipelines_ IPLR_GUARDED_BY(pipelines_mutex_);
   std::atomic_size_t frames_acquired_ = 0u;
+  PipelineKey pipeline_key_ IPLR_GUARDED_BY(pipelines_mutex_) = 1;
   bool is_valid_ = false;
+  bool cache_dirty_ = false;
 
   PipelineLibraryVK(
       const std::shared_ptr<DeviceHolderVK>& device_holder,
@@ -60,19 +59,24 @@ class PipelineLibraryVK final
   bool IsValid() const override;
 
   // |PipelineLibrary|
-  PipelineFuture<PipelineDescriptor> GetPipeline(
-      PipelineDescriptor descriptor) override;
+  PipelineFuture<PipelineDescriptor> GetPipeline(PipelineDescriptor descriptor,
+                                                 bool async) override;
 
   // |PipelineLibrary|
   PipelineFuture<ComputePipelineDescriptor> GetPipeline(
-      ComputePipelineDescriptor descriptor) override;
+      ComputePipelineDescriptor descriptor,
+      bool async) override;
+
+  // |PipelineLibrary|
+  bool HasPipeline(const PipelineDescriptor& descriptor) override;
 
   // |PipelineLibrary|
   void RemovePipelinesWithEntryPoint(
       std::shared_ptr<const ShaderFunction> function) override;
 
   std::unique_ptr<ComputePipelineVK> CreateComputePipeline(
-      const ComputePipelineDescriptor& desc);
+      const ComputePipelineDescriptor& desc,
+      PipelineKey pipeline_key);
 
   void PersistPipelineCacheToDisk();
 

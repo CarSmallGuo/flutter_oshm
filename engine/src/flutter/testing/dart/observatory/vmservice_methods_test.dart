@@ -8,7 +8,7 @@ import 'dart:developer' as developer;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
@@ -43,7 +43,6 @@ void main() {
     }
   });
 
-
   test('Can return whether or not impeller is enabled', () async {
     vms.VmService? vmService;
     try {
@@ -70,21 +69,20 @@ void main() {
   test('Reload fonts request sends font change notification', () async {
     vms.VmService? vmService;
     try {
-      final developer.ServiceProtocolInfo info =
-          await developer.Service.getInfo();
+      final developer.ServiceProtocolInfo info = await developer.Service.getInfo();
       if (info.serverUri == null) {
         fail('This test must not be run with --disable-vm-service.');
       }
 
       final Completer<String> completer = Completer<String>();
-      ui.channelBuffers.setListener(
-        'flutter/system',
-        (ByteData? data, ui.PlatformMessageResponseCallback callback) {
-          final ByteBuffer buffer = data!.buffer;
-          final Uint8List list = buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-          completer.complete(utf8.decode(list));
-        },
-      );
+      ui.channelBuffers.setListener('flutter/system', (
+        ByteData? data,
+        ui.PlatformMessageResponseCallback callback,
+      ) {
+        final ByteBuffer buffer = data!.buffer;
+        final Uint8List list = buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+        completer.complete(utf8.decode(list));
+      });
 
       vmService = await vmServiceConnectUri(
         'ws://localhost:${info.serverUri!.port}${info.serverUri!.path}ws',
@@ -97,10 +95,7 @@ void main() {
       );
 
       expect(fontChangeResponse.type, 'Success');
-      expect(
-        await completer.future,
-        '{"type":"fontsChange"}',
-      );
+      expect(await completer.future, '{"type":"fontsChange"}');
     } finally {
       await vmService?.dispose();
       ui.channelBuffers.clearListener('flutter/system');

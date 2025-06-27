@@ -59,6 +59,7 @@ static ActionData action_mapping[] = {
     {kFlutterSemanticsActionMoveCursorForwardByWord, "MoveCursorForwardByWord"},
     {kFlutterSemanticsActionMoveCursorBackwardByWord,
      "MoveCursorBackwardByWord"},
+    {kFlutterSemanticsActionFocus, "Focus"},
     {static_cast<FlutterSemanticsAction>(0), nullptr}};
 
 struct FlAccessibleNodePrivate {
@@ -67,10 +68,13 @@ struct FlAccessibleNodePrivate {
   // Weak reference to the engine this node is created for.
   FlEngine* engine;
 
+  /// The unique identifier of the view to which this node belongs.
+  FlutterViewId view_id;
+
   // Weak reference to the parent node of this one or %NULL.
   AtkObject* parent;
 
-  int32_t id;
+  int32_t node_id;
   gchar* name;
   gint index;
   gint x, y, width, height;
@@ -80,7 +84,7 @@ struct FlAccessibleNodePrivate {
   FlutterSemanticsFlag flags;
 };
 
-enum { kProp0, kPropEngine, kPropId, kPropLast };
+enum { PROP_0, PROP_ENGINE, PROP_VIEW_ID, PROP_ID, PROP_LAST };
 
 #define FL_ACCESSIBLE_NODE_GET_PRIVATE(node)                          \
   ((FlAccessibleNodePrivate*)fl_accessible_node_get_instance_private( \
@@ -144,14 +148,17 @@ static void fl_accessible_node_set_property(GObject* object,
                                             GParamSpec* pspec) {
   FlAccessibleNodePrivate* priv = FL_ACCESSIBLE_NODE_GET_PRIVATE(object);
   switch (prop_id) {
-    case kPropEngine:
+    case PROP_ENGINE:
       g_assert(priv->engine == nullptr);
       priv->engine = FL_ENGINE(g_value_get_object(value));
       g_object_add_weak_pointer(object,
                                 reinterpret_cast<gpointer*>(&priv->engine));
       break;
-    case kPropId:
-      priv->id = g_value_get_int(value);
+    case PROP_VIEW_ID:
+      priv->view_id = g_value_get_int64(value);
+      break;
+    case PROP_ID:
+      priv->node_id = g_value_get_int(value);
       break;
     default:
       G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -416,7 +423,8 @@ static void fl_accessible_node_perform_action_impl(
     FlutterSemanticsAction action,
     GBytes* data) {
   FlAccessibleNodePrivate* priv = FL_ACCESSIBLE_NODE_GET_PRIVATE(self);
-  fl_engine_dispatch_semantics_action(priv->engine, priv->id, action, data);
+  fl_engine_dispatch_semantics_action(priv->engine, priv->view_id,
+                                      priv->node_id, action, data);
 }
 
 static void fl_accessible_node_class_init(FlAccessibleNodeClass* klass) {
@@ -447,15 +455,21 @@ static void fl_accessible_node_class_init(FlAccessibleNodeClass* klass) {
       fl_accessible_node_perform_action_impl;
 
   g_object_class_install_property(
-      G_OBJECT_CLASS(klass), kPropEngine,
+      G_OBJECT_CLASS(klass), PROP_ENGINE,
       g_param_spec_object(
           "engine", "engine", "Flutter engine", fl_engine_get_type(),
           static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY |
                                    G_PARAM_STATIC_STRINGS)));
   g_object_class_install_property(
-      G_OBJECT_CLASS(klass), kPropId,
+      G_OBJECT_CLASS(klass), PROP_VIEW_ID,
+      g_param_spec_int64(
+          "view-id", "view-id", "View ID that this node belongs to", 0,
+          G_MAXINT64, 0,
+          static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY)));
+  g_object_class_install_property(
+      G_OBJECT_CLASS(klass), PROP_ID,
       g_param_spec_int(
-          "id", "id", "Accessibility node ID", 0, G_MAXINT, 0,
+          "node-id", "node-id", "Accessibility node ID", 0, G_MAXINT, 0,
           static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY |
                                    G_PARAM_STATIC_STRINGS)));
 }
@@ -478,9 +492,12 @@ static void fl_accessible_node_init(FlAccessibleNode* self) {
   priv->children = g_ptr_array_new_with_free_func(g_object_unref);
 }
 
-FlAccessibleNode* fl_accessible_node_new(FlEngine* engine, int32_t id) {
-  FlAccessibleNode* self = FL_ACCESSIBLE_NODE(g_object_new(
-      fl_accessible_node_get_type(), "engine", engine, "id", id, nullptr));
+FlAccessibleNode* fl_accessible_node_new(FlEngine* engine,
+                                         FlutterViewId view_id,
+                                         int32_t node_id) {
+  FlAccessibleNode* self = FL_ACCESSIBLE_NODE(
+      g_object_new(fl_accessible_node_get_type(), "engine", engine, "view-id",
+                   view_id, "node-id", node_id, nullptr));
   return self;
 }
 

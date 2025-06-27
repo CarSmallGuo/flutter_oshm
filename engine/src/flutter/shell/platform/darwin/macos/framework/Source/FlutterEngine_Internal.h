@@ -14,9 +14,10 @@
 #include "flutter/shell/platform/common/app_lifecycle_state.h"
 
 #import "flutter/shell/platform/darwin/macos/framework/Source/AccessibilityBridgeMac.h"
-#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterCompositor.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterKeyboardManager.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterPlatformViewController.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterRenderer.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterTextInputPlugin.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
@@ -125,9 +126,10 @@ typedef NS_ENUM(NSInteger, FlutterAppExitResponse) {
 /**
  * Attach a view controller to the engine as its default controller.
  *
- * Practically, since FlutterEngine can only be attached with one controller,
- * the given controller, if successfully attached, will always have the default
- * view ID kFlutterImplicitViewId.
+ * Since FlutterEngine can only handle the implicit view for now, the given
+ * controller will always be assigned to the implicit view, if there isn't an
+ * implicit view yet. If the engine already has an implicit view, this call
+ * throws an assertion.
  *
  * The engine holds a weak reference to the attached view controller.
  *
@@ -146,16 +148,14 @@ typedef NS_ENUM(NSInteger, FlutterAppExitResponse) {
  *
  * If the view controller is not associated with this engine, this call throws an
  * assertion.
- *
- * Practically, since FlutterEngine can only be attached with one controller for
- * now, the given controller must be the current view controller.
  */
 - (void)removeViewController:(FlutterViewController*)viewController;
 
 /**
  * The |FlutterViewController| associated with the given view ID, if any.
  */
-- (nullable FlutterViewController*)viewControllerForId:(FlutterViewId)viewId;
+- (nullable FlutterViewController*)viewControllerForIdentifier:
+    (FlutterViewIdentifier)viewIdentifier;
 
 /**
  * Informs the engine that the specified view controller's window metrics have changed.
@@ -166,13 +166,6 @@ typedef NS_ENUM(NSInteger, FlutterAppExitResponse) {
  * Dispatches the given pointer event data to engine.
  */
 - (void)sendPointerEvent:(const FlutterPointerEvent&)event;
-
-/**
- * Dispatches the given pointer event data to engine.
- */
-- (void)sendKeyEvent:(const FlutterKeyEvent&)event
-            callback:(nullable FlutterKeyEventCallback)callback
-            userData:(nullable void*)userData;
 
 /**
  * Registers an external texture with the given id. Returns YES on success.
@@ -221,13 +214,30 @@ typedef NS_ENUM(NSInteger, FlutterAppExitResponse) {
                         withPriority:(NSAccessibilityPriorityLevel)priority;
 
 /**
+ * Returns keyboard manager for the engine.
+ */
+@property(nonatomic, readonly) FlutterKeyboardManager* keyboardManager;
+
+/**
+ * Returns text input plugin for the engine.
+ */
+@property(nonatomic, readonly) FlutterTextInputPlugin* textInputPlugin;
+
+/**
  * Returns an array of screen objects representing all of the screens available on the system.
  */
 - (NSArray<NSScreen*>*)screens;
-@end
 
-@interface FlutterEngine (Tests)
-- (nonnull FlutterThreadSynchronizer*)testThreadSynchronizer;
+/**
+ * Returns engine for the identifier. The identifier must be valid for an engine
+ * that is currently running, otherwise the behavior is undefined.
+ *
+ * The identifier can be obtained in Dart code through
+ * `PlatformDispatcher.instance.engineId`.
+ *
+ * This function must be called on the main thread.
+ */
++ (nullable FlutterEngine*)engineForIdentifier:(int64_t)identifier;
 @end
 
 NS_ASSUME_NONNULL_END

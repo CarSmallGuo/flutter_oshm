@@ -130,6 +130,51 @@ TEST(RectTest, IRectSimpleXYWH) {
   EXPECT_FALSE(rect.IsEmpty());
 }
 
+TEST(RectTest, RectSimpleWH) {
+  // Using fractional-power-of-2 friendly values for equality tests
+  Rect rect = Rect::MakeWH(15.5f, 15.125f);
+
+  EXPECT_EQ(rect.GetLeft(), 0.0f);
+  EXPECT_EQ(rect.GetTop(), 0.0f);
+  EXPECT_EQ(rect.GetRight(), 15.5f);
+  EXPECT_EQ(rect.GetBottom(), 15.125f);
+  EXPECT_EQ(rect.GetX(), 0.0f);
+  EXPECT_EQ(rect.GetY(), 0.0f);
+  EXPECT_EQ(rect.GetWidth(), 15.5f);
+  EXPECT_EQ(rect.GetHeight(), 15.125f);
+  EXPECT_FALSE(rect.IsEmpty());
+  EXPECT_TRUE(rect.IsFinite());
+}
+
+TEST(RectTest, IRectSimpleWH) {
+  // Using fractional-power-of-2 friendly values for equality tests
+  IRect rect = IRect::MakeWH(15, 25);
+
+  EXPECT_EQ(rect.GetLeft(), 0);
+  EXPECT_EQ(rect.GetTop(), 0);
+  EXPECT_EQ(rect.GetRight(), 15);
+  EXPECT_EQ(rect.GetBottom(), 25);
+  EXPECT_EQ(rect.GetX(), 0);
+  EXPECT_EQ(rect.GetY(), 0);
+  EXPECT_EQ(rect.GetWidth(), 15);
+  EXPECT_EQ(rect.GetHeight(), 25);
+  EXPECT_FALSE(rect.IsEmpty());
+}
+
+TEST(RectTest, RectFromIRect) {
+  IRect irect = IRect::MakeLTRB(10, 20, 30, 40);
+  Rect rect = Rect::Make(irect);
+
+  EXPECT_EQ(rect.GetLeft(), 10);
+  EXPECT_EQ(rect.GetTop(), 20);
+  EXPECT_EQ(rect.GetRight(), 30);
+  EXPECT_EQ(rect.GetBottom(), 40);
+
+  // The following do not compile
+  // IRect irect2 = IRect::Make(rect);
+  // IRect irect2 = IRect::Make(irect);
+}
+
 TEST(RectTest, RectOverflowXYWH) {
   auto min = std::numeric_limits<Scalar>::lowest();
   auto max = std::numeric_limits<Scalar>::max();
@@ -1412,16 +1457,14 @@ TEST(RectTest, OptRectUnion) {
 
   auto test1 = [](const Rect& r) {
     // Rect, NullOpt
-    EXPECT_TRUE(Rect::Union(r, std::nullopt).has_value());
-    EXPECT_EQ(Rect::Union(r, std::nullopt).value(), r);
+    EXPECT_EQ(Rect::Union(r, std::nullopt), r);
 
     // OptRect, NullOpt
     EXPECT_TRUE(Rect::Union(std::optional(r), std::nullopt).has_value());
     EXPECT_EQ(Rect::Union(std::optional(r), std::nullopt).value(), r);
 
     // NullOpt, Rect
-    EXPECT_TRUE(Rect::Union(std::nullopt, r).has_value());
-    EXPECT_EQ(Rect::Union(std::nullopt, r).value(), r);
+    EXPECT_EQ(Rect::Union(std::nullopt, r), r);
 
     // NullOpt, OptRect
     EXPECT_TRUE(Rect::Union(std::nullopt, std::optional(r)).has_value());
@@ -1436,12 +1479,10 @@ TEST(RectTest, OptRectUnion) {
     ASSERT_EQ(a.Union(b), u);
 
     // Rect, OptRect
-    EXPECT_TRUE(Rect::Union(a, std::optional(b)).has_value());
-    EXPECT_EQ(Rect::Union(a, std::optional(b)).value(), u);
+    EXPECT_EQ(Rect::Union(a, std::optional(b)), u);
 
     // OptRect, Rect
-    EXPECT_TRUE(Rect::Union(std::optional(a), b).has_value());
-    EXPECT_EQ(Rect::Union(std::optional(a), b).value(), u);
+    EXPECT_EQ(Rect::Union(std::optional(a), b), u);
 
     // OptRect, OptRect
     EXPECT_TRUE(Rect::Union(std::optional(a), std::optional(b)).has_value());
@@ -1536,16 +1577,14 @@ TEST(RectTest, OptIRectUnion) {
 
   auto test1 = [](const IRect& r) {
     // Rect, NullOpt
-    EXPECT_TRUE(IRect::Union(r, std::nullopt).has_value());
-    EXPECT_EQ(IRect::Union(r, std::nullopt).value(), r);
+    EXPECT_EQ(IRect::Union(r, std::nullopt), r);
 
     // OptRect, NullOpt
     EXPECT_TRUE(IRect::Union(std::optional(r), std::nullopt).has_value());
     EXPECT_EQ(IRect::Union(std::optional(r), std::nullopt).value(), r);
 
     // NullOpt, Rect
-    EXPECT_TRUE(IRect::Union(std::nullopt, r).has_value());
-    EXPECT_EQ(IRect::Union(std::nullopt, r).value(), r);
+    EXPECT_EQ(IRect::Union(std::nullopt, r), r);
 
     // NullOpt, OptRect
     EXPECT_TRUE(IRect::Union(std::nullopt, std::optional(r)).has_value());
@@ -1560,12 +1599,10 @@ TEST(RectTest, OptIRectUnion) {
     ASSERT_EQ(a.Union(b), u);
 
     // Rect, OptRect
-    EXPECT_TRUE(IRect::Union(a, std::optional(b)).has_value());
-    EXPECT_EQ(IRect::Union(a, std::optional(b)).value(), u);
+    EXPECT_EQ(IRect::Union(a, std::optional(b)), u);
 
     // OptRect, Rect
-    EXPECT_TRUE(IRect::Union(std::optional(a), b).has_value());
-    EXPECT_EQ(IRect::Union(std::optional(a), b).value(), u);
+    EXPECT_EQ(IRect::Union(std::optional(a), b), u);
 
     // OptRect, OptRect
     EXPECT_TRUE(IRect::Union(std::optional(a), std::optional(b)).has_value());
@@ -1604,18 +1641,28 @@ TEST(RectTest, RectIntersection) {
 
     // unflipped a vs flipped (empty) b yields a
     EXPECT_FALSE(a.Intersection(flip_lr(b)).has_value()) << label;
+    EXPECT_TRUE(a.IntersectionOrEmpty(flip_lr(b)).IsEmpty()) << label;
     EXPECT_FALSE(a.Intersection(flip_tb(b)).has_value()) << label;
+    EXPECT_TRUE(a.IntersectionOrEmpty(flip_tb(b)).IsEmpty()) << label;
     EXPECT_FALSE(a.Intersection(flip_lrtb(b)).has_value()) << label;
+    EXPECT_TRUE(a.IntersectionOrEmpty(flip_lrtb(b)).IsEmpty()) << label;
 
     // flipped (empty) a vs unflipped b yields b
     EXPECT_FALSE(flip_lr(a).Intersection(b).has_value()) << label;
+    EXPECT_TRUE(flip_lr(a).IntersectionOrEmpty(b).IsEmpty()) << label;
     EXPECT_FALSE(flip_tb(a).Intersection(b).has_value()) << label;
+    EXPECT_TRUE(flip_tb(a).IntersectionOrEmpty(b).IsEmpty()) << label;
     EXPECT_FALSE(flip_lrtb(a).Intersection(b).has_value()) << label;
+    EXPECT_TRUE(flip_lrtb(a).IntersectionOrEmpty(b).IsEmpty()) << label;
 
     // flipped (empty) a vs flipped (empty) b yields empty
     EXPECT_FALSE(flip_lr(a).Intersection(flip_lr(b)).has_value()) << label;
+    EXPECT_TRUE(flip_lr(a).IntersectionOrEmpty(flip_lr(b)).IsEmpty()) << label;
     EXPECT_FALSE(flip_tb(a).Intersection(flip_tb(b)).has_value()) << label;
+    EXPECT_TRUE(flip_tb(a).IntersectionOrEmpty(flip_tb(b)).IsEmpty()) << label;
     EXPECT_FALSE(flip_lrtb(a).Intersection(flip_lrtb(b)).has_value()) << label;
+    EXPECT_TRUE(flip_lrtb(a).IntersectionOrEmpty(flip_lrtb(b)).IsEmpty())
+        << label;
   };
 
   auto test_non_empty = [&check_nans, &check_empty_flips](
@@ -1645,7 +1692,9 @@ TEST(RectTest, RectIntersection) {
     auto label = stream.str();
 
     EXPECT_FALSE(a.Intersection(b).has_value()) << label;
+    EXPECT_TRUE(a.IntersectionOrEmpty(b).IsEmpty()) << label;
     EXPECT_FALSE(b.Intersection(a).has_value()) << label;
+    EXPECT_TRUE(b.IntersectionOrEmpty(a).IsEmpty()) << label;
     check_empty_flips(a, b, label);
     check_nans(a, b, label);
   };
@@ -2259,6 +2308,175 @@ TEST(RectTest, IRectContainsIPoint) {
   }
 }
 
+TEST(RectTest, RectContainsInclusivePoint) {
+  auto check_nans = [](const Rect& rect, const Point& point,
+                       const std::string& label) {
+    ASSERT_TRUE(rect.IsFinite()) << label;
+    ASSERT_TRUE(point.IsFinite()) << label;
+
+    for (int i = 1; i < 16; i++) {
+      EXPECT_FALSE(swap_nan(rect, i).ContainsInclusive(point))
+          << label << ", index = " << i;
+      for (int j = 1; j < 4; j++) {
+        EXPECT_FALSE(swap_nan(rect, i).ContainsInclusive(swap_nan(point, j)))
+            << label << ", indices = " << i << ", " << j;
+      }
+    }
+  };
+
+  auto check_empty_flips = [](const Rect& rect, const Point& point,
+                              const std::string& label) {
+    ASSERT_FALSE(rect.IsEmpty());
+
+    EXPECT_FALSE(flip_lr(rect).ContainsInclusive(point)) << label;
+    EXPECT_FALSE(flip_tb(rect).ContainsInclusive(point)) << label;
+    EXPECT_FALSE(flip_lrtb(rect).ContainsInclusive(point)) << label;
+  };
+
+  auto test_inside = [&check_nans, &check_empty_flips](const Rect& rect,
+                                                       const Point& point) {
+    ASSERT_FALSE(rect.IsEmpty()) << rect;
+
+    std::stringstream stream;
+    stream << rect << " contains " << point;
+    auto label = stream.str();
+
+    EXPECT_TRUE(rect.ContainsInclusive(point)) << label;
+    check_empty_flips(rect, point, label);
+    check_nans(rect, point, label);
+  };
+
+  auto test_outside = [&check_nans, &check_empty_flips](const Rect& rect,
+                                                        const Point& point) {
+    ASSERT_FALSE(rect.IsEmpty()) << rect;
+
+    std::stringstream stream;
+    stream << rect << " contains " << point;
+    auto label = stream.str();
+
+    EXPECT_FALSE(rect.ContainsInclusive(point)) << label;
+    check_empty_flips(rect, point, label);
+    check_nans(rect, point, label);
+  };
+
+  {
+    // Origin is inclusive
+    auto r = Rect::MakeXYWH(100, 100, 100, 100);
+    auto p = Point(100, 100);
+
+    test_inside(r, p);
+  }
+  {
+    // Size is inclusive
+    auto r = Rect::MakeXYWH(100, 100, 100, 100);
+    auto p = Point(200, 200);
+
+    test_inside(r, p);
+  }
+  {
+    // Size + epsilon is exclusive
+    auto r = Rect::MakeXYWH(100, 100, 100, 100);
+    auto p = Point(200 + kEhCloseEnough, 200 + kEhCloseEnough);
+
+    test_outside(r, p);
+  }
+  {
+    auto r = Rect::MakeXYWH(100, 100, 100, 100);
+    auto p = Point(99, 99);
+
+    test_outside(r, p);
+  }
+  {
+    auto r = Rect::MakeXYWH(100, 100, 100, 100);
+    auto p = Point(199, 199);
+
+    test_inside(r, p);
+  }
+
+  {
+    auto r = Rect::MakeMaximum();
+    auto p = Point(199, 199);
+
+    test_inside(r, p);
+  }
+}
+
+TEST(RectTest, IRectContainsInclusiveIPoint) {
+  auto check_empty_flips = [](const IRect& rect, const IPoint& point,
+                              const std::string& label) {
+    ASSERT_FALSE(rect.IsEmpty());
+
+    EXPECT_FALSE(flip_lr(rect).ContainsInclusive(point)) << label;
+    EXPECT_FALSE(flip_tb(rect).ContainsInclusive(point)) << label;
+    EXPECT_FALSE(flip_lrtb(rect).ContainsInclusive(point)) << label;
+  };
+
+  auto test_inside = [&check_empty_flips](const IRect& rect,
+                                          const IPoint& point) {
+    ASSERT_FALSE(rect.IsEmpty()) << rect;
+
+    std::stringstream stream;
+    stream << rect << " contains " << point;
+    auto label = stream.str();
+
+    EXPECT_TRUE(rect.ContainsInclusive(point)) << label;
+    check_empty_flips(rect, point, label);
+  };
+
+  auto test_outside = [&check_empty_flips](const IRect& rect,
+                                           const IPoint& point) {
+    ASSERT_FALSE(rect.IsEmpty()) << rect;
+
+    std::stringstream stream;
+    stream << rect << " contains " << point;
+    auto label = stream.str();
+
+    EXPECT_FALSE(rect.ContainsInclusive(point)) << label;
+    check_empty_flips(rect, point, label);
+  };
+
+  {
+    // Origin is inclusive
+    auto r = IRect::MakeXYWH(100, 100, 100, 100);
+    auto p = IPoint(100, 100);
+
+    test_inside(r, p);
+  }
+  {
+    // Size is inclusive
+    auto r = IRect::MakeXYWH(100, 100, 100, 100);
+    auto p = IPoint(200, 200);
+
+    test_inside(r, p);
+  }
+  {
+    // Size + "epsilon" is exclusive
+    auto r = IRect::MakeXYWH(100, 100, 100, 100);
+    auto p = IPoint(201, 201);
+
+    test_outside(r, p);
+  }
+  {
+    auto r = IRect::MakeXYWH(100, 100, 100, 100);
+    auto p = IPoint(99, 99);
+
+    test_outside(r, p);
+  }
+  {
+    auto r = IRect::MakeXYWH(100, 100, 100, 100);
+    auto p = IPoint(199, 199);
+
+    test_inside(r, p);
+  }
+
+  {
+    auto r = IRect::MakeMaximum();
+    auto p = IPoint(199, 199);
+
+    test_inside(r, p);
+  }
+}
+
 TEST(RectTest, RectContainsRect) {
   auto check_nans = [](const Rect& a, const Rect& b, const std::string& label) {
     ASSERT_TRUE(a.IsFinite()) << label;
@@ -2840,25 +3058,188 @@ TEST(RectTest, RectProject) {
 
 TEST(RectTest, RectRoundOut) {
   {
-    auto r = Rect::MakeLTRB(-100, -100, 100, 100);
+    auto r = Rect::MakeLTRB(-100, -200, 300, 400);
     EXPECT_EQ(Rect::RoundOut(r), r);
   }
   {
-    auto r = Rect::MakeLTRB(-100.1, -100.1, 100.1, 100.1);
-    EXPECT_EQ(Rect::RoundOut(r), Rect::MakeLTRB(-101, -101, 101, 101));
+    auto r = Rect::MakeLTRB(-100.1, -200.1, 300.1, 400.1);
+    EXPECT_EQ(Rect::RoundOut(r), Rect::MakeLTRB(-101, -201, 301, 401));
   }
 }
 
 TEST(RectTest, IRectRoundOut) {
   {
-    auto r = Rect::MakeLTRB(-100, -100, 100, 100);
-    auto ir = IRect::MakeLTRB(-100, -100, 100, 100);
+    auto r = Rect::MakeLTRB(-100, -200, 300, 400);
+    auto ir = IRect::MakeLTRB(-100, -200, 300, 400);
     EXPECT_EQ(IRect::RoundOut(r), ir);
   }
   {
-    auto r = Rect::MakeLTRB(-100.1, -100.1, 100.1, 100.1);
-    auto ir = IRect::MakeLTRB(-101, -101, 101, 101);
+    auto r = Rect::MakeLTRB(-100.1, -200.1, 300.1, 400.1);
+    auto ir = IRect::MakeLTRB(-101, -201, 301, 401);
     EXPECT_EQ(IRect::RoundOut(r), ir);
+  }
+}
+
+TEST(RectTest, RectRound) {
+  {
+    auto r = Rect::MakeLTRB(-100, -200, 300, 400);
+    EXPECT_EQ(Rect::Round(r), r);
+  }
+  {
+    auto r = Rect::MakeLTRB(-100.4, -200.4, 300.4, 400.4);
+    EXPECT_EQ(Rect::Round(r), Rect::MakeLTRB(-100, -200, 300, 400));
+  }
+  {
+    auto r = Rect::MakeLTRB(-100.5, -200.5, 300.5, 400.5);
+    EXPECT_EQ(Rect::Round(r), Rect::MakeLTRB(-101, -201, 301, 401));
+  }
+}
+
+TEST(RectTest, IRectRound) {
+  {
+    auto r = Rect::MakeLTRB(-100, -200, 300, 400);
+    auto ir = IRect::MakeLTRB(-100, -200, 300, 400);
+    EXPECT_EQ(IRect::Round(r), ir);
+  }
+  {
+    auto r = Rect::MakeLTRB(-100.4, -200.4, 300.4, 400.4);
+    auto ir = IRect::MakeLTRB(-100, -200, 300, 400);
+    EXPECT_EQ(IRect::Round(r), ir);
+  }
+  {
+    auto r = Rect::MakeLTRB(-100.5, -200.5, 300.5, 400.5);
+    auto ir = IRect::MakeLTRB(-101, -201, 301, 401);
+    EXPECT_EQ(IRect::Round(r), ir);
+  }
+}
+
+TEST(RectTest, TransformAndClipBounds) {
+  {
+    // This matrix should clip no corners.
+    auto matrix = impeller::Matrix::MakeColumn(
+        // clang-format off
+        2.0f, 0.0f, 0.0f, 0.0f,
+        0.0f, 4.0f, 0.0f, 0.0f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 8.0f
+        // clang-format on
+    );
+    Rect src = Rect::MakeLTRB(100.0f, 100.0f, 200.0f, 200.0f);
+    // None of these should have a W<0
+    EXPECT_EQ(matrix.TransformHomogenous(src.GetLeftTop()),
+              Vector3(200.0f, 400.0f, 8.0f));
+    EXPECT_EQ(matrix.TransformHomogenous(src.GetRightTop()),
+              Vector3(400.0f, 400.0f, 8.0f));
+    EXPECT_EQ(matrix.TransformHomogenous(src.GetLeftBottom()),
+              Vector3(200.0f, 800.0f, 8.0f));
+    EXPECT_EQ(matrix.TransformHomogenous(src.GetRightBottom()),
+              Vector3(400.0f, 800.0f, 8.0f));
+
+    Rect expect = Rect::MakeLTRB(25.0f, 50.0f, 50.0f, 100.0f);
+    EXPECT_FALSE(src.TransformAndClipBounds(matrix).IsEmpty());
+    EXPECT_EQ(src.TransformAndClipBounds(matrix), expect);
+  }
+
+  {
+    // This matrix should clip one corner.
+    auto matrix = impeller::Matrix::MakeColumn(
+        // clang-format off
+        2.0f, 0.0f, 0.0f, -0.01f,
+        0.0f, 2.0f, 0.0f, -0.006f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 3.0f
+        // clang-format on
+    );
+    Rect src = Rect::MakeLTRB(100.0f, 100.0f, 200.0f, 200.0f);
+    // Exactly one of these should have a W<0
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftTop()),
+                        Vector3(200.0f, 200.0f, 1.4f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightTop()),
+                        Vector3(400.0f, 200.0f, 0.4f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftBottom()),
+                        Vector3(200.0f, 400.0f, 0.8f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightBottom()),
+                        Vector3(400.0f, 400.0f, -0.2f));
+
+    Rect expect = Rect::MakeLTRB(142.85715f, 142.85715f, 6553600.f, 6553600.f);
+    EXPECT_FALSE(src.TransformAndClipBounds(matrix).IsEmpty());
+    EXPECT_RECT_NEAR(src.TransformAndClipBounds(matrix), expect);
+  }
+
+  {
+    // This matrix should clip two corners.
+    auto matrix = impeller::Matrix::MakeColumn(
+        // clang-format off
+        2.0f, 0.0f, 0.0f, -.015f,
+        0.0f, 2.0f, 0.0f, -.006f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 3.0f
+        // clang-format on
+    );
+    Rect src = Rect::MakeLTRB(100.0f, 100.0f, 200.0f, 200.0f);
+    // Exactly two of these should have a W<0
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftTop()),
+                        Vector3(200.0f, 200.0f, 0.9f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightTop()),
+                        Vector3(400.0f, 200.0f, -0.6f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftBottom()),
+                        Vector3(200.0f, 400.0f, 0.3f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightBottom()),
+                        Vector3(400.0f, 400.0f, -1.2f));
+
+    Rect expect = Rect::MakeLTRB(222.2222f, 222.2222f, 5898373.f, 6553600.f);
+    EXPECT_FALSE(src.TransformAndClipBounds(matrix).IsEmpty());
+    EXPECT_RECT_NEAR(src.TransformAndClipBounds(matrix), expect);
+  }
+
+  {
+    // This matrix should clip three corners.
+    auto matrix = impeller::Matrix::MakeColumn(
+        // clang-format off
+        2.0f, 0.0f, 0.0f, -.02f,
+        0.0f, 2.0f, 0.0f, -.006f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 3.0f
+        // clang-format on
+    );
+    Rect src = Rect::MakeLTRB(100.0f, 100.0f, 200.0f, 200.0f);
+    // Exactly three of these should have a W<0
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftTop()),
+                        Vector3(200.0f, 200.0f, 0.4f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightTop()),
+                        Vector3(400.0f, 200.0f, -1.6f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftBottom()),
+                        Vector3(200.0f, 400.0f, -0.2f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightBottom()),
+                        Vector3(400.0f, 400.0f, -2.2f));
+
+    Rect expect = Rect::MakeLTRB(499.99988f, 499.99988f, 5898340.f, 4369400.f);
+    EXPECT_FALSE(src.TransformAndClipBounds(matrix).IsEmpty());
+    EXPECT_RECT_NEAR(src.TransformAndClipBounds(matrix), expect);
+  }
+
+  {
+    // This matrix should clip all four corners.
+    auto matrix = impeller::Matrix::MakeColumn(
+        // clang-format off
+        2.0f, 0.0f, 0.0f, -.025f,
+        0.0f, 2.0f, 0.0f, -.006f,
+        0.0f, 0.0f, 1.0f, 0.0f,
+        0.0f, 0.0f, 0.0f, 3.0f
+        // clang-format on
+    );
+    Rect src = Rect::MakeLTRB(100.0f, 100.0f, 200.0f, 200.0f);
+    // All of these should have a W<0
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftTop()),
+                        Vector3(200.0f, 200.0f, -0.1f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightTop()),
+                        Vector3(400.0f, 200.0f, -2.6f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetLeftBottom()),
+                        Vector3(200.0f, 400.0f, -0.7f));
+    EXPECT_VECTOR3_NEAR(matrix.TransformHomogenous(src.GetRightBottom()),
+                        Vector3(400.0f, 400.0f, -3.2f));
+
+    EXPECT_TRUE(src.TransformAndClipBounds(matrix).IsEmpty());
   }
 }
 

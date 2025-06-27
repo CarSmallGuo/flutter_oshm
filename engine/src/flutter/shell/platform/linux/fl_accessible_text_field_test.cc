@@ -9,7 +9,6 @@
 #include "flutter/shell/platform/linux/fl_accessible_text_field.h"
 #include "flutter/shell/platform/linux/fl_engine_private.h"
 #include "flutter/shell/platform/linux/public/flutter_linux/fl_standard_message_codec.h"
-#include "flutter/shell/platform/linux/testing/fl_test.h"
 #include "flutter/shell/platform/linux/testing/mock_signal_handler.h"
 
 // MOCK_ENGINE_PROC is leaky by design
@@ -25,8 +24,10 @@ static FlValue* decode_semantic_data(const uint8_t* data, size_t data_length) {
 // Tests that semantic node value updates from Flutter emit AtkText::text-insert
 // and AtkText::text-remove signals as expected.
 TEST(FlAccessibleTextFieldTest, SetValue) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   // "" -> "Flutter"
   {
@@ -81,8 +82,10 @@ TEST(FlAccessibleTextFieldTest, SetValue) {
 // AtkText::text-selection-changed and AtkText::text-caret-moved signals as
 // expected.
 TEST(FlAccessibleTextFieldTest, SetTextSelection) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   // [-1,-1] -> [2,3]
   {
@@ -143,19 +146,24 @@ TEST(FlAccessibleTextFieldTest, PerformAction) {
   g_autoptr(GPtrArray) action_datas = g_ptr_array_new_with_free_func(
       reinterpret_cast<GDestroyNotify>(fl_value_unref));
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&action_datas](auto engine, uint64_t id,
-                           FlutterSemanticsAction action, const uint8_t* data,
-                           size_t data_length) {
-            g_ptr_array_add(action_datas,
-                            decode_semantic_data(data, data_length));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&action_datas](auto engine,
+                       const FlutterSendSemanticsActionInfo* info) {
+        g_ptr_array_add(action_datas,
+                        decode_semantic_data(info->data, info->data_length));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
   fl_accessible_node_set_actions(
       node, static_cast<FlutterSemanticsAction>(
                 kFlutterSemanticsActionMoveCursorForwardByCharacter |
@@ -176,8 +184,10 @@ TEST(FlAccessibleTextFieldTest, PerformAction) {
 
 // Tests AtkText::get_character_count.
 TEST(FlAccessibleTextFieldTest, GetCharacterCount) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_EQ(atk_text_get_character_count(ATK_TEXT(node)), 0);
 
@@ -188,8 +198,10 @@ TEST(FlAccessibleTextFieldTest, GetCharacterCount) {
 
 // Tests AtkText::get_text.
 TEST(FlAccessibleTextFieldTest, GetText) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   g_autofree gchar* empty = atk_text_get_text(ATK_TEXT(node), 0, -1);
   EXPECT_STREQ(empty, "");
@@ -208,8 +220,10 @@ TEST(FlAccessibleTextFieldTest, GetText) {
 
 // Tests AtkText::get_caret_offset.
 TEST(FlAccessibleTextFieldTest, GetCaretOffset) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_EQ(atk_text_get_caret_offset(ATK_TEXT(node)), -1);
 
@@ -223,22 +237,28 @@ TEST(FlAccessibleTextFieldTest, SetCaretOffset) {
   int base = -1;
   int extent = -1;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&base, &extent](auto engine, uint64_t id,
-                            FlutterSemanticsAction action, const uint8_t* data,
-                            size_t data_length) {
-            EXPECT_EQ(action, kFlutterSemanticsActionSetSelection);
-            g_autoptr(FlValue) value = decode_semantic_data(data, data_length);
-            EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-            base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-            extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&base, &extent](auto engine,
+                        const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_EQ(info->action, kFlutterSemanticsActionSetSelection);
+        g_autoptr(FlValue) value =
+            decode_semantic_data(info->data, info->data_length);
+        EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+        base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+        extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_TRUE(atk_text_set_caret_offset(ATK_TEXT(node), 3));
   EXPECT_EQ(base, 3);
@@ -247,8 +267,10 @@ TEST(FlAccessibleTextFieldTest, SetCaretOffset) {
 
 // Tests AtkText::get_n_selections.
 TEST(FlAccessibleTextFieldTest, GetNSelections) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_EQ(atk_text_get_n_selections(ATK_TEXT(node)), 0);
 
@@ -259,8 +281,10 @@ TEST(FlAccessibleTextFieldTest, GetNSelections) {
 
 // Tests AtkText::get_selection.
 TEST(FlAccessibleTextFieldTest, GetSelection) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_EQ(atk_text_get_selection(ATK_TEXT(node), 0, nullptr, nullptr),
             nullptr);
@@ -296,22 +320,28 @@ TEST(FlAccessibleTextFieldTest, AddSelection) {
   int base = -1;
   int extent = -1;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&base, &extent](auto engine, uint64_t id,
-                            FlutterSemanticsAction action, const uint8_t* data,
-                            size_t data_length) {
-            EXPECT_EQ(action, kFlutterSemanticsActionSetSelection);
-            g_autoptr(FlValue) value = decode_semantic_data(data, data_length);
-            EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-            base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-            extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&base, &extent](auto engine,
+                        const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_EQ(info->action, kFlutterSemanticsActionSetSelection);
+        g_autoptr(FlValue) value =
+            decode_semantic_data(info->data, info->data_length);
+        EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+        base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+        extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   EXPECT_TRUE(atk_text_add_selection(ATK_TEXT(node), 2, 4));
   EXPECT_EQ(base, 2);
@@ -330,22 +360,28 @@ TEST(FlAccessibleTextFieldTest, RemoveSelection) {
   int base = -1;
   int extent = -1;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&base, &extent](auto engine, uint64_t id,
-                            FlutterSemanticsAction action, const uint8_t* data,
-                            size_t data_length) {
-            EXPECT_EQ(action, kFlutterSemanticsActionSetSelection);
-            g_autoptr(FlValue) value = decode_semantic_data(data, data_length);
-            EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-            base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-            extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&base, &extent](auto engine,
+                        const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_EQ(info->action, kFlutterSemanticsActionSetSelection);
+        g_autoptr(FlValue) value =
+            decode_semantic_data(info->data, info->data_length);
+        EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+        base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+        extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   // no selection
   EXPECT_FALSE(atk_text_remove_selection(ATK_TEXT(node), 0));
@@ -370,22 +406,28 @@ TEST(FlAccessibleTextFieldTest, SetSelection) {
   int base = -1;
   int extent = -1;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&base, &extent](auto engine, uint64_t id,
-                            FlutterSemanticsAction action, const uint8_t* data,
-                            size_t data_length) {
-            EXPECT_EQ(action, kFlutterSemanticsActionSetSelection);
-            g_autoptr(FlValue) value = decode_semantic_data(data, data_length);
-            EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-            base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-            extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&base, &extent](auto engine,
+                        const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_EQ(info->action, kFlutterSemanticsActionSetSelection);
+        g_autoptr(FlValue) value =
+            decode_semantic_data(info->data, info->data_length);
+        EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+        base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+        extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   // selection num != 0
   EXPECT_FALSE(atk_text_set_selection(ATK_TEXT(node), 1, 2, 4));
@@ -405,20 +447,26 @@ TEST(FlAccessibleTextFieldTest, SetSelection) {
 TEST(FlAccessibleTextFieldTest, SetTextContents) {
   g_autofree gchar* text = nullptr;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&text](auto engine, uint64_t id, FlutterSemanticsAction action,
-                   const uint8_t* data, size_t data_length) {
-            EXPECT_EQ(action, kFlutterSemanticsActionSetText);
-            g_autoptr(FlValue) value = decode_semantic_data(data, data_length);
-            EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_STRING);
-            text = g_strdup(fl_value_get_string(value));
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&text](auto engine, const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_EQ(info->action, kFlutterSemanticsActionSetText);
+        g_autoptr(FlValue) value =
+            decode_semantic_data(info->data, info->data_length);
+        EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_STRING);
+        text = g_strdup(fl_value_get_string(value));
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   atk_editable_text_set_text_contents(ATK_EDITABLE_TEXT(node), "Flutter");
   EXPECT_STREQ(text, "Flutter");
@@ -430,34 +478,38 @@ TEST(FlAccessibleTextFieldTest, InsertDeleteText) {
   int base = -1;
   int extent = -1;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&text, &base, &extent](auto engine, uint64_t id,
-                                   FlutterSemanticsAction action,
-                                   const uint8_t* data, size_t data_length) {
-            EXPECT_THAT(action,
-                        ::testing::AnyOf(kFlutterSemanticsActionSetText,
-                                         kFlutterSemanticsActionSetSelection));
-            if (action == kFlutterSemanticsActionSetText) {
-              g_autoptr(FlValue) value =
-                  decode_semantic_data(data, data_length);
-              EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_STRING);
-              g_free(text);
-              text = g_strdup(fl_value_get_string(value));
-            } else {
-              g_autoptr(FlValue) value =
-                  decode_semantic_data(data, data_length);
-              EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-              base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-              extent =
-                  fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            }
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&text, &base, &extent](auto engine,
+                               const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_THAT(info->action,
+                    ::testing::AnyOf(kFlutterSemanticsActionSetText,
+                                     kFlutterSemanticsActionSetSelection));
+        if (info->action == kFlutterSemanticsActionSetText) {
+          g_autoptr(FlValue) value =
+              decode_semantic_data(info->data, info->data_length);
+          EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_STRING);
+          g_free(text);
+          text = g_strdup(fl_value_get_string(value));
+        } else {
+          g_autoptr(FlValue) value =
+              decode_semantic_data(info->data, info->data_length);
+          EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+          base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+          extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        }
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
   fl_accessible_node_set_value(node, "Fler");
 
   gint pos = 2;
@@ -479,31 +531,35 @@ TEST(FlAccessibleTextFieldTest, CopyCutPasteText) {
   int extent = -1;
   FlutterSemanticsAction act = kFlutterSemanticsActionCustomAction;
 
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  fl_engine_get_embedder_api(engine)->DispatchSemanticsAction =
-      MOCK_ENGINE_PROC(
-          DispatchSemanticsAction,
-          ([&act, &base, &extent](auto engine, uint64_t id,
-                                  FlutterSemanticsAction action,
-                                  const uint8_t* data, size_t data_length) {
-            EXPECT_THAT(action,
-                        ::testing::AnyOf(kFlutterSemanticsActionCut,
-                                         kFlutterSemanticsActionCopy,
-                                         kFlutterSemanticsActionPaste,
-                                         kFlutterSemanticsActionSetSelection));
-            act = action;
-            if (action == kFlutterSemanticsActionSetSelection) {
-              g_autoptr(FlValue) value =
-                  decode_semantic_data(data, data_length);
-              EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
-              base = fl_value_get_int(fl_value_lookup_string(value, "base"));
-              extent =
-                  fl_value_get_int(fl_value_lookup_string(value, "extent"));
-            }
-            return kSuccess;
-          }));
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
 
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(GError) error = nullptr;
+  EXPECT_TRUE(fl_engine_start(engine, &error));
+  EXPECT_EQ(error, nullptr);
+
+  fl_engine_get_embedder_api(engine)->SendSemanticsAction = MOCK_ENGINE_PROC(
+      SendSemanticsAction,
+      ([&act, &base, &extent](auto engine,
+                              const FlutterSendSemanticsActionInfo* info) {
+        EXPECT_THAT(info->action,
+                    ::testing::AnyOf(kFlutterSemanticsActionCut,
+                                     kFlutterSemanticsActionCopy,
+                                     kFlutterSemanticsActionPaste,
+                                     kFlutterSemanticsActionSetSelection));
+        act = info->action;
+        if (info->action == kFlutterSemanticsActionSetSelection) {
+          g_autoptr(FlValue) value =
+              decode_semantic_data(info->data, info->data_length);
+          EXPECT_EQ(fl_value_get_type(value), FL_VALUE_TYPE_MAP);
+          base = fl_value_get_int(fl_value_lookup_string(value, "base"));
+          extent = fl_value_get_int(fl_value_lookup_string(value, "extent"));
+        }
+        return kSuccess;
+      }));
+
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   atk_editable_text_copy_text(ATK_EDITABLE_TEXT(node), 2, 5);
   EXPECT_EQ(base, 2);
@@ -522,8 +578,10 @@ TEST(FlAccessibleTextFieldTest, CopyCutPasteText) {
 }
 
 TEST(FlAccessibleTextFieldTest, TextBoundary) {
-  g_autoptr(FlEngine) engine = make_mock_engine();
-  g_autoptr(FlAccessibleNode) node = fl_accessible_text_field_new(engine, 1);
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  g_autoptr(FlEngine) engine = fl_engine_new(project);
+  g_autoptr(FlAccessibleNode) node =
+      fl_accessible_text_field_new(engine, 123, 1);
 
   fl_accessible_node_set_value(node,
                                "Lorem ipsum.\nDolor sit amet. Praesent commodo?"

@@ -8,8 +8,8 @@
 #include <QuartzCore/CAMetalLayer.h>
 #include <memory>
 
-#include "flutter/fml/macros.h"
 #include "impeller/geometry/rect.h"
+#include "impeller/renderer/backend/metal/swapchain_transients_mtl.h"
 #include "impeller/renderer/context.h"
 #include "impeller/renderer/surface.h"
 
@@ -42,11 +42,13 @@ class SurfaceMTL final : public Surface {
   static std::unique_ptr<SurfaceMTL> MakeFromMetalLayerDrawable(
       const std::shared_ptr<Context>& context,
       id<CAMetalDrawable> drawable,
+      const std::shared_ptr<SwapchainTransientsMTL>& transients,
       std::optional<IRect> clip_rect = std::nullopt);
 
   static std::unique_ptr<SurfaceMTL> MakeFromTexture(
       const std::shared_ptr<Context>& context,
       id<MTLTexture> texture,
+      const std::shared_ptr<SwapchainTransientsMTL>& transients,
       std::optional<IRect> clip_rect,
       id<CAMetalDrawable> drawable = nil);
 #pragma GCC diagnostic pop
@@ -59,8 +61,22 @@ class SurfaceMTL final : public Surface {
   // Returns a Rect defining the area of the surface in device pixels
   IRect coverage() const;
 
+  /// Mark this surface as presenting with a transaction.
+  ///
+  /// If true, [Present] will block on the scheduling of a command buffer.
+  void PresentWithTransaction(bool present_with_transaction) {
+    present_with_transaction_ = present_with_transaction;
+  }
+
+  /// @brief Perform the final blit and trigger end of frame workloads.
+  bool PreparePresent() const;
+
   // |Surface|
   bool Present() const override;
+
+  void SetFrameBoundary(bool frame_boundary) {
+    frame_boundary_ = frame_boundary;
+  }
 
  private:
   std::weak_ptr<Context> context_;
@@ -70,6 +86,9 @@ class SurfaceMTL final : public Surface {
   std::shared_ptr<Texture> destination_texture_;
   bool requires_blit_ = false;
   std::optional<IRect> clip_rect_;
+  bool frame_boundary_ = false;
+  bool present_with_transaction_ = false;
+  mutable bool prepared_ = false;
 
   static bool ShouldPerformPartialRepaint(std::optional<IRect> damage_rect);
 

@@ -5,6 +5,8 @@
 #ifndef FLUTTER_FLOW_RASTER_CACHE_H_
 #define FLUTTER_FLOW_RASTER_CACHE_H_
 
+#if !SLIMPELLER
+
 #include <memory>
 #include <unordered_map>
 
@@ -131,7 +133,7 @@ class RasterCache {
       const RasterCache::Context& context,
       sk_sp<const DlRTree> rtree,
       const std::function<void(DlCanvas*)>& draw_function,
-      const std::function<void(DlCanvas*, const SkRect& rect)>&
+      const std::function<void(DlCanvas*, const DlRect& rect)>&
           draw_checkerboard) const;
 
   explicit RasterCache(
@@ -165,8 +167,6 @@ class RasterCache {
   void EndFrame();
 
   void Clear();
-
-  void SetCheckboardCacheImages(bool checkerboard);
 
   const RasterCacheMetrics& picture_metrics() const { return picture_metrics_; }
   const RasterCacheMetrics& layer_metrics() const { return layer_metrics_; }
@@ -275,5 +275,11 @@ class RasterCache {
 };
 
 }  // namespace flutter
+
+#else  //  !SLIMPELLER
+
+class RasterCache;
+
+#endif  //  !SLIMPELLER
 
 #endif  // FLUTTER_FLOW_RASTER_CACHE_H_

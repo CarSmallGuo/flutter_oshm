@@ -257,6 +257,7 @@ def main():
     target = os.path.join(target_dir, relative_source)
     copy_or_link(source, target)
     entrypoint_targets.append(target)
+    copy(source, target)
 
   # Copy sdk-ext sources into pkg directory
   sdk_ext_dir = os.path.join(target_dir, 'sdk_ext')
@@ -267,6 +268,7 @@ def main():
       relative_source = os.path.relpath(source, common_prefix)
       target = os.path.join(sdk_ext_dir, relative_source)
       copy_or_link(source, target)
+      copy(source, target)
 
   common_source_prefix = os.path.dirname(os.path.commonprefix(args.sdk_ext_files))
   for source in args.sdk_ext_files:
@@ -290,6 +292,7 @@ def main():
   with open(args.entries_file, 'w') as file:
     for entrypoint in entrypoint_targets:
       file.write(entrypoint + '\n')
+    copy(source, target)
 
   # Write stamp file.
   with open(args.stamp_file, 'w'):

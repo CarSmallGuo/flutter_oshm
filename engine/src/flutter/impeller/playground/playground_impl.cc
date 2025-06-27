@@ -70,4 +70,14 @@ Vector2 PlaygroundImpl::GetContentScale() const {
   return scale;
 }
 
+Playground::GLProcAddressResolver PlaygroundImpl::CreateGLProcAddressResolver()
+    const {
+  return nullptr;
+}
+
+Playground::VKProcAddressResolver PlaygroundImpl::CreateVKProcAddressResolver()
+    const {
+  return nullptr;
+}
+
 }  // namespace impeller

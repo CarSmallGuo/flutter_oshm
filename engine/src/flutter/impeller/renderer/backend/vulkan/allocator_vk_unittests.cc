@@ -4,9 +4,13 @@
 
 #include "flutter/testing/testing.h"  // IWYU pragma: keep
 #include "gtest/gtest.h"
+#include "impeller/base/allocation_size.h"
+#include "impeller/core/allocator.h"
+#include "impeller/core/device_buffer.h"
 #include "impeller/core/device_buffer_descriptor.h"
 #include "impeller/core/formats.h"
 #include "impeller/renderer/backend/vulkan/allocator_vk.h"
+#include "impeller/renderer/backend/vulkan/device_buffer_vk.h"
 #include "impeller/renderer/backend/vulkan/test/mock_vulkan.h"
 #include "vulkan/vulkan_enums.hpp"
 
@@ -70,14 +74,35 @@ TEST(AllocatorVKTest, MemoryTypeSelectionTwoHeap) {
   EXPECT_EQ(AllocatorVK::FindMemoryTypeIndex(4, properties), -1);
 }
 
+TEST(AllocatorVKTest, ImageResourceKeepsVulkanDeviceAlive) {
+  std::shared_ptr<Texture> texture;
+  std::weak_ptr<Allocator> weak_allocator;
+  {
+    auto const context = MockVulkanContextBuilder().Build();
+    weak_allocator = context->GetResourceAllocator();
+    auto allocator = context->GetResourceAllocator();
+
+    texture = allocator->CreateTexture(TextureDescriptor{
+        .storage_mode = StorageMode::kDevicePrivate,
+        .format = PixelFormat::kR8G8B8A8UNormInt,
+        .size = {1, 1},
+    });
+    context->Shutdown();
+  }
+
+  ASSERT_TRUE(weak_allocator.lock());
+}
+
 #ifdef IMPELLER_DEBUG
 
 TEST(AllocatorVKTest, RecreateSwapchainWhenSizeChanges) {
   auto const context = MockVulkanContextBuilder().Build();
   auto allocator = context->GetResourceAllocator();
 
-  EXPECT_EQ(
-      reinterpret_cast<AllocatorVK*>(allocator.get())->DebugGetHeapUsage(), 0u);
+  EXPECT_EQ(reinterpret_cast<AllocatorVK*>(allocator.get())
+                ->DebugGetHeapUsage()
+                .GetByteSize(),
+            0u);
 
   allocator->CreateBuffer(DeviceBufferDescriptor{
       .storage_mode = StorageMode::kDevicePrivate,
@@ -87,9 +112,11 @@ TEST(AllocatorVKTest, RecreateSwapchainWhenSizeChanges) {
   // Usage increases beyond the size of the allocated buffer since VMA will
   // first allocate large blocks of memory and then suballocate small memory
   // allocations.
-  EXPECT_EQ(
-      reinterpret_cast<AllocatorVK*>(allocator.get())->DebugGetHeapUsage(),
-      16u);
+  EXPECT_EQ(reinterpret_cast<AllocatorVK*>(allocator.get())
+                ->DebugGetHeapUsage()
+                .ConvertTo<MebiBytes>()
+                .GetSize(),
+            16u);
 }
 
 #endif  // IMPELLER_DEBUG

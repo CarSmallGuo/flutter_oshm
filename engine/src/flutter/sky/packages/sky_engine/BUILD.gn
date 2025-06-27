@@ -9,8 +9,10 @@ import("$dart_src/sdk/lib/_http/http_sources.gni")
 import("$dart_src/sdk/lib/_internal/js_runtime/interceptors_sources.gni")
 import("$dart_src/sdk/lib/_internal/js_shared/js_types_sources.gni")
 import("$dart_src/sdk/lib/_internal/vm/lib/vm_internal.gni")
+import("$dart_src/sdk/lib/_internal/vm_shared/lib/vm_shared_sources.gni")
 import("$dart_src/sdk/lib/async/async_sources.gni")
 import("$dart_src/sdk/lib/collection/collection_sources.gni")
+import("$dart_src/sdk/lib/concurrent/concurrent_sources.gni")
 import("$dart_src/sdk/lib/convert/convert_sources.gni")
 import("$dart_src/sdk/lib/core/core_sources.gni")
 import("$dart_src/sdk/lib/developer/developer_sources.gni")
@@ -39,6 +41,9 @@ if (is_fuchsia) {
 
 dart_sdk_lib_path = rebase_path("$dart_src/sdk/lib")
 
+# This variable should point to the Dart SDK.
+dart_sdk_root = "//third_party/dart-sdk/dart-sdk"
+
 copy("async") {
   lib_path = rebase_path("async", "", dart_sdk_lib_path)
   sources = rebase_path(async_sdk_sources, "", lib_path)
@@ -51,6 +56,14 @@ copy("collection") {
   sources = rebase_path(collection_sdk_sources, "", lib_path)
   outputs = [
     "$root_gen_dir/dart-pkg/sky_engine/lib/collection/{{source_file_part}}",
+  ]
+}
+
+copy("concurrent") {
+  lib_path = rebase_path("concurrent", "", dart_sdk_lib_path)
+  sources = rebase_path(concurrent_sdk_sources, "", lib_path)
+  outputs = [
+    "$root_gen_dir/dart-pkg/sky_engine/lib/concurrent/{{source_file_part}}",
   ]
 }
 
@@ -114,6 +127,12 @@ copy("vm_internal") {
   lib_path = rebase_path("_internal/vm/lib/", "", dart_sdk_lib_path)
   sources = rebase_path(vm_internal_sdk_sources, "", lib_path)
   outputs = [ "$root_gen_dir/dart-pkg/sky_engine/lib/_internal/vm/lib/{{source_file_part}}" ]
+}
+
+copy("vm_shared") {
+  lib_path = rebase_path("_internal/vm_shared/lib/", "", dart_sdk_lib_path)
+  sources = rebase_path(vm_shared_sdk_sources, "", lib_path)
+  outputs = [ "$root_gen_dir/dart-pkg/sky_engine/lib/_internal/vm_shared/lib/{{source_file_part}}" ]
 }
 
 copy("io") {
@@ -210,6 +229,7 @@ group("copy_dart_sdk") {
     ":_js_types",
     ":async",
     ":collection",
+    ":concurrent",
     ":convert",
     ":copy_allowed_experiments",
     ":core",
@@ -226,6 +246,7 @@ group("copy_dart_sdk") {
     ":math",
     ":typed_data",
     ":vm_internal",
+    ":vm_shared",
   ]
 }
 
@@ -238,6 +259,7 @@ generated_file("_embedder_yaml") {
     "embedded_libs:",
     "  \"dart:async\": \"async/async.dart\"",
     "  \"dart:collection\": \"collection/collection.dart\"",
+    "  \"dart:concurrent\": \"concurrent/concurrent.dart\"",
     "  \"dart:convert\": \"convert/convert.dart\"",
     "  \"dart:core\": \"core/core.dart\"",
     "  \"dart:developer\": \"developer/developer.dart\"",
@@ -271,9 +293,7 @@ generated_file("_embedder_yaml") {
 action("sky_engine") {
   package_name = "sky_engine"
   pkg_directory = rebase_path("$root_gen_dir/dart-pkg")
-  package_root = rebase_path("$root_gen_dir/dart-pkg/packages")
   stamp_file = "$root_gen_dir/dart-pkg/${package_name}.stamp"
-  entries_file = "$root_gen_dir/dart-pkg/${package_name}.entries"
 
   sources = [
     "LICENSE",
@@ -300,12 +320,7 @@ action("sky_engine") {
     "$service_isolate_dir/vmservice_server.dart",
   ]
 
-  outputs = [
-    "$root_gen_dir/dart-pkg/${package_name}",
-    "$root_gen_dir/dart-pkg/${package_name}/pubspec.yaml",
-    "$root_gen_dir/dart-pkg/packages/${package_name}",
-    stamp_file,
-  ]
+  outputs = [ stamp_file ]
 
   script = rebase_path("//flutter/build/dart/tools/dart_pkg.py", ".", "//")
 
@@ -318,12 +333,8 @@ action("sky_engine") {
            rebase_path(dart_sdk_root),
            "--pkg-directory",
            pkg_directory,
-           "--package-root",
-           package_root,
            "--stamp-file",
            rebase_path(stamp_file),
-           "--entries-file",
-           rebase_path(entries_file),
            "--package-sources",
          ] + rebase_path(sources) + [ "--sdk-ext-directories" ] +
          rebase_path(sdk_ext_directory) + [ "--sdk-ext-files" ] +

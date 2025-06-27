@@ -5,7 +5,7 @@
 import 'dart:developer' as developer;
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
@@ -20,9 +20,7 @@ void main() {
     vms.VmService? vmService;
     FragmentShader? shader;
     try {
-      final FragmentProgram program = await FragmentProgram.fromAsset(
-        'functions.frag.iplr',
-      );
+      final FragmentProgram program = await FragmentProgram.fromAsset('functions.frag.iplr');
       shader = program.fragmentShader()..setFloat(0, 1.0);
       _use(shader);
 
@@ -42,9 +40,7 @@ void main() {
         final vms.Response response = await vmService.callServiceExtension(
           'ext.ui.window.reinitializeShader',
           isolateId: isolateRef.id,
-          args: <String, Object>{
-            'assetKey': 'functions.frag.iplr',
-          },
+          args: <String, Object>{'assetKey': 'functions.frag.iplr'},
         );
         expect(response.type == 'Success', true);
       }
@@ -55,6 +51,4 @@ void main() {
   });
 }
 
-void _use(Shader shader) {
-
-}
+void _use(Shader shader) {}

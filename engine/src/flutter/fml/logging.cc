@@ -260,7 +260,7 @@ LogMessage::~LogMessage() {
 
   std::cerr << stream_.str();
   std::cerr.flush();
-   
+
 #else
     // Don't use std::cerr here, because it may not be initialized properly yet.
     fprintf(stderr, "%s", stream_.str().c_str());

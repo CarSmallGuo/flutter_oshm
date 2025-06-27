@@ -25,36 +25,23 @@ namespace flutter {
 IMPLEMENT_WRAPPERTYPEINFO(ui, Scene);
 
 void Scene::create(Dart_Handle scene_handle,
-                   std::shared_ptr<flutter::Layer> rootLayer,
-                   uint32_t rasterizerTracingThreshold,
-                   bool checkerboardRasterCacheImages,
-                   bool checkerboardOffscreenLayers) {
-  auto scene = fml::MakeRefCounted<Scene>(
-      std::move(rootLayer), rasterizerTracingThreshold,
-      checkerboardRasterCacheImages, checkerboardOffscreenLayers);
+                   std::shared_ptr<flutter::Layer> rootLayer) {
+  auto scene = fml::MakeRefCounted<Scene>(std::move(rootLayer));
   scene->AssociateWithDartWrapper(scene_handle);
 }
 
-Scene::Scene(std::shared_ptr<flutter::Layer> rootLayer,
-             uint32_t rasterizerTracingThreshold,
-             bool checkerboardRasterCacheImages,
-             bool checkerboardOffscreenLayers) {
-  layer_tree_config_.root_layer = std::move(rootLayer);
-  layer_tree_config_.rasterizer_tracing_threshold = rasterizerTracingThreshold;
-  layer_tree_config_.checkerboard_raster_cache_images =
-      checkerboardRasterCacheImages;
-  layer_tree_config_.checkerboard_offscreen_layers =
-      checkerboardOffscreenLayers;
+Scene::Scene(std::shared_ptr<flutter::Layer> rootLayer) {
+  layer_tree_root_layer_ = std::move(rootLayer);
 }
 
 Scene::~Scene() {}
 
 bool Scene::valid() {
-  return layer_tree_config_.root_layer != nullptr;
+  return layer_tree_root_layer_ != nullptr;
 }
 
 void Scene::dispose() {
-  layer_tree_config_.root_layer.reset();
+  layer_tree_root_layer_.reset();
   ClearDartWrapper();
 }
 
@@ -89,7 +76,7 @@ static sk_sp<DlImage> CreateDeferredImage(
     std::unique_ptr<LayerTree> layer_tree,
     fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
     fml::RefPtr<fml::TaskRunner> raster_task_runner,
-    fml::RefPtr<SkiaUnrefQueue> unref_queue) {
+    const fml::RefPtr<SkiaUnrefQueue>& unref_queue) {
 #if IMPELLER_SUPPORTS_RENDERING
   if (impeller) {
     return DlDeferredImageGPUImpeller::Make(std::move(layer_tree),
@@ -98,13 +85,18 @@ static sk_sp<DlImage> CreateDeferredImage(
   }
 #endif  // IMPELLER_SUPPORTS_RENDERING
 
+#if SLIMPELLER
+  FML_LOG(FATAL) << "Impeller opt-out unavailable.";
+  return nullptr;
+#else   // SLIMPELLER
   const auto& frame_size = layer_tree->frame_size();
   const SkImageInfo image_info =
-      SkImageInfo::Make(frame_size.width(), frame_size.height(),
+      SkImageInfo::Make(frame_size.width, frame_size.height,
                         kRGBA_8888_SkColorType, kPremul_SkAlphaType);
   return DlDeferredImageGPUSkia::MakeFromLayerTree(
       image_info, std::move(layer_tree), std::move(snapshot_delegate),
-      raster_task_runner, std::move(unref_queue));
+      raster_task_runner, unref_queue);
+#endif  //  SLIMPELLER
 }
 
 void Scene::RasterizeToImage(uint32_t width,
@@ -121,8 +113,7 @@ void Scene::RasterizeToImage(uint32_t width,
   auto image = CanvasImage::Create();
   auto dl_image = CreateDeferredImage(
       dart_state->IsImpellerEnabled(), BuildLayerTree(width, height),
-      std::move(snapshot_delegate), std::move(raster_task_runner),
-      std::move(unref_queue));
+      std::move(snapshot_delegate), std::move(raster_task_runner), unref_queue);
   image->set_image(dl_image);
   image->AssociateWithDartWrapper(raw_image_handle);
 }
@@ -137,8 +128,8 @@ std::unique_ptr<LayerTree> Scene::BuildLayerTree(uint32_t width,
   if (!valid()) {
     return nullptr;
   }
-  return std::make_unique<LayerTree>(layer_tree_config_,
-                                     SkISize::Make(width, height));
+  return std::make_unique<LayerTree>(layer_tree_root_layer_,
+                                     DlISize(width, height));
 }
 
 }  // namespace flutter

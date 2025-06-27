@@ -35,6 +35,7 @@
 
 #if ALLOW_IMPELLER
 #include <vulkan/vulkan.h>                                        // nogncheck
+#include "impeller/display_list/aiks_context.h"                   // nogncheck
 #include "impeller/entity/vk/entity_shaders_vk.h"                 // nogncheck
 #include "impeller/entity/vk/framebuffer_blend_shaders_vk.h"      // nogncheck
 #include "impeller/entity/vk/modern_shaders_vk.h"                 // nogncheck
@@ -43,9 +44,6 @@
 #include "impeller/renderer/context.h"                            // nogncheck
 #include "impeller/renderer/vk/compute_shaders_vk.h"              // nogncheck
 #include "shell/gpu/gpu_surface_vulkan_impeller.h"                // nogncheck
-#if IMPELLER_ENABLE_3D
-#include "impeller/scene/shaders/vk/scene_shaders_vk.h"  // nogncheck
-#endif                                                   // IMPELLER_ENABLE_3D
 
 static std::vector<std::shared_ptr<fml::Mapping>> ShaderLibraryMappings() {
   return {
@@ -56,10 +54,6 @@ static std::vector<std::shared_ptr<fml::Mapping>> ShaderLibraryMappings() {
       std::make_shared<fml::NonOwnedMapping>(
           impeller_framebuffer_blend_shaders_vk_data,
           impeller_framebuffer_blend_shaders_vk_length),
-#if IMPELLER_ENABLE_3D
-      std::make_shared<fml::NonOwnedMapping>(impeller_scene_shaders_vk_data,
-                                             impeller_scene_shaders_vk_length),
-#endif  // IMPELLER_ENABLE_3D
       std::make_shared<fml::NonOwnedMapping>(
           impeller_compute_shaders_vk_data, impeller_compute_shaders_vk_length),
   };
@@ -80,6 +74,9 @@ bool ImpellerVulkanContextHolder::Initialize(bool enable_validation) {
   context_settings.shader_libraries_data = ShaderLibraryMappings();
   context_settings.cache_directory = fml::paths::GetCachesDirectory();
   context_settings.enable_validation = enable_validation;
+  // Enable lazy shader mode for faster test execution as most tests
+  // will never render anything at all.
+  context_settings.flags.lazy_shader_mode = true;
 
   context = impeller::ContextVK::Create(std::move(context_settings));
   if (!context || !context->IsValid()) {
@@ -218,7 +215,7 @@ class TesterPlatformView : public PlatformView,
     if (delegate_.OnPlatformViewGetSettings().enable_impeller) {
       FML_DCHECK(impeller_context_holder_.context);
       auto surface = std::make_unique<GPUSurfaceVulkanImpeller>(
-          impeller_context_holder_.surface_context);
+          nullptr, impeller_context_holder_.surface_context);
       FML_DCHECK(surface->IsValid());
       return surface;
     }
@@ -274,9 +271,11 @@ class ScriptCompletionTaskObserver {
  public:
   ScriptCompletionTaskObserver(Shell& shell,
                                fml::RefPtr<fml::TaskRunner> main_task_runner,
+                               fml::RefPtr<fml::TaskRunner> ui_task_runner,
                                bool run_forever)
       : shell_(shell),
         main_task_runner_(std::move(main_task_runner)),
+        ui_task_runner_(std::move(ui_task_runner)),
         run_forever_(run_forever) {}
 
   int GetExitCodeForLastError() const {
@@ -288,6 +287,12 @@ class ScriptCompletionTaskObserver {
     if (shell_.EngineHasLivePorts()) {
       // The UI isolate still has live ports and is running. Nothing to do
       // just yet.
+      return;
+    }
+    if (shell_.EngineHasPendingMicrotasks()) {
+      // Post an empty task to force a run of the engine task observer that
+      // drains the microtask queue.
+      ui_task_runner_->PostTask([] {});
       return;
     }
 
@@ -309,6 +314,7 @@ class ScriptCompletionTaskObserver {
  private:
   Shell& shell_;
   fml::RefPtr<fml::TaskRunner> main_task_runner_;
+  fml::RefPtr<fml::TaskRunner> ui_task_runner_;
   bool run_forever_ = false;
   std::optional<DartErrorCode> last_error_;
   bool has_terminated_ = false;
@@ -463,6 +469,7 @@ int RunTester(const flutter::Settings& settings,
       *shell,  // a valid shell
       fml::MessageLoop::GetCurrent()
           .GetTaskRunner(),  // the message loop to terminate
+      ui_task_runner,        // runner for Dart microtasks
       run_forever            // should the exit be ignored
   );
 
@@ -641,6 +648,7 @@ int main(int argc, char* argv[]) {
   }
 
   settings.leak_vm = false;
+  settings.enable_platform_isolates = true;
 
   if (settings.icu_data_path.empty()) {
     settings.icu_data_path = "icudtl.dat";

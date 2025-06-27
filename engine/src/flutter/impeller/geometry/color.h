@@ -18,16 +18,16 @@
 
 #define IMPELLER_FOR_EACH_BLEND_MODE(V) \
   V(Clear)                              \
-  V(Source)                             \
-  V(Destination)                        \
-  V(SourceOver)                         \
-  V(DestinationOver)                    \
-  V(SourceIn)                           \
-  V(DestinationIn)                      \
-  V(SourceOut)                          \
-  V(DestinationOut)                     \
-  V(SourceATop)                         \
-  V(DestinationATop)                    \
+  V(Src)                                \
+  V(Dst)                                \
+  V(SrcOver)                            \
+  V(DstOver)                            \
+  V(SrcIn)                              \
+  V(DstIn)                              \
+  V(SrcOut)                             \
+  V(DstOut)                             \
+  V(SrcATop)                            \
+  V(DstATop)                            \
   V(Xor)                                \
   V(Plus)                               \
   V(Modulate)                           \
@@ -49,7 +49,6 @@
 
 namespace impeller {
 
-struct ColorHSB;
 struct Vector4;
 
 enum class YUVColorSpace { kBT601LimitedRange, kBT601FullRange };
@@ -60,16 +59,16 @@ enum class BlendMode : uint8_t {
   // The following blend modes are able to be used as pipeline blend modes or
   // via `BlendFilterContents`.
   kClear = 0,
-  kSource,
-  kDestination,
-  kSourceOver,
-  kDestinationOver,
-  kSourceIn,
-  kDestinationIn,
-  kSourceOut,
-  kDestinationOut,
-  kSourceATop,
-  kDestinationATop,
+  kSrc,
+  kDst,
+  kSrcOver,
+  kDstOver,
+  kSrcIn,
+  kDstIn,
+  kSrcOut,
+  kDstOut,
+  kSrcATop,
+  kDstATop,
   kXor,
   kPlus,
   kModulate,
@@ -93,7 +92,8 @@ enum class BlendMode : uint8_t {
   kColor,
   kLuminosity,
 
-  kLast = kLuminosity,
+  kLastMode = kLuminosity,
+  kDefaultMode = kSrcOver,
 };
 
 const char* BlendModeToString(BlendMode blend_mode);
@@ -143,8 +143,6 @@ struct Color {
   Scalar alpha = 0.0;
 
   constexpr Color() {}
-
-  explicit Color(const ColorHSB& hsbColor);
 
   explicit Color(const Vector4& value);
 
@@ -251,6 +249,16 @@ struct Color {
     uint8_t b = std::round(blue * 255.0f);
     uint8_t a = std::round(alpha * 255.0f);
     return {r, g, b, a};
+  }
+
+  /**
+   * @brief Convert to ARGB 32 bit color.
+   *
+   * @return constexpr uint32_t
+   */
+  constexpr uint32_t ToARGB() const {
+    std::array<uint8_t, 4> result = ToR8G8B8A8();
+    return result[3] << 24 | result[0] << 16 | result[1] << 8 | result[2];
   }
 
   static constexpr Color White() { return {1.0f, 1.0f, 1.0f, 1.0f}; }
@@ -910,38 +918,6 @@ constexpr inline Color operator/(T value, const Color& c) {
 
 std::string ColorToString(const Color& color);
 
-/**
- *  Represents a color by its constituent hue, saturation, brightness and alpha
- */
-struct ColorHSB {
-  /**
-   *  The hue of the color (0 to 1)
-   */
-  Scalar hue;
-
-  /**
-   *  The saturation of the color (0 to 1)
-   */
-  Scalar saturation;
-
-  /**
-   *  The brightness of the color (0 to 1)
-   */
-  Scalar brightness;
-
-  /**
-   *  The alpha of the color (0 to 1)
-   */
-  Scalar alpha;
-
-  constexpr ColorHSB(Scalar h, Scalar s, Scalar b, Scalar a)
-      : hue(h), saturation(s), brightness(b), alpha(a) {}
-
-  static ColorHSB FromRGB(Color rgb);
-
-  Color ToRGBA() const;
-};
-
 static_assert(sizeof(Color) == 4 * sizeof(Scalar));
 
 }  // namespace impeller
@@ -951,6 +927,12 @@ namespace std {
 inline std::ostream& operator<<(std::ostream& out, const impeller::Color& c) {
   out << "(" << c.red << ", " << c.green << ", " << c.blue << ", " << c.alpha
       << ")";
+  return out;
+}
+
+inline std::ostream& operator<<(std::ostream& out,
+                                const impeller::BlendMode& mode) {
+  out << "BlendMode::k" << BlendModeToString(mode);
   return out;
 }
 

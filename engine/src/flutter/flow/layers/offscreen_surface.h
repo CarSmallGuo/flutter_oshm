@@ -5,14 +5,14 @@
 #ifndef FLUTTER_FLOW_LAYERS_OFFSCREEN_SURFACE_H_
 #define FLUTTER_FLOW_LAYERS_OFFSCREEN_SURFACE_H_
 
+#if !SLIMPELLER
+
 #include "flutter/fml/logging.h"
 #include "flutter/fml/macros.h"
 
 #include "flutter/display_list/dl_canvas.h"
 #include "flutter/display_list/skia/dl_sk_canvas.h"
 #include "third_party/skia/include/core/SkData.h"
-#include "third_party/skia/include/core/SkRefCnt.h"
-#include "third_party/skia/include/core/SkSize.h"
 #include "third_party/skia/include/core/SkSurface.h"
 
 class GrDirectContext;
@@ -22,7 +22,7 @@ namespace flutter {
 class OffscreenSurface {
  public:
   explicit OffscreenSurface(GrDirectContext* surface_context,
-                            const SkISize& size);
+                            const DlISize& size);
 
   ~OffscreenSurface() = default;
 
@@ -40,5 +40,7 @@ class OffscreenSurface {
 };
 
 }  // namespace flutter
+
+#endif  //  !SLIMPELLER
 
 #endif  // FLUTTER_FLOW_LAYERS_OFFSCREEN_SURFACE_H_

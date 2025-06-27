@@ -9,10 +9,10 @@ import 'package:engine_repo_tools/engine_repo_tools.dart';
 import 'package:engine_tool/src/environment.dart';
 import 'package:engine_tool/src/logger.dart';
 import 'package:engine_tool/src/worker_pool.dart';
-import 'package:litetest/litetest.dart';
 import 'package:platform/platform.dart';
 import 'package:process_fakes/process_fakes.dart';
 import 'package:process_runner/process_runner.dart';
+import 'package:test/test.dart';
 
 class TestWorkerPoolProgressReporter implements WorkerPoolProgressReporter {
   int _successCount = 0;
@@ -73,34 +73,37 @@ void main() {
       Environment(
         abi: ffi.Abi.macosArm64,
         engine: engine,
-        platform: FakePlatform(operatingSystem: Platform.macOS),
+        platform: FakePlatform(operatingSystem: Platform.macOS, pathSeparator: '/'),
         processRunner: ProcessRunner(
-            processManager: FakeProcessManager(onStart: (List<String> command) {
-          runHistory.add(command);
-          switch (command) {
-            case ['success']:
-              return FakeProcess(stdout: 'stdout success');
-            case ['failure']:
-              return FakeProcess(exitCode: 1, stdout: 'stdout failure');
-            default:
-              return FakeProcess();
-          }
-        }, onRun: (List<String> command) {
-          // Should not be executed.
-          assert(false);
-          return io.ProcessResult(81, 1, '', '');
-        })),
+          processManager: FakeProcessManager(
+            onStart: (FakeCommandLogEntry entry) {
+              runHistory.add(entry.command);
+              switch (entry.command) {
+                case ['success']:
+                  return FakeProcess(stdout: 'stdout success');
+                case ['failure']:
+                  return FakeProcess(exitCode: 1, stdout: 'stdout failure');
+                default:
+                  return FakeProcess();
+              }
+            },
+            onRun: (FakeCommandLogEntry entry) {
+              // Should not be executed.
+              assert(false);
+              return io.ProcessResult(81, 1, '', '');
+            },
+          ),
+        ),
         logger: logger,
       ),
-      runHistory
+      runHistory,
     );
   }
 
   test('worker pool success', () async {
-    final Logger logger = Logger.test();
+    final Logger logger = Logger.test((_) {});
     final (Environment env, _) = macEnv(logger);
-    final TestWorkerPoolProgressReporter reporter =
-        TestWorkerPoolProgressReporter();
+    final TestWorkerPoolProgressReporter reporter = TestWorkerPoolProgressReporter();
     final WorkerPool wp = WorkerPool(env, reporter);
     final WorkerTask task = SuccessfulTask();
     final bool r = await wp.run(<WorkerTask>{task});
@@ -111,10 +114,9 @@ void main() {
   });
 
   test('worker pool failure', () async {
-    final Logger logger = Logger.test();
+    final Logger logger = Logger.test((_) {});
     final (Environment env, _) = macEnv(logger);
-    final TestWorkerPoolProgressReporter reporter =
-        TestWorkerPoolProgressReporter();
+    final TestWorkerPoolProgressReporter reporter = TestWorkerPoolProgressReporter();
     final WorkerPool wp = WorkerPool(env, reporter);
     final WorkerTask task = FailureTask();
     final bool r = await wp.run(<WorkerTask>{task});

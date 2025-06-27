@@ -3,10 +3,11 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:js_interop';
 import 'dart:typed_data';
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
-import '../engine.dart'  show registerHotRestartListener;
-import 'browser_detection.dart';
+import '../engine.dart' show registerHotRestartListener;
 import 'dom.dart';
 import 'keyboard_binding.dart';
 import 'platform_dispatcher.dart';
@@ -83,7 +84,7 @@ class RawKeyboard {
   }
 
   void handleHtmlEvent(DomEvent domEvent) {
-    if (!domInstanceOfString(domEvent, 'KeyboardEvent')) {
+    if (!domEvent.isA<DomKeyboardEvent>()) {
       return;
     }
 
@@ -120,7 +121,8 @@ class RawKeyboard {
         _lastMetaState |= modifierNumLock;
       } else if (event.key == 'ScrollLock') {
         _lastMetaState |= modifierScrollLock;
-      } else if (event.key == 'Meta' && operatingSystem == OperatingSystem.linux) {
+      } else if (event.key == 'Meta' &&
+          ui_web.browser.operatingSystem == ui_web.OperatingSystem.linux) {
         // On Chrome Linux, metaState can be wrong when a Meta key is pressed.
         _lastMetaState |= _modifierMeta;
       } else if (event.code == 'MetaLeft' && event.key == 'Process') {
@@ -139,12 +141,15 @@ class RawKeyboard {
       'keyCode': event.keyCode,
     };
 
-    EnginePlatformDispatcher.instance.invokeOnPlatformMessage('flutter/keyevent',
-      _messageCodec.encodeMessage(eventData), (ByteData? data) {
+    EnginePlatformDispatcher.instance.invokeOnPlatformMessage(
+      'flutter/keyevent',
+      _messageCodec.encodeMessage(eventData),
+      (ByteData? data) {
         if (data == null) {
           return;
         }
-        final Map<String, dynamic> jsonResponse = _messageCodec.decodeMessage(data) as Map<String, dynamic>;
+        final Map<String, dynamic> jsonResponse =
+            _messageCodec.decodeMessage(data) as Map<String, dynamic>;
         if (jsonResponse['handled'] as bool) {
           // If the framework handled it, then don't propagate it any further.
           event.preventDefault();
@@ -165,8 +170,11 @@ class RawKeyboard {
       'keyCode': event.keyCode,
     };
 
-    EnginePlatformDispatcher.instance.invokeOnPlatformMessage('flutter/keyevent',
-        _messageCodec.encodeMessage(eventData), _noopCallback);
+    EnginePlatformDispatcher.instance.invokeOnPlatformMessage(
+      'flutter/keyevent',
+      _messageCodec.encodeMessage(eventData),
+      _noopCallback,
+    );
   }
 
   /// After a keydown is received, this is the duration we wait for a repeat event

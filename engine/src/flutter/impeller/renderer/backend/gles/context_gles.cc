@@ -7,24 +7,32 @@
 
 #include "impeller/base/config.h"
 #include "impeller/base/validation.h"
+#include "impeller/base/version.h"
+#include "impeller/core/runtime_types.h"
 #include "impeller/renderer/backend/gles/command_buffer_gles.h"
 #include "impeller/renderer/backend/gles/gpu_tracer_gles.h"
+#include "impeller/renderer/backend/gles/handle_gles.h"
+#include "impeller/renderer/backend/gles/render_pass_gles.h"
+#include "impeller/renderer/backend/gles/texture_gles.h"
 #include "impeller/renderer/command_queue.h"
 
 namespace impeller {
 
 std::shared_ptr<ContextGLES> ContextGLES::Create(
+    const Flags& flags,
     std::unique_ptr<ProcTableGLES> gl,
     const std::vector<std::shared_ptr<fml::Mapping>>& shader_libraries,
     bool enable_gpu_tracing) {
-  return std::shared_ptr<ContextGLES>(
-      new ContextGLES(std::move(gl), shader_libraries, enable_gpu_tracing));
+  return std::shared_ptr<ContextGLES>(new ContextGLES(
+      flags, std::move(gl), shader_libraries, enable_gpu_tracing));
 }
 
 ContextGLES::ContextGLES(
+    const Flags& flags,
     std::unique_ptr<ProcTableGLES> gl,
     const std::vector<std::shared_ptr<fml::Mapping>>& shader_libraries_mappings,
-    bool enable_gpu_tracing) {
+    bool enable_gpu_tracing)
+    : Context(flags) {
   reactor_ = std::make_shared<ReactorGLES>(std::move(gl));
   if (!reactor_->IsValid()) {
     VALIDATION_LOG << "Could not create valid reactor.";
@@ -78,7 +86,7 @@ Context::BackendType ContextGLES::GetBackendType() const {
   return Context::BackendType::kOpenGLES;
 }
 
-const ReactorGLES::Ref& ContextGLES::GetReactor() const {
+const std::shared_ptr<ReactorGLES>& ContextGLES::GetReactor() const {
   return reactor_;
 }
 
@@ -143,6 +151,47 @@ const std::shared_ptr<const Capabilities>& ContextGLES::GetCapabilities()
 // |Context|
 std::shared_ptr<CommandQueue> ContextGLES::GetCommandQueue() const {
   return command_queue_;
+}
+
+// |Context|
+void ContextGLES::ResetThreadLocalState() const {
+  if (!IsValid()) {
+    return;
+  }
+  [[maybe_unused]] auto result =
+      reactor_->AddOperation([](const ReactorGLES& reactor) {
+        RenderPassGLES::ResetGLState(reactor.GetProcTable());
+      });
+}
+
+bool ContextGLES::EnqueueCommandBuffer(
+    std::shared_ptr<CommandBuffer> command_buffer) {
+  return true;
+}
+
+// |Context|
+[[nodiscard]] bool ContextGLES::FlushCommandBuffers() {
+  return reactor_->React();
+}
+
+// |Context|
+bool ContextGLES::AddTrackingFence(
+    const std::shared_ptr<Texture>& texture) const {
+  if (!reactor_->GetProcTable().FenceSync.IsAvailable()) {
+    return false;
+  }
+  HandleGLES fence = reactor_->CreateHandle(HandleType::kFence);
+  TextureGLES::Cast(*texture).SetFence(fence);
+  return true;
+}
+
+// |Context|
+RuntimeStageBackend ContextGLES::GetRuntimeStageBackend() const {
+  if (GetReactor()->GetProcTable().GetDescription()->GetGlVersion().IsAtLeast(
+          Version{3, 0, 0})) {
+    return RuntimeStageBackend::kOpenGLES3;
+  }
+  return RuntimeStageBackend::kOpenGLES;
 }
 
 }  // namespace impeller

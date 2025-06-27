@@ -6,443 +6,409 @@
 
 #include "flutter/display_list/dl_builder.h"
 #include "flutter/fml/logging.h"
+#include "flutter/impeller/geometry/round_superellipse_param.h"
 
 namespace flutter {
 
-class Data4x4 : public DisplayListMatrixClipTracker::Data {
- public:
-  Data4x4(const SkM44& m44, const SkRect& rect) : Data(rect), m44_(m44) {}
-  explicit Data4x4(const Data* copy)
-      : Data(copy->device_cull_rect()), m44_(copy->matrix_4x4()) {}
+static constexpr DlRect kEmpty = DlRect();
 
-  ~Data4x4() override = default;
-
-  bool is_4x4() const override { return true; }
-
-  SkMatrix matrix_3x3() const override { return m44_.asM33(); }
-  SkM44 matrix_4x4() const override { return m44_; }
-  SkRect local_cull_rect() const override;
-
-  void translate(SkScalar tx, SkScalar ty) override {
-    m44_.preTranslate(tx, ty);
-  }
-  void scale(SkScalar sx, SkScalar sy) override { m44_.preScale(sx, sy); }
-  void skew(SkScalar skx, SkScalar sky) override {
-    m44_.preConcat(SkMatrix::Skew(skx, sky));
-  }
-  void rotate(SkScalar degrees) override {
-    m44_.preConcat(SkMatrix::RotateDeg(degrees));
-  }
-  void transform(const SkMatrix& matrix) override { m44_.preConcat(matrix); }
-  void transform(const SkM44& m44) override { m44_.preConcat(m44); }
-  void setTransform(const SkMatrix& matrix) override { m44_ = SkM44(matrix); }
-  void setTransform(const SkM44& m44) override { m44_ = m44; }
-  void setIdentity() override { m44_.setIdentity(); }
-  bool mapRect(const SkRect& rect, SkRect* mapped) const override {
-    return m44_.asM33().mapRect(mapped, rect);
-  }
-  bool canBeInverted() const override { return m44_.asM33().invert(nullptr); }
-
- protected:
-  bool has_perspective() const override;
-
- private:
-  SkM44 m44_;
-};
-
-class Data3x3 : public DisplayListMatrixClipTracker::Data {
- public:
-  Data3x3(const SkMatrix& matrix, const SkRect& rect)
-      : Data(rect), matrix_(matrix) {}
-  explicit Data3x3(const Data* copy)
-      : Data(copy->device_cull_rect()), matrix_(copy->matrix_3x3()) {}
-
-  ~Data3x3() override = default;
-
-  bool is_4x4() const override { return false; }
-
-  SkMatrix matrix_3x3() const override { return matrix_; }
-  SkM44 matrix_4x4() const override { return SkM44(matrix_); }
-  SkRect local_cull_rect() const override;
-
-  void translate(SkScalar tx, SkScalar ty) override {
-    matrix_.preTranslate(tx, ty);
-  }
-  void scale(SkScalar sx, SkScalar sy) override { matrix_.preScale(sx, sy); }
-  void skew(SkScalar skx, SkScalar sky) override { matrix_.preSkew(skx, sky); }
-  void rotate(SkScalar degrees) override { matrix_.preRotate(degrees); }
-  void transform(const SkMatrix& matrix) override { matrix_.preConcat(matrix); }
-  void transform(const SkM44& m44) override {
-    FML_CHECK(false) << "SkM44 was concatenated without upgrading Data";
-  }
-  void setTransform(const SkMatrix& matrix) override { matrix_ = matrix; }
-  void setTransform(const SkM44& m44) override {
-    FML_CHECK(false) << "SkM44 was set without upgrading Data";
-  }
-  void setIdentity() override { matrix_.setIdentity(); }
-  bool mapRect(const SkRect& rect, SkRect* mapped) const override {
-    return matrix_.mapRect(mapped, rect);
-  }
-  bool canBeInverted() const override { return matrix_.invert(nullptr); }
-
- protected:
-  bool has_perspective() const override { return matrix_.hasPerspective(); }
-
- private:
-  SkMatrix matrix_;
-};
-
-bool DisplayListMatrixClipTracker::is_3x3(const SkM44& m) {
-  // clang-format off
-  return (                                      m.rc(0, 2) == 0 &&
-                                                m.rc(1, 2) == 0 &&
-          m.rc(2, 0) == 0 && m.rc(2, 1) == 0 && m.rc(2, 2) == 1 && m.rc(2, 3) == 0 &&
-                                                m.rc(3, 2) == 0);
-  // clang-format on
+static const DlRect& ProtectEmpty(const DlRect& rect) {
+  // isEmpty protects us against NaN while we normalize any empty cull rects
+  return rect.IsEmpty() ? kEmpty : rect;
 }
 
-DisplayListMatrixClipTracker::DisplayListMatrixClipTracker(
-    const SkRect& cull_rect,
-    const SkMatrix& matrix)
-    : original_cull_rect_(cull_rect) {
-  // isEmpty protects us against NaN as we normalize any empty cull rects
-  SkRect cull = cull_rect.isEmpty() ? SkRect::MakeEmpty() : cull_rect;
-  saved_.emplace_back(std::make_unique<Data3x3>(matrix, cull));
-  current_ = saved_.back().get();
-  save();  // saved_[0] will always be the initial settings
-}
+DisplayListMatrixClipState::DisplayListMatrixClipState(const DlRect& cull_rect,
+                                                       const DlMatrix& matrix)
+    : cull_rect_(ProtectEmpty(cull_rect)), matrix_(matrix) {}
 
-DisplayListMatrixClipTracker::DisplayListMatrixClipTracker(
-    const SkRect& cull_rect,
-    const SkM44& m44)
-    : original_cull_rect_(cull_rect) {
-  // isEmpty protects us against NaN as we normalize any empty cull rects
-  SkRect cull = cull_rect.isEmpty() ? SkRect::MakeEmpty() : cull_rect;
-  if (is_3x3(m44)) {
-    saved_.emplace_back(std::make_unique<Data3x3>(m44.asM33(), cull));
-  } else {
-    saved_.emplace_back(std::make_unique<Data4x4>(m44, cull));
-  }
-  current_ = saved_.back().get();
-  save();  // saved_[0] will always be the initial settings
-}
-
-// clang-format off
-void DisplayListMatrixClipTracker::transform2DAffine(
-    SkScalar mxx, SkScalar mxy, SkScalar mxt,
-    SkScalar myx, SkScalar myy, SkScalar myt) {
-  if (!current_->is_4x4()) {
-    transform(SkMatrix::MakeAll(mxx, mxy, mxt,
-                                myx, myy, myt,
-                                0,   0,   1));
-  } else {
-    transform(SkM44(mxx, mxy, 0, mxt,
-                    myx, myy, 0, myt,
-                    0,   0,   1, 0,
-                    0,   0,   0, 1));
-  }
-}
-void DisplayListMatrixClipTracker::transformFullPerspective(
-    SkScalar mxx, SkScalar mxy, SkScalar mxz, SkScalar mxt,
-    SkScalar myx, SkScalar myy, SkScalar myz, SkScalar myt,
-    SkScalar mzx, SkScalar mzy, SkScalar mzz, SkScalar mzt,
-    SkScalar mwx, SkScalar mwy, SkScalar mwz, SkScalar mwt) {
-  if (!current_->is_4x4()) {
-    if (                        mxz == 0 &&
-                                myz == 0 &&
-        mzx == 0 && mzy == 0 && mzz == 1 && mzt == 0 &&
-                                mwz == 0) {
-        transform(SkMatrix::MakeAll(mxx, mxy, mxt,
-                                    myx, myy, myt,
-                                    mwx, mwy, mwt));
-        return;
-    }
-  }
-
-  transform(SkM44(mxx, mxy, mxz, mxt,
-                  myx, myy, myz, myt,
-                  mzx, mzy, mzz, mzt,
-                  mwx, mwy, mwz, mwt));
-}
-// clang-format on
-
-void DisplayListMatrixClipTracker::save() {
-  if (current_->is_4x4()) {
-    saved_.emplace_back(std::make_unique<Data4x4>(current_));
-  } else {
-    saved_.emplace_back(std::make_unique<Data3x3>(current_));
-  }
-  current_ = saved_.back().get();
-}
-
-void DisplayListMatrixClipTracker::restore() {
-  if (saved_.size() > 2) {
-    saved_.pop_back();
-    current_ = saved_.back().get();
-  }
-}
-
-void DisplayListMatrixClipTracker::reset() {
-  while (saved_.size() > 1) {
-    saved_.pop_back();
-    current_ = saved_.back().get();
-  }
-  save();  // saved_[0] will always be the initial settings
-}
-
-void DisplayListMatrixClipTracker::restoreToCount(int restore_count) {
-  FML_DCHECK(restore_count <= getSaveCount());
-  if (restore_count < 1) {
-    restore_count = 1;
-  }
-  while (restore_count < getSaveCount()) {
-    restore();
-  }
-}
-
-void DisplayListMatrixClipTracker::transform(const SkM44& m44) {
-  if (!current_->is_4x4()) {
-    if (is_3x3(m44)) {
-      current_->transform(m44.asM33());
-      return;
-    }
-    saved_.back() = std::make_unique<Data4x4>(current_);
-    current_ = saved_.back().get();
-  }
-  current_->transform(m44);
-}
-
-void DisplayListMatrixClipTracker::setTransform(const SkM44& m44) {
-  if (!current_->is_4x4()) {
-    if (is_3x3(m44)) {
-      current_->setTransform(m44.asM33());
-      return;
-    }
-    saved_.back() = std::make_unique<Data4x4>(current_);
-    current_ = saved_.back().get();
-  }
-  current_->setTransform(m44);
-}
-
-bool DisplayListMatrixClipTracker::inverseTransform(
-    const DisplayListMatrixClipTracker& tracker_) {
-  if (tracker_.using_4x4_matrix()) {
-    SkM44 inverse;
-    if (tracker_.matrix_4x4().invert(&inverse)) {
-      transform(inverse);
-      return true;
-    }
-  } else {
-    SkMatrix inverse;
-    if (tracker_.matrix_3x3().invert(&inverse)) {
-      transform(inverse);
-      return true;
-    }
+bool DisplayListMatrixClipState::inverseTransform(
+    const DisplayListMatrixClipState& tracker) {
+  if (tracker.is_matrix_invertable()) {
+    matrix_ = matrix_ * tracker.matrix_.Invert();
+    return true;
   }
   return false;
 }
 
-void DisplayListMatrixClipTracker::clipRRect(const SkRRect& rrect,
-                                             ClipOp op,
-                                             bool is_aa) {
-  switch (op) {
-    case ClipOp::kIntersect:
-      break;
-    case ClipOp::kDifference:
-      if (!rrect.isRect()) {
-        return;
-      }
-      break;
-  }
-  current_->clipBounds(rrect.getBounds(), op, is_aa);
-}
-void DisplayListMatrixClipTracker::clipPath(const SkPath& path,
-                                            ClipOp op,
-                                            bool is_aa) {
-  // Map "kDifference of inverse path" to "kIntersect of the original path" and
-  // map "kIntersect of inverse path" to "kDifference of the original path"
-  if (path.isInverseFillType()) {
-    switch (op) {
-      case ClipOp::kIntersect:
-        op = ClipOp::kDifference;
-        break;
-      case ClipOp::kDifference:
-        op = ClipOp::kIntersect;
-        break;
-    }
-  }
-
-  SkRect bounds;
-  switch (op) {
-    case ClipOp::kIntersect:
-      bounds = path.getBounds();
-      break;
-    case ClipOp::kDifference:
-      if (!path.isRect(&bounds)) {
-        return;
-      }
-      break;
-  }
-  current_->clipBounds(bounds, op, is_aa);
-}
-
-bool DisplayListMatrixClipTracker::Data::content_culled(
-    const SkRect& content_bounds) const {
-  if (cull_rect_.isEmpty() || content_bounds.isEmpty()) {
+bool DisplayListMatrixClipState::mapAndClipRect(const DlRect& src,
+                                                DlRect* mapped) const {
+  DlRect dl_mapped = src.TransformAndClipBounds(matrix_);
+  auto dl_intersected = dl_mapped.Intersection(cull_rect_);
+  if (dl_intersected.has_value()) {
+    *mapped = dl_intersected.value();
     return true;
   }
-  if (!canBeInverted()) {
+  *mapped = DlRect();
+  return false;
+}
+
+void DisplayListMatrixClipState::clipRect(const DlRect& rect,
+                                          DlClipOp op,
+                                          bool is_aa) {
+  if (rect.IsFinite()) {
+    adjustCullRect(rect, op, is_aa);
+  }
+}
+
+void DisplayListMatrixClipState::clipOval(const DlRect& bounds,
+                                          DlClipOp op,
+                                          bool is_aa) {
+  if (!bounds.IsFinite()) {
+    return;
+  }
+  switch (op) {
+    case DlClipOp::kIntersect:
+      adjustCullRect(bounds, op, is_aa);
+      break;
+    case DlClipOp::kDifference:
+      if (oval_covers_cull(bounds)) {
+        cull_rect_ = DlRect();
+      }
+      break;
+  }
+}
+
+namespace {
+inline std::array<DlRect, 2> RoundingRadiiSafeRects(
+    const DlRect& bounds,
+    const impeller::RoundingRadii& radii) {
+  return {
+      bounds.Expand(  //
+          -std::max(radii.top_left.width, radii.bottom_left.width), 0,
+          -std::max(radii.top_right.width, radii.bottom_right.width), 0),
+      bounds.Expand(
+          0, -std::max(radii.top_left.height, radii.top_right.height),  //
+          0, -std::max(radii.bottom_left.height, radii.bottom_right.height))};
+}
+}  // namespace
+
+void DisplayListMatrixClipState::clipRRect(const DlRoundRect& rrect,
+                                           DlClipOp op,
+                                           bool is_aa) {
+  DlRect bounds = rrect.GetBounds();
+  if (rrect.IsRect()) {
+    return clipRect(bounds, op, is_aa);
+  }
+  switch (op) {
+    case DlClipOp::kIntersect:
+      adjustCullRect(bounds, op, is_aa);
+      break;
+    case DlClipOp::kDifference: {
+      if (rrect_covers_cull(rrect)) {
+        cull_rect_ = DlRect();
+        return;
+      }
+      auto safe_rects = RoundingRadiiSafeRects(bounds, rrect.GetRadii());
+      adjustCullRect(safe_rects[0], op, is_aa);
+      adjustCullRect(safe_rects[1], op, is_aa);
+      break;
+    }
+  }
+}
+
+void DisplayListMatrixClipState::clipRSuperellipse(
+    const DlRoundSuperellipse& rse,
+    DlClipOp op,
+    bool is_aa) {
+  DlRect bounds = rse.GetBounds();
+  if (rse.IsRect()) {
+    return clipRect(bounds, op, is_aa);
+  }
+  switch (op) {
+    case DlClipOp::kIntersect:
+      adjustCullRect(bounds, op, is_aa);
+      break;
+    case DlClipOp::kDifference: {
+      if (rsuperellipse_covers_cull(rse)) {
+        cull_rect_ = DlRect();
+        return;
+      }
+      auto safe_rects = RoundingRadiiSafeRects(bounds, rse.GetRadii());
+      adjustCullRect(safe_rects[0], op, is_aa);
+      adjustCullRect(safe_rects[1], op, is_aa);
+      break;
+    }
+  }
+}
+
+void DisplayListMatrixClipState::clipPath(const DlPath& path,
+                                          DlClipOp op,
+                                          bool is_aa) {
+  DlRect bounds = path.GetBounds();
+  if (path.IsRect(nullptr)) {
+    return clipRect(bounds, op, is_aa);
+  }
+  switch (op) {
+    case DlClipOp::kIntersect:
+      adjustCullRect(bounds, op, is_aa);
+      break;
+    case DlClipOp::kDifference:
+      break;
+  }
+}
+
+bool DisplayListMatrixClipState::content_culled(
+    const DlRect& content_bounds) const {
+  if (cull_rect_.IsEmpty() || content_bounds.IsEmpty()) {
+    return true;
+  }
+  if (!is_matrix_invertable()) {
     return true;
   }
   if (has_perspective()) {
     return false;
   }
-  SkRect mapped;
+  DlRect mapped;
   mapRect(content_bounds, &mapped);
-  return !mapped.intersects(cull_rect_);
+  return !mapped.IntersectsWithRect(cull_rect_);
 }
 
-void DisplayListMatrixClipTracker::Data::resetBounds(const SkRect& cull_rect) {
-  if (!cull_rect.isEmpty()) {
-    SkRect rect;
-    mapRect(cull_rect, &rect);
-    if (!rect.isEmpty()) {
-      cull_rect_ = rect;
+void DisplayListMatrixClipState::resetDeviceCullRect(const DlRect& cull_rect) {
+  if (cull_rect.IsEmpty()) {
+    cull_rect_ = DlRect();
+  } else {
+    cull_rect_ = cull_rect;
+  }
+}
+
+void DisplayListMatrixClipState::resetLocalCullRect(const DlRect& cull_rect) {
+  if (!cull_rect.IsEmpty()) {
+    mapRect(cull_rect, &cull_rect_);
+    if (!cull_rect_.IsEmpty()) {
       return;
     }
   }
-  cull_rect_.setEmpty();
+  cull_rect_ = DlRect();
 }
 
-void DisplayListMatrixClipTracker::Data::clipBounds(const SkRect& clip,
-                                                    ClipOp op,
-                                                    bool is_aa) {
-  if (cull_rect_.isEmpty()) {
-    // No point in intersecting further.
+void DisplayListMatrixClipState::adjustCullRect(const DlRect& clip,
+                                                DlClipOp op,
+                                                bool is_aa) {
+  if (cull_rect_.IsEmpty()) {
+    // No point in constraining further.
     return;
   }
-  if (has_perspective()) {
+  if (matrix_.HasPerspective()) {
     // We can conservatively ignore this clip.
     return;
   }
   switch (op) {
-    case ClipOp::kIntersect: {
-      if (clip.isEmpty()) {
-        cull_rect_.setEmpty();
+    case DlClipOp::kIntersect: {
+      if (clip.IsEmpty()) {
+        cull_rect_ = DlRect();
         break;
       }
-      SkRect rect;
+      DlRect rect;
       mapRect(clip, &rect);
       if (is_aa) {
-        rect.roundOut(&rect);
+        rect = DlRect::RoundOut(rect);
       }
-      if (!cull_rect_.intersect(rect)) {
-        cull_rect_.setEmpty();
-      }
+      cull_rect_ = cull_rect_.Intersection(rect).value_or(DlRect());
       break;
     }
-    case ClipOp::kDifference: {
-      if (clip.isEmpty()) {
+    case DlClipOp::kDifference: {
+      if (clip.IsEmpty()) {
         break;
       }
-      SkRect rect;
+      DlRect rect;
       if (mapRect(clip, &rect)) {
         // This technique only works if the transform is rect -> rect
         if (is_aa) {
-          SkIRect rounded;
-          rect.round(&rounded);
-          if (rounded.isEmpty()) {
+          rect = DlRect::Round(rect);
+          if (rect.IsEmpty()) {
             break;
           }
-          rect.set(rounded);
         }
-        if (!rect.intersects(cull_rect_)) {
-          break;
-        }
-        if (rect.fLeft <= cull_rect_.fLeft &&
-            rect.fRight >= cull_rect_.fRight) {
-          // bounds spans entire width of cull_rect_
-          // therefore we can slice off a top or bottom
-          // edge of the cull_rect_.
-          SkScalar top = cull_rect_.fTop;
-          SkScalar btm = cull_rect_.fBottom;
-          if (rect.fTop <= top) {
-            top = rect.fBottom;
-          }
-          if (rect.fBottom >= btm) {
-            btm = rect.fTop;
-          }
-          if (top < btm) {
-            cull_rect_.fTop = top;
-            cull_rect_.fBottom = btm;
-          } else {
-            cull_rect_.setEmpty();
-          }
-        } else if (rect.fTop <= cull_rect_.fTop &&
-                   rect.fBottom >= cull_rect_.fBottom) {
-          // bounds spans entire height of cull_rect_
-          // therefore we can slice off a left or right
-          // edge of the cull_rect_.
-          SkScalar lft = cull_rect_.fLeft;
-          SkScalar rgt = cull_rect_.fRight;
-          if (rect.fLeft <= lft) {
-            lft = rect.fRight;
-          }
-          if (rect.fRight >= rgt) {
-            rgt = rect.fLeft;
-          }
-          if (lft < rgt) {
-            cull_rect_.fLeft = lft;
-            cull_rect_.fRight = rgt;
-          } else {
-            cull_rect_.setEmpty();
-          }
-        }
+        cull_rect_ = cull_rect_.CutoutOrEmpty(rect);
       }
       break;
     }
   }
 }
 
-SkRect Data4x4::local_cull_rect() const {
-  if (cull_rect_.isEmpty()) {
-    return cull_rect_;
+DlRect DisplayListMatrixClipState::GetLocalCullCoverage() const {
+  if (cull_rect_.IsEmpty()) {
+    return DlRect();
   }
-  SkMatrix inverse;
-  if (!m44_.asM33().invert(&inverse)) {
-    return SkRect::MakeEmpty();
+  if (!is_matrix_invertable()) {
+    return DlRect();
   }
-  if (has_perspective()) {
+  if (matrix_.HasPerspective2D()) {
     // We could do a 4-point long-form conversion, but since this is
     // only used for culling, let's just return a non-constricting
     // cull rect.
     return DisplayListBuilder::kMaxCullRect;
   }
-  return inverse.mapRect(cull_rect_);
+  DlMatrix inverse = matrix_.Invert();
+  // We eliminated perspective above so we can use the cheaper non-clipping
+  // bounds transform method.
+  return cull_rect_.TransformBounds(inverse);
 }
 
-bool Data4x4::has_perspective() const {
-  return (m44_.rc(3, 0) != 0 ||  //
-          m44_.rc(3, 1) != 0 ||  //
-          m44_.rc(3, 2) != 0 ||  //
-          m44_.rc(3, 3) != 1);
+bool DisplayListMatrixClipState::rect_covers_cull(const DlRect& content) const {
+  return TransformedRectCoversBounds(content, matrix_, cull_rect_);
 }
 
-SkRect Data3x3::local_cull_rect() const {
-  if (cull_rect_.isEmpty()) {
-    return cull_rect_;
+bool DisplayListMatrixClipState::TransformedRectCoversBounds(
+    const DlRect& local_rect,
+    const DlMatrix& matrix,
+    const DlRect& cull_bounds) {
+  if (local_rect.IsEmpty()) {
+    return false;
   }
-  SkMatrix inverse;
-  if (!matrix_.invert(&inverse)) {
-    return SkRect::MakeEmpty();
+  if (cull_bounds.IsEmpty()) {
+    return true;
   }
-  if (matrix_.hasPerspective()) {
-    // We could do a 4-point long-form conversion, but since this is
-    // only used for culling, let's just return a non-constricting
-    // cull rect.
-    return DisplayListBuilder::kMaxCullRect;
+  if (matrix.IsAligned2D()) {
+    // This transform-to-device calculation is faster and more accurate
+    // for rect-to-rect aligned transformations, but not accurate under
+    // (non-quadrant) rotations and skews.
+    return local_rect.TransformAndClipBounds(matrix).Contains(cull_bounds);
   }
-  return inverse.mapRect(cull_rect_);
+  DlPoint corners[4];
+  if (!GetLocalCorners(corners, cull_bounds, matrix)) {
+    return false;
+  }
+  for (auto corner : corners) {
+    if (!local_rect.ContainsInclusive(corner)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DisplayListMatrixClipState::oval_covers_cull(const DlRect& bounds) const {
+  return TransformedOvalCoversBounds(bounds, matrix_, cull_rect_);
+}
+
+bool DisplayListMatrixClipState::TransformedOvalCoversBounds(
+    const DlRect& local_oval_bounds,
+    const DlMatrix& matrix,
+    const DlRect& cull_bounds) {
+  if (local_oval_bounds.IsEmpty()) {
+    return false;
+  }
+  if (cull_bounds.IsEmpty()) {
+    return true;
+  }
+  DlPoint corners[4];
+  if (!GetLocalCorners(corners, cull_bounds, matrix)) {
+    return false;
+  }
+  DlPoint center = local_oval_bounds.GetCenter();
+  DlSize scale = 2.0 / local_oval_bounds.GetSize();
+  for (auto corner : corners) {
+    if (!local_oval_bounds.Contains(corner)) {
+      return false;
+    }
+    if (((corner - center) * scale).GetLengthSquared() >= 1.0) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DisplayListMatrixClipState::rrect_covers_cull(
+    const DlRoundRect& content) const {
+  return TransformedRRectCoversBounds(content, matrix_, cull_rect_);
+}
+
+bool DisplayListMatrixClipState::TransformedRRectCoversBounds(
+    const DlRoundRect& local_rrect,
+    const DlMatrix& matrix,
+    const DlRect& cull_bounds) {
+  if (local_rrect.IsEmpty()) {
+    return false;
+  }
+  if (cull_bounds.IsEmpty()) {
+    return true;
+  }
+  if (local_rrect.IsRect()) {
+    return TransformedRectCoversBounds(local_rrect.GetBounds(), matrix,
+                                       cull_bounds);
+  }
+  if (local_rrect.IsOval()) {
+    return TransformedOvalCoversBounds(local_rrect.GetBounds(), matrix,
+                                       cull_bounds);
+  }
+  if (!local_rrect.GetRadii().AreAllCornersSame()) {
+    return false;
+  }
+  DlPoint corners[4];
+  if (!GetLocalCorners(corners, cull_bounds, matrix)) {
+    return false;
+  }
+  auto outer = local_rrect.GetBounds();
+  auto center = outer.GetCenter();
+  auto radii = local_rrect.GetRadii().top_left;
+  auto inner = outer.GetSize() * 0.5 - radii;
+  auto scale = 1.0 / radii;
+  for (auto corner : corners) {
+    if (!outer.Contains(corner)) {
+      return false;
+    }
+    auto rel = (corner - center).Abs() - inner;
+    if (rel.x > 0.0f && rel.y > 0.0f &&
+        (rel * scale).GetLengthSquared() >= 1.0f) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DisplayListMatrixClipState::rsuperellipse_covers_cull(
+    const DlRoundSuperellipse& content) const {
+  return TransformedRoundSuperellipseCoversBounds(content, matrix_, cull_rect_);
+}
+
+bool DisplayListMatrixClipState::TransformedRoundSuperellipseCoversBounds(
+    const DlRoundSuperellipse& local_rse,
+    const DlMatrix& matrix,
+    const DlRect& cull_bounds) {
+  if (local_rse.IsEmpty()) {
+    return false;
+  }
+  if (cull_bounds.IsEmpty()) {
+    return true;
+  }
+  if (local_rse.IsRect()) {
+    return TransformedRectCoversBounds(local_rse.GetBounds(), matrix,
+                                       cull_bounds);
+  }
+  if (local_rse.IsOval()) {
+    return TransformedOvalCoversBounds(local_rse.GetBounds(), matrix,
+                                       cull_bounds);
+  }
+  DlPoint corners[4];
+  if (!GetLocalCorners(corners, cull_bounds, matrix)) {
+    return false;
+  }
+  auto outer = local_rse.GetBounds();
+  auto param = impeller::RoundSuperellipseParam::MakeBoundsRadii(
+      outer, local_rse.GetRadii());
+  for (auto corner : corners) {
+    if (!outer.Contains(corner)) {
+      return false;
+    }
+    if (!param.Contains(corner)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool DisplayListMatrixClipState::GetLocalCorners(DlPoint corners[4],
+                                                 const DlRect& rect,
+                                                 const DlMatrix& matrix) {
+  if (!matrix.IsInvertible()) {
+    return false;
+  }
+  DlMatrix inverse = matrix.Invert();
+  corners[0] = inverse * rect.GetLeftTop();
+  corners[1] = inverse * rect.GetRightTop();
+  corners[2] = inverse * rect.GetRightBottom();
+  corners[3] = inverse * rect.GetLeftBottom();
+  return true;
 }
 
 }  // namespace flutter

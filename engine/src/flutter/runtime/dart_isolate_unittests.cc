@@ -711,12 +711,12 @@ class FakePlatformConfigurationClient : public PlatformConfigurationClient {
               Scene* scene,
               double width,
               double height) override {}
-  void UpdateSemantics(SemanticsUpdate* update) override {}
+  void UpdateSemantics(int64_t view_id, SemanticsUpdate* update) override {}
   void HandlePlatformMessage(
       std::unique_ptr<PlatformMessage> message) override {}
   FontCollection& GetFontCollection() override {
     FML_UNREACHABLE();
-    return *(FontCollection*)(this);
+    return *reinterpret_cast<FontCollection*>(this);
   }
   std::shared_ptr<AssetManager> GetAssetManager() override { return nullptr; }
   void UpdateIsolateDescription(const std::string isolate_name,
@@ -735,6 +735,7 @@ class FakePlatformConfigurationClient : public PlatformConfigurationClient {
                            int configuration_id) const override {
     return 0;
   }
+  void RequestViewFocusChange(const ViewFocusChangeRequest& request) override {}
 };
 
 TEST_F(DartIsolateTest, PlatformIsolateCreationAndShutdown) {
@@ -769,10 +770,9 @@ TEST_F(DartIsolateTest, PlatformIsolateCreationAndShutdown) {
                              ui_thread,             // ui
                              ui_thread              // io
     );
-    auto isolate =
-        RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                             GetDefaultKernelFilePath(), {}, nullptr,
-                             std::move(platform_configuration));
+    auto isolate = RunDartCodeInIsolate(
+        vm_ref, settings, task_runners, "emptyMain", {},
+        GetDefaultKernelFilePath(), {}, std::move(platform_configuration));
     ASSERT_TRUE(isolate);
     auto root_isolate = isolate->get();
     ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
@@ -842,10 +842,9 @@ TEST_F(DartIsolateTest, PlatformIsolateEarlyShutdown) {
                            ui_thread,             // ui
                            ui_thread              // io
   );
-  auto isolate =
-      RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                           GetDefaultKernelFilePath(), {}, nullptr,
-                           std::move(platform_configuration));
+  auto isolate = RunDartCodeInIsolate(
+      vm_ref, settings, task_runners, "emptyMain", {},
+      GetDefaultKernelFilePath(), {}, std::move(platform_configuration));
   ASSERT_TRUE(isolate);
   auto root_isolate = isolate->get();
   ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
@@ -894,80 +893,6 @@ TEST_F(DartIsolateTest, PlatformIsolateEarlyShutdown) {
   // root isolate will be auto-shutdown
 }
 
-TEST_F(DartIsolateTest, PlatformIsolateSendAndReceive) {
-  fml::AutoResetWaitableEvent message_latch;
-  AddNativeCallback(
-      "PassMessage",
-      CREATE_NATIVE_ENTRY(([&message_latch](Dart_NativeArguments args) {
-        auto message = tonic::DartConverter<std::string>::FromDart(
-            Dart_GetNativeArgument(args, 0));
-        ASSERT_EQ("Platform isolate received: Hello from root isolate!",
-                  message);
-        message_latch.Signal();
-      })));
-
-  FakePlatformConfigurationClient client;
-  auto platform_configuration =
-      std::make_unique<PlatformConfiguration>(&client);
-
-  ASSERT_FALSE(DartVMRef::IsInstanceRunning());
-  auto settings = CreateSettingsForFixture();
-  auto vm_ref = DartVMRef::Create(settings);
-  ASSERT_TRUE(vm_ref);
-  auto vm_data = vm_ref.GetVMData();
-  ASSERT_TRUE(vm_data);
-
-  auto platform_thread = CreateNewThread();
-  auto ui_thread = CreateNewThread();
-  TaskRunners task_runners(GetCurrentTestName(),  // label
-                           platform_thread,       // platform
-                           ui_thread,             // raster
-                           ui_thread,             // ui
-                           ui_thread              // io
-  );
-  auto isolate =
-      RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                           GetDefaultKernelFilePath(), {}, nullptr,
-                           std::move(platform_configuration));
-  ASSERT_TRUE(isolate);
-  auto root_isolate = isolate->get();
-  ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
-
-  fml::AutoResetWaitableEvent ui_thread_latch;
-  Dart_Isolate platform_isolate = nullptr;
-  fml::TaskRunner::RunNowOrPostTask(
-      ui_thread, fml::MakeCopyable([&]() mutable {
-        ASSERT_TRUE(isolate->RunInIsolateScope([root_isolate,
-                                                &platform_isolate]() {
-          Dart_Handle lib = Dart_RootLibrary();
-          Dart_Handle entry_point = Dart_Invoke(
-              lib, tonic::ToDart("createEntryPointForPlatIsoSendAndRecvTest"),
-              0, nullptr);
-          char* error = nullptr;
-          platform_isolate =
-              root_isolate->CreatePlatformIsolate(entry_point, &error);
-          EXPECT_FALSE(error);
-          return true;
-        }));
-        ui_thread_latch.Signal();
-      }));
-  ui_thread_latch.Wait();
-
-  // Wait for a message from the platform isolate.
-  message_latch.Wait();
-
-  // Post a task to the platform_thread that runs after the platform isolate's
-  // entry point and all messages, and wait for it to run.
-  fml::AutoResetWaitableEvent epilogue_latch;
-  fml::TaskRunner::RunNowOrPostTask(
-      platform_thread, fml::MakeCopyable([&epilogue_latch]() mutable {
-        epilogue_latch.Signal();
-      }));
-  epilogue_latch.Wait();
-
-  // root isolate will be auto-shutdown
-}
-
 TEST_F(DartIsolateTest, PlatformIsolateCreationAfterManagerShutdown) {
   AddNativeCallback("PassMessage",
                     CREATE_NATIVE_ENTRY((
@@ -992,10 +917,9 @@ TEST_F(DartIsolateTest, PlatformIsolateCreationAfterManagerShutdown) {
                            ui_thread,             // ui
                            ui_thread              // io
   );
-  auto isolate =
-      RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                           GetDefaultKernelFilePath(), {}, nullptr,
-                           std::move(platform_configuration));
+  auto isolate = RunDartCodeInIsolate(
+      vm_ref, settings, task_runners, "emptyMain", {},
+      GetDefaultKernelFilePath(), {}, std::move(platform_configuration));
   ASSERT_TRUE(isolate);
   auto root_isolate = isolate->get();
   ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
@@ -1060,10 +984,9 @@ TEST_F(DartIsolateTest, PlatformIsolateManagerShutdownBeforeMainRuns) {
                            ui_thread,             // ui
                            ui_thread              // io
   );
-  auto isolate =
-      RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                           GetDefaultKernelFilePath(), {}, nullptr,
-                           std::move(platform_configuration));
+  auto isolate = RunDartCodeInIsolate(
+      vm_ref, settings, task_runners, "emptyMain", {},
+      GetDefaultKernelFilePath(), {}, std::move(platform_configuration));
   ASSERT_TRUE(isolate);
   auto root_isolate = isolate->get();
   ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
@@ -1146,10 +1069,9 @@ TEST_F(DartIsolateTest, PlatformIsolateMainThrowsError) {
                            ui_thread,             // ui
                            ui_thread              // io
   );
-  auto isolate =
-      RunDartCodeInIsolate(vm_ref, settings, task_runners, "emptyMain", {},
-                           GetDefaultKernelFilePath(), {}, nullptr,
-                           std::move(platform_configuration));
+  auto isolate = RunDartCodeInIsolate(
+      vm_ref, settings, task_runners, "emptyMain", {},
+      GetDefaultKernelFilePath(), {}, std::move(platform_configuration));
   ASSERT_TRUE(isolate);
   auto root_isolate = isolate->get();
   ASSERT_EQ(root_isolate->GetPhase(), DartIsolate::Phase::Running);
@@ -1189,6 +1111,61 @@ TEST_F(DartIsolateTest, PlatformIsolateMainThrowsError) {
   epilogue_latch.Wait();
 
   // root isolate will be auto-shutdown
+}
+
+TEST_F(DartIsolateTest, RootIsolateIsOwnedByMainThread) {
+  ASSERT_FALSE(DartVMRef::IsInstanceRunning());
+  auto settings = CreateSettingsForFixture();
+  auto vm_ref = DartVMRef::Create(settings);
+  ASSERT_TRUE(vm_ref);
+  auto vm_data = vm_ref.GetVMData();
+  ASSERT_TRUE(vm_data);
+  TaskRunners task_runners(GetCurrentTestName(),    //
+                           GetCurrentTaskRunner(),  //
+                           GetCurrentTaskRunner(),  //
+                           GetCurrentTaskRunner(),  //
+                           GetCurrentTaskRunner()   //
+  );
+
+  auto isolate_configuration =
+      IsolateConfiguration::InferFromSettings(settings);
+
+  UIDartState::Context context(task_runners);
+  context.advisory_script_uri = "main.dart";
+  context.advisory_script_entrypoint = "main";
+  auto weak_isolate = DartIsolate::CreateRunningRootIsolate(
+      vm_data->GetSettings(),              // settings
+      vm_data->GetIsolateSnapshot(),       // isolate snapshot
+      nullptr,                             // platform configuration
+      DartIsolate::Flags{},                // flags
+      nullptr,                             // root_isolate_create_callback
+      settings.isolate_create_callback,    // isolate create callback
+      settings.isolate_shutdown_callback,  // isolate shutdown callback
+      "main",                              // dart entrypoint
+      std::nullopt,                        // dart entrypoint library
+      {},                                  // dart entrypoint arguments
+      std::move(isolate_configuration),    // isolate configuration
+      context                              // engine context
+  );
+  auto root_isolate = weak_isolate.lock();
+
+  Dart_Port main_port;
+  {
+    tonic::DartState::Scope scope(root_isolate.get());
+    main_port = Dart_GetMainPortId();
+
+    ASSERT_TRUE(Dart_GetCurrentThreadOwnsIsolate(main_port));
+  }
+
+  ASSERT_TRUE(Dart_GetCurrentThreadOwnsIsolate(main_port));
+
+  std::thread([main_port]() {
+    ASSERT_FALSE(Dart_GetCurrentThreadOwnsIsolate(main_port));
+  }).join();
+
+  ASSERT_TRUE(root_isolate->Shutdown());
+
+  ASSERT_FALSE(Dart_GetCurrentThreadOwnsIsolate(main_port));
 }
 
 }  // namespace testing

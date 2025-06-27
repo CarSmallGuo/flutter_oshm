@@ -6,12 +6,11 @@ part of dart.ui;
 
 /// The possible actions that can be conveyed from the operating system
 /// accessibility APIs to a semantics node.
-///
-/// \warning When changes are made to this class, the equivalent APIs in
-///         `lib/ui/semantics/semantics_node.h` and in each of the embedders
-///         *must* be updated.
-/// See also:
-///   - file://./../../lib/ui/semantics/semantics_node.h
+//
+// > [!Warning]
+// > When changes are made to this class, the equivalent APIs in
+// > `lib/ui/semantics/semantics_node.h` and in each of the embedders
+// > *must* be updated.
 class SemanticsAction {
   const SemanticsAction._(this.index, this.name);
 
@@ -45,9 +44,14 @@ class SemanticsAction {
   static const int _kMoveCursorForwardByWordIndex = 1 << 19;
   static const int _kMoveCursorBackwardByWordIndex = 1 << 20;
   static const int _kSetTextIndex = 1 << 21;
-  // READ THIS: if you add an action here, you MUST update the
-  // numSemanticsActions value in testing/dart/semantics_test.dart, or tests
-  // will fail.
+  static const int _kFocusIndex = 1 << 22;
+  static const int _kScrollToOffsetIndex = 1 << 23;
+  // READ THIS:
+  // - The maximum supported bit index on the web (in JS mode) is 1 << 31.
+  // - If you add an action here, you MUST update the numSemanticsActions value
+  //   in testing/dart/semantics_test.dart and
+  //   lib/web_ui/test/engine/semantics/semantics_api_test.dart, or tests will
+  //   fail.
 
   /// The equivalent of a user briefly tapping the screen with the finger
   /// without moving it.
@@ -85,6 +89,20 @@ class SemanticsAction {
   /// scrollable.
   static const SemanticsAction scrollDown = SemanticsAction._(_kScrollDownIndex, 'scrollDown');
 
+  /// A request to scroll the scrollable container to a given scroll offset.
+  ///
+  /// The payload of this [SemanticsAction] is a flutter-standard-encoded
+  /// [Float64List] of length 2 containing the target horizontal and vertical
+  /// offsets (in logical pixels) the receiving scrollable container should
+  /// scroll to.
+  ///
+  /// This action is used by iOS Full Keyboard Access to reveal contents that
+  /// are currently not visible in the viewport.
+  static const SemanticsAction scrollToOffset = SemanticsAction._(
+    _kScrollToOffsetIndex,
+    'scrollToOffset',
+  );
+
   /// A request to increase the value represented by the semantics node.
   ///
   /// For example, this action might be recognized by a slider control.
@@ -99,7 +117,10 @@ class SemanticsAction {
   ///
   /// For example, this action might be send to a node in a scrollable list that
   /// is partially off screen to bring it on screen.
-  static const SemanticsAction showOnScreen = SemanticsAction._(_kShowOnScreenIndex, 'showOnScreen');
+  static const SemanticsAction showOnScreen = SemanticsAction._(
+    _kShowOnScreenIndex,
+    'showOnScreen',
+  );
 
   /// Move the cursor forward by one character.
   ///
@@ -107,7 +128,10 @@ class SemanticsAction {
   ///
   /// The action includes a boolean argument, which indicates whether the cursor
   /// movement should extend (or start) a selection.
-  static const SemanticsAction moveCursorForwardByCharacter = SemanticsAction._(_kMoveCursorForwardByCharacterIndex, 'moveCursorForwardByCharacter');
+  static const SemanticsAction moveCursorForwardByCharacter = SemanticsAction._(
+    _kMoveCursorForwardByCharacterIndex,
+    'moveCursorForwardByCharacter',
+  );
 
   /// Move the cursor backward by one character.
   ///
@@ -115,7 +139,10 @@ class SemanticsAction {
   ///
   /// The action includes a boolean argument, which indicates whether the cursor
   /// movement should extend (or start) a selection.
-  static const SemanticsAction moveCursorBackwardByCharacter = SemanticsAction._(_kMoveCursorBackwardByCharacterIndex, 'moveCursorBackwardByCharacter');
+  static const SemanticsAction moveCursorBackwardByCharacter = SemanticsAction._(
+    _kMoveCursorBackwardByCharacterIndex,
+    'moveCursorBackwardByCharacter',
+  );
 
   /// Replaces the current text in the text field.
   ///
@@ -134,7 +161,10 @@ class SemanticsAction {
   ///
   /// Setting `base` and `extent` to the same value will move the cursor to
   /// that position (without selecting anything).
-  static const SemanticsAction setSelection = SemanticsAction._(_kSetSelectionIndex, 'setSelection');
+  static const SemanticsAction setSelection = SemanticsAction._(
+    _kSetSelectionIndex,
+    'setSelection',
+  );
 
   /// Copy the current selection to the clipboard.
   static const SemanticsAction copy = SemanticsAction._(_kCopyIndex, 'copy');
@@ -156,7 +186,14 @@ class SemanticsAction {
   /// The accessibility focus is different from the input focus. The input focus
   /// is usually held by the element that currently responds to keyboard inputs.
   /// Accessibility focus and input focus can be held by two different nodes!
-  static const SemanticsAction didGainAccessibilityFocus = SemanticsAction._(_kDidGainAccessibilityFocusIndex, 'didGainAccessibilityFocus');
+  ///
+  /// See also:
+  ///
+  ///    * [focus], which controls the input focus.
+  static const SemanticsAction didGainAccessibilityFocus = SemanticsAction._(
+    _kDidGainAccessibilityFocusIndex,
+    'didGainAccessibilityFocus',
+  );
 
   /// Indicates that the node has lost accessibility focus.
   ///
@@ -169,13 +206,19 @@ class SemanticsAction {
   /// The accessibility focus is different from the input focus. The input focus
   /// is usually held by the element that currently responds to keyboard inputs.
   /// Accessibility focus and input focus can be held by two different nodes!
-  static const SemanticsAction didLoseAccessibilityFocus = SemanticsAction._(_kDidLoseAccessibilityFocusIndex, 'didLoseAccessibilityFocus');
+  static const SemanticsAction didLoseAccessibilityFocus = SemanticsAction._(
+    _kDidLoseAccessibilityFocusIndex,
+    'didLoseAccessibilityFocus',
+  );
 
   /// Indicates that the user has invoked a custom accessibility action.
   ///
   /// This handler is added automatically whenever a custom accessibility
   /// action is added to a semantics node.
-  static const SemanticsAction customAction = SemanticsAction._(_kCustomActionIndex, 'customAction');
+  static const SemanticsAction customAction = SemanticsAction._(
+    _kCustomActionIndex,
+    'customAction',
+  );
 
   /// A request that the node should be dismissed.
   ///
@@ -192,7 +235,10 @@ class SemanticsAction {
   ///
   /// The action includes a boolean argument, which indicates whether the cursor
   /// movement should extend (or start) a selection.
-  static const SemanticsAction moveCursorForwardByWord = SemanticsAction._(_kMoveCursorForwardByWordIndex, 'moveCursorForwardByWord');
+  static const SemanticsAction moveCursorForwardByWord = SemanticsAction._(
+    _kMoveCursorForwardByWordIndex,
+    'moveCursorForwardByWord',
+  );
 
   /// Move the cursor backward by one word.
   ///
@@ -200,7 +246,57 @@ class SemanticsAction {
   ///
   /// The action includes a boolean argument, which indicates whether the cursor
   /// movement should extend (or start) a selection.
-  static const SemanticsAction moveCursorBackwardByWord = SemanticsAction._(_kMoveCursorBackwardByWordIndex, 'moveCursorBackwardByWord');
+  static const SemanticsAction moveCursorBackwardByWord = SemanticsAction._(
+    _kMoveCursorBackwardByWordIndex,
+    'moveCursorBackwardByWord',
+  );
+
+  /// Move the input focus to the respective widget.
+  ///
+  /// Most commonly, the input focus determines which widget will receive
+  /// keyboard input. Semantics nodes that can receive this action are expected
+  /// to have [SemanticsFlag.isFocusable] set. Examples of such focusable
+  /// widgets include buttons, checkboxes, switches, and text fields.
+  ///
+  /// Upon receiving this action, the corresponding widget must move input focus
+  /// to itself. Doing otherwise is likely to lead to a poor user experience,
+  /// such as user input routed to a wrong widget. Text fields in particular,
+  /// must immediately become editable, opening a virtual keyboard, if needed.
+  /// Buttons must respond to tap/click events from the keyboard.
+  ///
+  /// Widget reaction to this action must be idempotent. It is possible to
+  /// receive this action more than once, or when the widget is already focused.
+  ///
+  /// Focus behavior is specific to the platform and to the assistive technology
+  /// used. Typically on desktop operating systems, such as Windows, macOS, and
+  /// Linux, moving accessibility focus will also move the input focus. On
+  /// mobile it is more common for the accessibility focus to be detached from
+  /// the input focus. In order to synchronize the two, a user takes an explicit
+  /// action (e.g. double-tap to activate). Sometimes this behavior is
+  /// configurable. For example, VoiceOver on macOS can be configured in the
+  /// global OS user settings to either move the input focus together with the
+  /// VoiceOver focus, or to keep the two detached. For this reason, widgets
+  /// should not expect to receive [didGainAccessibilityFocus] and [focus]
+  /// actions to be reported in any particular combination or order.
+  ///
+  /// On the web, the DOM "focus" event is equivalent to
+  /// [SemanticsAction.focus]. Accessibility focus is not observable from within
+  /// the browser. Instead, the browser, based on the platform features and user
+  /// preferences, makes the determination on whether input focus should be
+  /// moved to an element and, if so, fires a DOM "focus" event. This event is
+  /// forwarded to the framework as [SemanticsAction.focus]. For this reason, on
+  /// the web, the engine never sends [didGainAccessibilityFocus].
+  ///
+  /// On Android input focus is observable as `AccessibilityAction#ACTION_FOCUS`
+  /// and is separate from accessibility focus, which is observed as
+  /// `AccessibilityAction#ACTION_ACCESSIBILITY_FOCUS`.
+  ///
+  /// See also:
+  ///
+  ///    * [didGainAccessibilityFocus], which informs the framework about
+  ///      accessibility focus ring, such as the TalkBack (Android) and
+  ///      VoiceOver (iOS), moving which does not move the input focus.
+  static const SemanticsAction focus = SemanticsAction._(_kFocusIndex, 'focus');
 
   /// The possible semantics actions.
   ///
@@ -213,6 +309,7 @@ class SemanticsAction {
     _kScrollRightIndex: scrollRight,
     _kScrollUpIndex: scrollUp,
     _kScrollDownIndex: scrollDown,
+    _kScrollToOffsetIndex: scrollToOffset,
     _kIncreaseIndex: increase,
     _kDecreaseIndex: decrease,
     _kShowOnScreenIndex: showOnScreen,
@@ -229,14 +326,207 @@ class SemanticsAction {
     _kMoveCursorForwardByWordIndex: moveCursorForwardByWord,
     _kMoveCursorBackwardByWordIndex: moveCursorBackwardByWord,
     _kSetTextIndex: setText,
+    _kFocusIndex: focus,
   };
 
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
   static List<SemanticsAction> get values => _kActionById.values.toList(growable: false);
 
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
   static SemanticsAction? fromIndex(int index) => _kActionById[index];
 
   @override
   String toString() => 'SemanticsAction.$name';
+}
+
+/// An enum to describe the role for a semantics node.
+///
+/// The roles are translated into native accessibility roles in each platform.
+enum SemanticsRole {
+  /// Does not represent any role.
+  none,
+
+  /// A tab button.
+  ///
+  /// See also:
+  ///
+  ///  * [tabBar], which is the role for containers of tab buttons.
+  tab,
+
+  /// Contains tab buttons.
+  ///
+  /// See also:
+  ///
+  ///  * [tab], which is the role for tab buttons.
+  tabBar,
+
+  /// The main display for a tab.
+  tabPanel,
+
+  /// A pop up dialog.
+  dialog,
+
+  /// An alert dialog.
+  alertDialog,
+
+  /// A table structure containing data arranged in rows and columns.
+  ///
+  /// See also:
+  ///
+  /// * [cell], [row], [columnHeader] for table related roles.
+  table,
+
+  /// A cell in a [table] that does not contain column or row header information.
+  ///
+  /// See also:
+  ///
+  /// * [table],[row], [columnHeader] for table related roles.
+  cell,
+
+  /// A row of [cell]s or or [columnHeader]s in a [table].
+  ///
+  /// See also:
+  ///
+  /// * [table] ,[cell],[columnHeader] for table related roles.
+  row,
+
+  /// A cell in a [table] contains header information for a column.
+  ///
+  /// See also:
+  ///
+  /// * [table] ,[cell], [row] for table related roles.
+  columnHeader,
+
+  /// An input field for users to enter search terms.
+  searchBox,
+
+  /// A control used for dragging across content.
+  ///
+  /// For example, the drag handle of [ReorderableList].
+  dragHandle,
+
+  /// A control to cycle through content on tap.
+  ///
+  /// For example, the next and previous month button of a [CalendarDatePicker].
+  spinButton,
+
+  /// A input field with a dropdown list box attached.
+  ///
+  /// For example, a [DropdownMenu]
+  comboBox,
+
+  /// A presentation of [menu] that usually remains visible and is usually
+  /// presented horizontally.
+  ///
+  /// For example, a [MenuBar].
+  menuBar,
+
+  /// A permanently visible list of controls or a widget that can be made to
+  /// open and close.
+  ///
+  /// For example, a [MenuAnchor] or [DropdownButton].
+  menu,
+
+  /// An item in a dropdown created by [menu] or [menuBar].
+  ///
+  /// See also:
+  ///
+  /// * [menuItemCheckbox], a menu item with a checkbox. The [menuItemCheckbox]
+  ///  can also be used within [menu] and [menuBar].
+  /// * [menuItemRadio], a menu item with a radio button. This role is used by
+  /// [menu] or [menuBar] as well.
+  menuItem,
+
+  /// An item with a checkbox in a dropdown created by [menu] or [menuBar].
+  ///
+  /// See also:
+  ///
+  /// * [menuItem] and [menuItemRadio] for menu related roles.
+  menuItemCheckbox,
+
+  /// An item with a radio button in a dropdown created by [menu] or [menuBar].
+  ///
+  /// See also:
+  ///
+  /// * [menuItem] and [menuItemCheckbox] for menu related roles.
+  menuItemRadio,
+
+  /// A container to display multiple [listItem]s in vertical or horizontal
+  /// layout.
+  ///
+  /// For example, a [LisView] or [Column].
+  list,
+
+  /// An item in a [list].
+  listItem,
+
+  /// An area that represents a form.
+  form,
+
+  /// A pop up displayed when hovering over a component to provide contextual
+  /// explanation.
+  tooltip,
+
+  /// A graphic object that spins to indicate the application is busy.
+  ///
+  /// For example, a [CircularProgressIndicator].
+  loadingSpinner,
+
+  /// A graphic object that shows progress with a numeric number.
+  ///
+  /// For example, a [LinearProgressIndicator].
+  progressBar,
+
+  /// A keyboard shortcut field that allows the user to enter a combination or
+  /// sequence of keystrokes.
+  ///
+  /// For example, [Shortcuts].
+  hotKey,
+
+  /// A group of radio buttons.
+  radioGroup,
+
+  /// A component to provide advisory information that is not important to
+  /// justify an [alert].
+  ///
+  /// For example, a loading message for a web page.
+  status,
+
+  /// A component to provide important and usually time-sensitive information.
+  ///
+  /// The alert role should only be used for information that requires the
+  /// user's immediate attention, for example:
+  ///
+  /// * An invalid value was entered into a form field.
+  /// * The user's login session is about to expire.
+  /// * The connection to the server was lost so local changes will not be
+  ///   saved.
+  alert,
+}
+
+/// Describe the type of data for an input field.
+///
+/// This is typically used to complement text fields.
+enum SemanticsInputType {
+  /// The default for non text field.
+  none,
+
+  /// Describes a generic text field.
+  text,
+
+  /// Describes a url text field.
+  url,
+
+  /// Describes a text field for phone input.
+  phone,
+
+  /// Describes a text field that act as a search box.
+  search,
+
+  /// Describes a text field for email input.
+  email,
 }
 
 /// A Boolean value that can be associated with a semantics node.
@@ -285,14 +575,30 @@ class SemanticsFlag {
   static const int _kIsCheckStateMixedIndex = 1 << 25;
   static const int _kHasExpandedStateIndex = 1 << 26;
   static const int _kIsExpandedIndex = 1 << 27;
-  // READ THIS: if you add a flag here, you MUST update the numSemanticsFlags
-  // value in testing/dart/semantics_test.dart, or tests will fail. Also,
-  // please update the Flag enum in
-  // flutter/shell/platform/android/io/flutter/view/AccessibilityBridge.java,
-  // and the SemanticsFlag class in lib/web_ui/lib/semantics.dart. If the new flag
-  // affects the visibility of a [SemanticsNode] to accessibility services,
-  // `flutter_test/controller.dart#SemanticsController._importantFlags`
-  // must be updated as well.
+  static const int _kHasSelectedStateIndex = 1 << 28;
+  static const int _kHasRequiredStateIndex = 1 << 29;
+  static const int _kIsRequiredIndex = 1 << 30;
+  // READ THIS: if you add a flag here, you MUST update the following:
+  //
+  // - The maximum supported bit index on the web (in JS mode) is 1 << 31.
+  // - Add an appropriately named and documented `static const SemanticsFlag`
+  //   field to this class.
+  // - Add the new flag to `_kFlagById` in this file.
+  // - Make changes in lib/web_ui/lib/semantics.dart in the web engine that mirror
+  //   the changes in this file (i.e. `_k*Index`, `static const SemanticsFlag`,
+  //   `_kFlagById`).
+  // - Increment the `numSemanticsFlags` value in testing/dart/semantics_test.dart
+  //   and in lib/web_ui/test/engine/semantics/semantics_api_test.dart.
+  // - Add the new flag to platform-specific enums:
+  //   - The `Flag` enum in flutter/shell/platform/android/io/flutter/view/AccessibilityBridge.java.
+  //   - The `SemanticsFlags` enum in lib/ui/semantics/semantics_node.h.
+  //   - The `FlutterSemanticsFlag` enum in shell/platform/embedder/embedder.h.
+  // - If the new flag affects the visibility of a [SemanticsNode] to accessibility services,
+  //   update `flutter_test/controller.dart#SemanticsController._importantFlags`
+  //   accordingly.
+  // - If the new flag affects focusability of a semantics node, also update the
+  //   value of `AccessibilityBridge.FOCUSABLE_FLAGS` in
+  //   flutter/shell/platform/android/io/flutter/view/AccessibilityBridge.java.
 
   /// The semantics node has the quality of either being "checked" or "unchecked".
   ///
@@ -303,7 +609,10 @@ class SemanticsFlag {
   /// See also:
   ///
   ///   * [SemanticsFlag.isChecked], which controls whether the node is "checked" or "unchecked".
-  static const SemanticsFlag hasCheckedState = SemanticsFlag._(_kHasCheckedStateIndex, 'hasCheckedState');
+  static const SemanticsFlag hasCheckedState = SemanticsFlag._(
+    _kHasCheckedStateIndex,
+    'hasCheckedState',
+  );
 
   /// Whether a semantics node that [hasCheckedState] is checked.
   ///
@@ -326,10 +635,27 @@ class SemanticsFlag {
   /// can have checked,  unchecked, or mixed state.
   ///
   /// Must be false when the checkbox is either checked or unchecked.
-  static const SemanticsFlag isCheckStateMixed = SemanticsFlag._(_kIsCheckStateMixedIndex, 'isCheckStateMixed');
+  static const SemanticsFlag isCheckStateMixed = SemanticsFlag._(
+    _kIsCheckStateMixedIndex,
+    'isCheckStateMixed',
+  );
 
+  /// The semantics node has the quality of either being "selected" or "unselected".
+  ///
+  /// Whether the widget corresponding to this node is currently selected or not
+  /// is determined by the [isSelected] flag.
+  ///
+  /// When this flag is not set, the corresponding widget cannot be selected by
+  /// the user, and the presence or the lack of [isSelected] does not carry any
+  /// meaning.
+  static const SemanticsFlag hasSelectedState = SemanticsFlag._(
+    _kHasSelectedStateIndex,
+    'hasSelectedState',
+  );
 
   /// Whether a semantics node is selected.
+  ///
+  /// This flag only has meaning in nodes that have [hasSelectedState] flag set.
   ///
   /// If true, the semantics node is "selected". If false, the semantics node is
   /// "unselected".
@@ -384,7 +710,10 @@ class SemanticsFlag {
   /// For example, a button can be enabled or disabled and therefore has an
   /// "enabled" state. Static text is usually neither enabled nor disabled and
   /// therefore does not have an "enabled" state.
-  static const SemanticsFlag hasEnabledState = SemanticsFlag._(_kHasEnabledStateIndex, 'hasEnabledState');
+  static const SemanticsFlag hasEnabledState = SemanticsFlag._(
+    _kHasEnabledStateIndex,
+    'hasEnabledState',
+  );
 
   /// Whether a semantic node that [hasEnabledState] is currently enabled.
   ///
@@ -397,7 +726,10 @@ class SemanticsFlag {
   ///
   /// For example, a radio button is in a mutually exclusive group because
   /// only one radio button in that group can be marked as [isChecked].
-  static const SemanticsFlag isInMutuallyExclusiveGroup = SemanticsFlag._(_kIsInMutuallyExclusiveGroupIndex, 'isInMutuallyExclusiveGroup');
+  static const SemanticsFlag isInMutuallyExclusiveGroup = SemanticsFlag._(
+    _kIsInMutuallyExclusiveGroupIndex,
+    'isInMutuallyExclusiveGroup',
+  );
 
   /// Whether a semantic node is a header that divides content into sections.
   ///
@@ -508,7 +840,10 @@ class SemanticsFlag {
   /// See also:
   ///
   ///    * [SemanticsFlag.isToggled], which controls whether the node is "on" or "off".
-  static const SemanticsFlag hasToggledState = SemanticsFlag._(_kHasToggledStateIndex, 'hasToggledState');
+  static const SemanticsFlag hasToggledState = SemanticsFlag._(
+    _kHasToggledStateIndex,
+    'hasToggledState',
+  );
 
   /// If true, the semantics node is "on". If false, the semantics node is
   /// "off".
@@ -527,7 +862,10 @@ class SemanticsFlag {
   /// easily move the accessibility focus to the next set of children. A
   /// [PageView] widget does not have implicit scrolling, so that users don't
   /// navigate to the next page when reaching the end of the current one.
-  static const SemanticsFlag hasImplicitScrolling = SemanticsFlag._(_kHasImplicitScrollingIndex, 'hasImplicitScrolling');
+  static const SemanticsFlag hasImplicitScrolling = SemanticsFlag._(
+    _kHasImplicitScrollingIndex,
+    'hasImplicitScrolling',
+  );
 
   /// The semantics node has the quality of either being "expanded" or "collapsed".
   ///
@@ -536,7 +874,10 @@ class SemanticsFlag {
   /// See also:
   ///
   ///   * [SemanticsFlag.isExpanded], which controls whether the node is "expanded" or "collapsed".
-  static const SemanticsFlag hasExpandedState = SemanticsFlag._(_kHasExpandedStateIndex, 'hasExpandedState');
+  static const SemanticsFlag hasExpandedState = SemanticsFlag._(
+    _kHasExpandedStateIndex,
+    'hasExpandedState',
+  );
 
   /// Whether a semantics node is expanded.
   ///
@@ -550,12 +891,35 @@ class SemanticsFlag {
   ///   * [SemanticsFlag.hasExpandedState], which enables an expanded/collapsed state.
   static const SemanticsFlag isExpanded = SemanticsFlag._(_kIsExpandedIndex, 'isExpanded');
 
+  /// The semantics node has the quality of either being required or not.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.isRequired], which controls whether the node is required.
+  static const SemanticsFlag hasRequiredState = SemanticsFlag._(
+    _kHasRequiredStateIndex,
+    'hasRequiredState',
+  );
+
+  /// Whether a semantics node is required.
+  ///
+  /// If true, user input is required on the semantics node before a form can
+  /// be submitted.
+  ///
+  /// For example, a login form requires its email text field to be non-empty.
+  ///
+  /// See also:
+  ///
+  ///   * [SemanticsFlag.hasRequiredState], which enables a required state state.
+  static const SemanticsFlag isRequired = SemanticsFlag._(_kIsRequiredIndex, 'isRequired');
+
   /// The possible semantics flags.
   ///
   /// The map's key is the [index] of the flag and the value is the flag itself.
   static const Map<int, SemanticsFlag> _kFlagById = <int, SemanticsFlag>{
     _kHasCheckedStateIndex: hasCheckedState,
     _kIsCheckedIndex: isChecked,
+    _kHasSelectedStateIndex: hasSelectedState,
     _kIsSelectedIndex: isSelected,
     _kIsButtonIndex: isButton,
     _kIsTextFieldIndex: isTextField,
@@ -582,14 +946,44 @@ class SemanticsFlag {
     _kIsCheckStateMixedIndex: isCheckStateMixed,
     _kHasExpandedStateIndex: hasExpandedState,
     _kIsExpandedIndex: isExpanded,
+    _kHasRequiredStateIndex: hasRequiredState,
+    _kIsRequiredIndex: isRequired,
   };
 
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
   static List<SemanticsFlag> get values => _kFlagById.values.toList(growable: false);
 
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
   static SemanticsFlag? fromIndex(int index) => _kFlagById[index];
 
   @override
   String toString() => 'SemanticsFlag.$name';
+}
+
+/// The validation result of a form field.
+///
+/// The type, shape, and correctness of the value is specific to the kind of
+/// form field used. For example, a phone number text field may check that the
+/// value is a properly formatted phone number, and/or that the phone number has
+/// the right area code. A group of radio buttons may validate that the user
+/// selected at least one radio option.
+enum SemanticsValidationResult {
+  /// The node has no validation information attached to it.
+  ///
+  /// This is the default value. Most semantics nodes do not contain validation
+  /// information. Typically, only nodes that are part of an input form - text
+  /// fields, checkboxes, radio buttons, dropdowns - are validated and attach
+  /// validation results to their corresponding semantics nodes.
+  none,
+
+  /// The entered value is valid, and no error should be displayed to the user.
+  valid,
+
+  /// The entered value is invalid, and an error message should be communicated
+  /// to the user.
+  invalid,
 }
 
 // When adding a new StringAttribute, the classes in these files must be
@@ -611,9 +1005,7 @@ class SemanticsFlag {
 ///  * [LocaleStringAttribute], which causes the assistive technologies to
 ///    treat the string in the specific language.
 abstract base class StringAttribute extends NativeFieldWrapperClass1 {
-  StringAttribute._({
-    required this.range,
-  });
+  StringAttribute._({required this.range});
 
   /// The range of the text to which this attribute applies.
   final TextRange range;
@@ -639,14 +1031,18 @@ abstract base class StringAttribute extends NativeFieldWrapperClass1 {
 base class SpellOutStringAttribute extends StringAttribute {
   /// Creates a string attribute that denotes the text in [range] must be
   /// spell out when the assistive technologies announce the string.
-  SpellOutStringAttribute({
-    required TextRange range,
-  }) : super._(range: range) {
+  SpellOutStringAttribute({required TextRange range}) : super._(range: range) {
     _initSpellOutStringAttribute(this, range.start, range.end);
   }
 
-  @Native<Void Function(Handle, Int32, Int32)>(symbol: 'NativeStringAttribute::initSpellOutStringAttribute')
-  external static void _initSpellOutStringAttribute(SpellOutStringAttribute instance, int start, int end);
+  @Native<Void Function(Handle, Int32, Int32)>(
+    symbol: 'NativeStringAttribute::initSpellOutStringAttribute',
+  )
+  external static void _initSpellOutStringAttribute(
+    SpellOutStringAttribute instance,
+    int start,
+    int end,
+  );
 
   @override
   StringAttribute copy({required TextRange range}) {
@@ -671,18 +1067,22 @@ base class LocaleStringAttribute extends StringAttribute {
   /// Creates a string attribute that denotes the text in [range] must be
   /// treated as the language specified by the [locale] when the assistive
   /// technologies announce the string.
-  LocaleStringAttribute({
-    required TextRange range,
-    required this.locale,
-  }) : super._(range: range) {
+  LocaleStringAttribute({required TextRange range, required this.locale}) : super._(range: range) {
     _initLocaleStringAttribute(this, range.start, range.end, locale.toLanguageTag());
   }
 
-  /// The lanuage of this attribute.
+  /// The language of this attribute.
   final Locale locale;
 
-  @Native<Void Function(Handle, Int32, Int32, Handle)>(symbol: 'NativeStringAttribute::initLocaleStringAttribute')
-  external static void _initLocaleStringAttribute(LocaleStringAttribute instance, int start, int end, String locale);
+  @Native<Void Function(Handle, Int32, Int32, Handle)>(
+    symbol: 'NativeStringAttribute::initLocaleStringAttribute',
+  )
+  external static void _initLocaleStringAttribute(
+    LocaleStringAttribute instance,
+    int start,
+    int end,
+    String locale,
+  );
 
   @override
   StringAttribute copy({required TextRange range}) {
@@ -770,7 +1170,7 @@ abstract class SemanticsUpdateBuilder {
   ///
   /// For scrollable nodes `scrollPosition` describes the current scroll
   /// position in logical pixel. `scrollExtentMax` and `scrollExtentMin`
-  /// describe the maximum and minimum in-rage values that `scrollPosition` can
+  /// describe the maximum and minimum in-range values that `scrollPosition` can
   /// be. Both or either may be infinity to indicate unbound scrolling. The
   /// value for `scrollPosition` can (temporarily) be outside this range, for
   /// example during an overscroll. `scrollChildren` is the count of the
@@ -790,6 +1190,32 @@ abstract class SemanticsUpdateBuilder {
   /// z-direction starting at `elevation`. Basically, in the z-direction the
   /// node starts at `elevation` above the parent and ends at `elevation` +
   /// `thickness` above the parent.
+  ///
+  /// The `headingLevel` describes that this node is a heading and the hierarchy
+  /// level this node represents as a heading. A value of 0 indicates that this
+  /// node is not a heading. A value of 1 or greater indicates that this node is
+  /// a heading at the specified level. The valid value range is from 1 to 6,
+  /// inclusive. This attribute is only used for Web platform, and it will have
+  /// no effect on other platforms.
+  ///
+  /// The `linkUrl` describes the URI that this node links to. If the node is
+  /// not a link, this should be an empty string.
+  ///
+  /// The `role` describes the role of this node. Defaults to
+  /// [SemanticsRole.none] if not set.
+  ///
+  /// If `validationResult` is not null, indicates the result of validating a
+  /// form field. If null, indicates that the node is not being validated, or
+  /// that the result is unknown. Form fields that validate user input but do
+  /// not use this argument should use other ways to communicate validation
+  /// errors to the user, such as embedding validation error text in the label.
+  ///
+  /// See also:
+  ///
+  ///  * https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Roles/heading_role
+  ///  * https://developer.mozilla.org/en-US/docs/Web/Accessibility/ARIA/Attributes/aria-level
+  ///  * [SemanticsValidationResult], that describes possible values for the
+  ///    `validationResult` argument.
   void updateNode({
     required int id,
     required int flags,
@@ -824,6 +1250,12 @@ abstract class SemanticsUpdateBuilder {
     required Int32List childrenInTraversalOrder,
     required Int32List childrenInHitTestOrder,
     required Int32List additionalActions,
+    int headingLevel = 0,
+    String linkUrl = '',
+    SemanticsRole role = SemanticsRole.none,
+    required List<String>? controlsNodes,
+    SemanticsValidationResult validationResult = SemanticsValidationResult.none,
+    required SemanticsInputType inputType,
   });
 
   /// Update the custom semantics action associated with the given `id`.
@@ -853,8 +1285,11 @@ abstract class SemanticsUpdateBuilder {
   SemanticsUpdate build();
 }
 
-base class _NativeSemanticsUpdateBuilder extends NativeFieldWrapperClass1 implements SemanticsUpdateBuilder {
-  _NativeSemanticsUpdateBuilder() { _constructor(); }
+base class _NativeSemanticsUpdateBuilder extends NativeFieldWrapperClass1
+    implements SemanticsUpdateBuilder {
+  _NativeSemanticsUpdateBuilder() {
+    _constructor();
+  }
 
   @Native<Void Function(Handle)>(symbol: 'SemanticsUpdateBuilder::Create')
   external void _constructor();
@@ -894,8 +1329,18 @@ base class _NativeSemanticsUpdateBuilder extends NativeFieldWrapperClass1 implem
     required Int32List childrenInTraversalOrder,
     required Int32List childrenInHitTestOrder,
     required Int32List additionalActions,
+    int headingLevel = 0,
+    String linkUrl = '',
+    SemanticsRole role = SemanticsRole.none,
+    required List<String>? controlsNodes,
+    SemanticsValidationResult validationResult = SemanticsValidationResult.none,
+    required SemanticsInputType inputType,
   }) {
     assert(_matrix4IsValid(transform));
+    assert(
+      headingLevel >= 0 && headingLevel <= 6,
+      'Heading level must be between 1 and 6, or 0 to indicate that this node is not a heading.',
+    );
     _updateNode(
       id,
       flags,
@@ -933,90 +1378,115 @@ base class _NativeSemanticsUpdateBuilder extends NativeFieldWrapperClass1 implem
       childrenInTraversalOrder,
       childrenInHitTestOrder,
       additionalActions,
+      headingLevel,
+      linkUrl,
+      role.index,
+      controlsNodes,
+      validationResult.index,
+      inputType.index,
     );
   }
+
   @Native<
-      Void Function(
-          Pointer<Void>,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Int32,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Double,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Handle,
-          Int32,
-          Handle,
-          Handle,
-          Handle,
-          Handle)>(symbol: 'SemanticsUpdateBuilder::updateNode')
+    Void Function(
+      Pointer<Void>,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Int32,
+      Double,
+      Double,
+      Double,
+      Double,
+      Double,
+      Double,
+      Double,
+      Double,
+      Double,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Int32,
+      Handle,
+      Handle,
+      Handle,
+      Handle,
+      Int32,
+      Handle,
+      Int32,
+      Handle,
+      Int32,
+      Int32,
+    )
+  >(symbol: 'SemanticsUpdateBuilder::updateNode')
   external void _updateNode(
-      int id,
-      int flags,
-      int actions,
-      int maxValueLength,
-      int currentValueLength,
-      int textSelectionBase,
-      int textSelectionExtent,
-      int platformViewId,
-      int scrollChildren,
-      int scrollIndex,
-      double scrollPosition,
-      double scrollExtentMax,
-      double scrollExtentMin,
-      double left,
-      double top,
-      double right,
-      double bottom,
-      double elevation,
-      double thickness,
-      String? identifier,
-      String label,
-      List<StringAttribute> labelAttributes,
-      String value,
-      List<StringAttribute> valueAttributes,
-      String increasedValue,
-      List<StringAttribute> increasedValueAttributes,
-      String decreasedValue,
-      List<StringAttribute> decreasedValueAttributes,
-      String hint,
-      List<StringAttribute> hintAttributes,
-      String tooltip,
-      int textDirection,
-      Float64List transform,
-      Int32List childrenInTraversalOrder,
-      Int32List childrenInHitTestOrder,
-      Int32List additionalActions);
+    int id,
+    int flags,
+    int actions,
+    int maxValueLength,
+    int currentValueLength,
+    int textSelectionBase,
+    int textSelectionExtent,
+    int platformViewId,
+    int scrollChildren,
+    int scrollIndex,
+    double scrollPosition,
+    double scrollExtentMax,
+    double scrollExtentMin,
+    double left,
+    double top,
+    double right,
+    double bottom,
+    double elevation,
+    double thickness,
+    String? identifier,
+    String label,
+    List<StringAttribute> labelAttributes,
+    String value,
+    List<StringAttribute> valueAttributes,
+    String increasedValue,
+    List<StringAttribute> increasedValueAttributes,
+    String decreasedValue,
+    List<StringAttribute> decreasedValueAttributes,
+    String hint,
+    List<StringAttribute> hintAttributes,
+    String tooltip,
+    int textDirection,
+    Float64List transform,
+    Int32List childrenInTraversalOrder,
+    Int32List childrenInHitTestOrder,
+    Int32List additionalActions,
+    int headingLevel,
+    String linkUrl,
+    int role,
+    List<String>? controlsNodes,
+    int validationResultIndex,
+    int inputType,
+  );
 
   @override
   void updateCustomAction({required int id, String? label, String? hint, int overrideId = -1}) {
     _updateCustomAction(id, label ?? '', hint ?? '', overrideId);
   }
-  @Native<Void Function(Pointer<Void>, Int32, Handle, Handle, Int32)>(symbol: 'SemanticsUpdateBuilder::updateCustomAction')
+
+  @Native<Void Function(Pointer<Void>, Int32, Handle, Handle, Int32)>(
+    symbol: 'SemanticsUpdateBuilder::updateCustomAction',
+  )
   external void _updateCustomAction(int id, String label, String hint, int overrideId);
 
   @override

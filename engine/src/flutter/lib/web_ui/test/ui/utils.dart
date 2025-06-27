@@ -5,8 +5,8 @@
 import 'dart:async';
 
 import 'package:ui/src/engine.dart';
-import 'package:ui/src/engine/skwasm/skwasm_stub.dart'
-    if (dart.library.ffi) 'package:ui/src/engine/skwasm/skwasm_impl.dart';
+import 'package:ui/src/engine/skwasm/skwasm_impl.dart'
+    if (dart.library.html) 'package:ui/src/engine/skwasm/skwasm_stub.dart';
 import 'package:ui/ui.dart';
 
 import '../common/rendering.dart';
@@ -32,7 +32,6 @@ FlutterView get implicitView => EnginePlatformDispatcher.instance.implicitView!;
 /// Returns [true] if this test is running in the CanvasKit renderer.
 bool get isCanvasKit => renderer is CanvasKitRenderer;
 
-/// Returns [true] if this test is running in the HTML renderer.
-bool get isHtml => renderer is HtmlRenderer;
-
 bool get isSkwasm => renderer is SkwasmRenderer;
+
+bool get isMultiThreaded => isSkwasm && (renderer as SkwasmRenderer).isMultiThreaded;

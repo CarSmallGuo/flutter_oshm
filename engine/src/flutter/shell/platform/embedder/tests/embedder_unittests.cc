@@ -27,6 +27,7 @@
 #include "flutter/shell/platform/embedder/tests/embedder_assertions.h"
 #include "flutter/shell/platform/embedder/tests/embedder_config_builder.h"
 #include "flutter/shell/platform/embedder/tests/embedder_test.h"
+#include "flutter/shell/platform/embedder/tests/embedder_test_backingstore_producer_software.h"
 #include "flutter/shell/platform/embedder/tests/embedder_unittests_util.h"
 #include "flutter/testing/assertions_skia.h"
 #include "flutter/testing/testing.h"
@@ -64,11 +65,11 @@ TEST(EmbedderTestNoFixture, MustNotRunWithInvalidArgs) {
 }
 
 TEST_F(EmbedderTest, CanLaunchAndShutdownWithValidProjectArgs) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   fml::AutoResetWaitableEvent latch;
   context.AddIsolateCreateCallback([&latch]() { latch.Signal(); });
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
   // Wait for the root isolate to launch.
@@ -78,9 +79,9 @@ TEST_F(EmbedderTest, CanLaunchAndShutdownWithValidProjectArgs) {
 
 // TODO(41999): Disabled because flaky.
 TEST_F(EmbedderTest, DISABLED_CanLaunchAndShutdownMultipleTimes) {
-  EmbedderConfigBuilder builder(
-      GetEmbedderContext(EmbedderTestContextType::kSoftwareContext));
-  builder.SetSoftwareRendererConfig();
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
   for (size_t i = 0; i < 3; ++i) {
     auto engine = builder.LaunchEngine();
     ASSERT_TRUE(engine.is_valid());
@@ -89,14 +90,14 @@ TEST_F(EmbedderTest, DISABLED_CanLaunchAndShutdownMultipleTimes) {
 }
 
 TEST_F(EmbedderTest, CanInvokeCustomEntrypoint) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   static fml::AutoResetWaitableEvent latch;
   Dart_NativeFunction entrypoint = [](Dart_NativeArguments args) {
     latch.Signal();
   };
   context.AddNativeCallback("SayHiFromCustomEntrypoint", entrypoint);
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("customEntrypoint");
   auto engine = builder.LaunchEngine();
   latch.Wait();
@@ -104,7 +105,7 @@ TEST_F(EmbedderTest, CanInvokeCustomEntrypoint) {
 }
 
 TEST_F(EmbedderTest, CanInvokeCustomEntrypointMacro) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   fml::AutoResetWaitableEvent latch1;
   fml::AutoResetWaitableEvent latch2;
@@ -135,7 +136,7 @@ TEST_F(EmbedderTest, CanInvokeCustomEntrypointMacro) {
       }));
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("customEntrypoint1");
   auto engine = builder.LaunchEngine();
   latch1.Wait();
@@ -145,16 +146,16 @@ TEST_F(EmbedderTest, CanInvokeCustomEntrypointMacro) {
 }
 
 TEST_F(EmbedderTest, CanTerminateCleanly) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("terminateExitCodeHandler");
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
 }
 
 TEST_F(EmbedderTest, ExecutableNameNotNull) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   // Supply a callback to Dart for the test fixture to pass Platform.executable
   // back to us.
@@ -168,7 +169,7 @@ TEST_F(EmbedderTest, ExecutableNameNotNull) {
       }));
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("executableNameNotNull");
   builder.SetExecutableName("/path/to/binary");
   auto engine = builder.LaunchEngine();
@@ -179,7 +180,7 @@ TEST_F(EmbedderTest, ImplicitViewNotNull) {
   // TODO(loicsharma): Update this test when embedders can opt-out
   // of the implicit view.
   // See: https://github.com/flutter/flutter/issues/120306
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   bool implicitViewNotNull = false;
   fml::AutoResetWaitableEvent latch;
@@ -191,7 +192,7 @@ TEST_F(EmbedderTest, ImplicitViewNotNull) {
       }));
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("implicitViewNotNull");
   auto engine = builder.LaunchEngine();
   latch.Wait();
@@ -201,8 +202,233 @@ TEST_F(EmbedderTest, ImplicitViewNotNull) {
 
 std::atomic_size_t EmbedderTestTaskRunner::sEmbedderTaskRunnerIdentifiers = {};
 
+TEST_F(EmbedderTest, CanSpecifyCustomUITaskRunner) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  auto ui_task_runner = CreateNewThread("test_ui_thread");
+  auto platform_task_runner = CreateNewThread("test_platform_thread");
+  static std::mutex engine_mutex;
+  UniqueEngine engine;
+
+  EmbedderTestTaskRunner test_ui_task_runner(
+      ui_task_runner, [&](FlutterTask task) {
+        std::scoped_lock lock(engine_mutex);
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+  EmbedderTestTaskRunner test_platform_task_runner(
+      platform_task_runner, [&](FlutterTask task) {
+        std::scoped_lock lock(engine_mutex);
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+
+  fml::AutoResetWaitableEvent signal_latch_ui;
+  fml::AutoResetWaitableEvent signal_latch_platform;
+
+  context.AddNativeCallback(
+      "SignalNativeTest", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+        // Assert that the UI isolate is running on platform thread.
+        ASSERT_TRUE(ui_task_runner->RunsTasksOnCurrentThread());
+        signal_latch_ui.Signal();
+      }));
+
+  platform_task_runner->PostTask([&]() {
+    EmbedderConfigBuilder builder(context);
+    const auto ui_task_runner_description =
+        test_ui_task_runner.GetFlutterTaskRunnerDescription();
+    const auto platform_task_runner_description =
+        test_platform_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetSurface(SkISize::Make(1, 1));
+    builder.SetUITaskRunner(&ui_task_runner_description);
+    builder.SetPlatformTaskRunner(&platform_task_runner_description);
+    builder.SetDartEntrypoint("canSpecifyCustomUITaskRunner");
+    builder.SetPlatformMessageCallback(
+        [&](const FlutterPlatformMessage* message) {
+          ASSERT_TRUE(platform_task_runner->RunsTasksOnCurrentThread());
+          signal_latch_platform.Signal();
+        });
+    {
+      std::scoped_lock lock(engine_mutex);
+      engine = builder.InitializeEngine();
+    }
+    ASSERT_EQ(FlutterEngineRunInitialized(engine.get()), kSuccess);
+    ASSERT_TRUE(engine.is_valid());
+  });
+  signal_latch_ui.Wait();
+  signal_latch_platform.Wait();
+
+  fml::AutoResetWaitableEvent kill_latch;
+  platform_task_runner->PostTask([&] {
+    engine.reset();
+    platform_task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  });
+  kill_latch.Wait();
+}
+
+TEST_F(EmbedderTest, IgnoresStaleTasks) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  auto ui_task_runner = CreateNewThread("test_ui_thread");
+  auto platform_task_runner = CreateNewThread("test_platform_thread");
+  static std::mutex engine_mutex;
+  UniqueEngine engine;
+  FlutterEngine engine_ptr;
+
+  EmbedderTestTaskRunner test_ui_task_runner(
+      ui_task_runner, [&](FlutterTask task) {
+        // The check for engine.is_valid() is intentionally absent here.
+        // FlutterEngineRunTask must be able to detect and ignore stale tasks
+        // without crashing even if the engine pointer is not null.
+        // Because the engine is destroyed on platform thread,
+        // relying solely on engine.is_valid() in UI thread is not safe.
+        FlutterEngineRunTask(engine_ptr, &task);
+      });
+  EmbedderTestTaskRunner test_platform_task_runner(
+      platform_task_runner, [&](FlutterTask task) {
+        std::scoped_lock lock(engine_mutex);
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+
+  fml::AutoResetWaitableEvent init_latch;
+
+  platform_task_runner->PostTask([&]() {
+    EmbedderConfigBuilder builder(context);
+    const auto ui_task_runner_description =
+        test_ui_task_runner.GetFlutterTaskRunnerDescription();
+    const auto platform_task_runner_description =
+        test_platform_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetUITaskRunner(&ui_task_runner_description);
+    builder.SetPlatformTaskRunner(&platform_task_runner_description);
+    {
+      std::scoped_lock lock(engine_mutex);
+      engine = builder.InitializeEngine();
+    }
+    init_latch.Signal();
+  });
+
+  init_latch.Wait();
+  engine_ptr = engine.get();
+
+  auto flutter_engine = reinterpret_cast<EmbedderEngine*>(engine.get());
+
+  // Schedule task on UI thread that will likely run after the engine has shut
+  // down.
+  flutter_engine->GetTaskRunners().GetUITaskRunner()->PostDelayedTask(
+      []() {}, fml::TimeDelta::FromMilliseconds(50));
+
+  fml::AutoResetWaitableEvent kill_latch;
+  platform_task_runner->PostTask([&] {
+    engine.reset();
+    platform_task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  });
+  kill_latch.Wait();
+
+  // Ensure that the schedule task indeed runs.
+  kill_latch.Reset();
+  ui_task_runner->PostDelayedTask([&]() { kill_latch.Signal(); },
+                                  fml::TimeDelta::FromMilliseconds(50));
+  kill_latch.Wait();
+}
+
+TEST_F(EmbedderTest, MergedPlatformUIThread) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  auto task_runner = CreateNewThread("test_thread");
+  UniqueEngine engine;
+
+  EmbedderTestTaskRunner test_task_runner(task_runner, [&](FlutterTask task) {
+    if (!engine.is_valid()) {
+      return;
+    }
+    FlutterEngineRunTask(engine.get(), &task);
+  });
+
+  fml::AutoResetWaitableEvent signal_latch_ui;
+  fml::AutoResetWaitableEvent signal_latch_platform;
+
+  context.AddNativeCallback(
+      "SignalNativeTest", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+        // Assert that the UI isolate is running on platform thread.
+        ASSERT_TRUE(task_runner->RunsTasksOnCurrentThread());
+        signal_latch_ui.Signal();
+      }));
+
+  task_runner->PostTask([&]() {
+    EmbedderConfigBuilder builder(context);
+    const auto task_runner_description =
+        test_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetSurface(SkISize::Make(1, 1));
+    builder.SetUITaskRunner(&task_runner_description);
+    builder.SetPlatformTaskRunner(&task_runner_description);
+    builder.SetDartEntrypoint("mergedPlatformUIThread");
+    builder.SetPlatformMessageCallback(
+        [&](const FlutterPlatformMessage* message) {
+          ASSERT_TRUE(task_runner->RunsTasksOnCurrentThread());
+          signal_latch_platform.Signal();
+        });
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
+  signal_latch_ui.Wait();
+  signal_latch_platform.Wait();
+
+  fml::AutoResetWaitableEvent kill_latch;
+  task_runner->PostTask([&] {
+    engine.reset();
+    task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  });
+  kill_latch.Wait();
+}
+
+TEST_F(EmbedderTest, UITaskRunnerFlushesMicrotasks) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  auto ui_task_runner = CreateNewThread("test_ui_thread");
+  UniqueEngine engine;
+
+  EmbedderTestTaskRunner test_task_runner(
+      // Assert that the UI isolate is running on platform thread.
+      ui_task_runner, [&](FlutterTask task) {
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+
+  fml::AutoResetWaitableEvent signal_latch;
+
+  context.AddNativeCallback(
+      "SignalNativeTest", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+        ASSERT_TRUE(ui_task_runner->RunsTasksOnCurrentThread());
+        signal_latch.Signal();
+      }));
+
+  ui_task_runner->PostTask([&]() {
+    EmbedderConfigBuilder builder(context);
+    const auto task_runner_description =
+        test_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetSurface(SkISize::Make(1, 1));
+    builder.SetUITaskRunner(&task_runner_description);
+    builder.SetDartEntrypoint("uiTaskRunnerFlushesMicrotasks");
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
+  signal_latch.Wait();
+
+  fml::AutoResetWaitableEvent kill_latch;
+  ui_task_runner->PostTask([&] {
+    engine.reset();
+    ui_task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  });
+  kill_latch.Wait();
+}
+
 TEST_F(EmbedderTest, CanSpecifyCustomPlatformTaskRunner) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   fml::AutoResetWaitableEvent latch;
 
   // Run the test on its own thread with a message loop so that it can safely
@@ -210,6 +436,7 @@ TEST_F(EmbedderTest, CanSpecifyCustomPlatformTaskRunner) {
   auto platform_task_runner = CreateNewThread("test_platform_thread");
   static std::mutex engine_mutex;
   static bool signaled_once = false;
+  static std::atomic<bool> destruction_callback_called = false;
   UniqueEngine engine;
 
   EmbedderTestTaskRunner test_task_runner(
@@ -230,12 +457,14 @@ TEST_F(EmbedderTest, CanSpecifyCustomPlatformTaskRunner) {
         ASSERT_EQ(FlutterEngineRunTask(engine.get(), &task), kSuccess);
         latch.Signal();
       });
+  test_task_runner.SetDestructionCallback(
+      [](void* user_data) { destruction_callback_called = true; });
 
   platform_task_runner->PostTask([&]() {
     EmbedderConfigBuilder builder(context);
     const auto task_runner_description =
         test_task_runner.GetFlutterTaskRunnerDescription();
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetPlatformTaskRunner(&task_runner_description);
     builder.SetDartEntrypoint("invokePlatformTaskRunner");
     std::scoped_lock lock(engine_mutex);
@@ -263,6 +492,9 @@ TEST_F(EmbedderTest, CanSpecifyCustomPlatformTaskRunner) {
 
   ASSERT_TRUE(signaled_once);
   signaled_once = false;
+
+  ASSERT_TRUE(destruction_callback_called);
+  destruction_callback_called = false;
 }
 
 TEST(EmbedderTestNoFixture, CanGetCurrentTimeInNanoseconds) {
@@ -274,9 +506,9 @@ TEST(EmbedderTestNoFixture, CanGetCurrentTimeInNanoseconds) {
 }
 
 TEST_F(EmbedderTest, CanReloadSystemFonts) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
 
@@ -285,7 +517,7 @@ TEST_F(EmbedderTest, CanReloadSystemFonts) {
 }
 
 TEST_F(EmbedderTest, IsolateServiceIdSent) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   fml::AutoResetWaitableEvent latch;
 
   fml::Thread thread;
@@ -294,7 +526,7 @@ TEST_F(EmbedderTest, IsolateServiceIdSent) {
 
   thread.GetTaskRunner()->PostTask([&]() {
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("main");
     builder.SetPlatformMessageCallback(
         [&](const FlutterPlatformMessage* message) {
@@ -328,9 +560,9 @@ TEST_F(EmbedderTest, IsolateServiceIdSent) {
 /// immediately collects the same.
 ///
 TEST_F(EmbedderTest, CanCreateAndCollectCallbacks) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("platform_messages_response");
   context.AddNativeCallback(
       "SignalNativeTest",
@@ -366,10 +598,9 @@ TEST_F(EmbedderTest, PlatformMessagesCanReceiveResponse) {
 
   CreateNewThread()->PostTask([&]() {
     captures.thread_id = std::this_thread::get_id();
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("platform_messages_response");
 
     fml::AutoResetWaitableEvent ready;
@@ -423,9 +654,9 @@ TEST_F(EmbedderTest, PlatformMessagesCanReceiveResponse) {
 /// callback with the response is invoked to assert integrity.
 ///
 TEST_F(EmbedderTest, PlatformMessagesCanBeSentWithoutResponseHandles) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("platform_messages_no_response");
 
   const std::string message_data = "Hello but don't call me back.";
@@ -468,9 +699,9 @@ TEST_F(EmbedderTest, PlatformMessagesCanBeSentWithoutResponseHandles) {
 /// Tests that a null platform message can be sent.
 ///
 TEST_F(EmbedderTest, NullPlatformMessagesCanBeSent) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("null_platform_messages");
 
   fml::AutoResetWaitableEvent ready, message;
@@ -510,9 +741,9 @@ TEST_F(EmbedderTest, NullPlatformMessagesCanBeSent) {
 /// isn't equals to 0.
 ///
 TEST_F(EmbedderTest, InvalidPlatformMessages) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.LaunchEngine();
 
   ASSERT_TRUE(engine.is_valid());
@@ -534,10 +765,10 @@ TEST_F(EmbedderTest, InvalidPlatformMessages) {
 /// using tag "flutter".
 TEST_F(EmbedderTest, CanSetCustomLogMessageCallback) {
   fml::AutoResetWaitableEvent callback_latch;
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
   builder.SetDartEntrypoint("custom_logger");
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   context.SetLogMessageCallback(
       [&callback_latch](const char* tag, const char* message) {
         EXPECT_EQ(std::string(tag), "flutter");
@@ -553,10 +784,10 @@ TEST_F(EmbedderTest, CanSetCustomLogMessageCallback) {
 /// Tests that setting a custom log tag works.
 TEST_F(EmbedderTest, CanSetCustomLogTag) {
   fml::AutoResetWaitableEvent callback_latch;
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
   builder.SetDartEntrypoint("custom_logger");
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetLogTag("butterfly");
   context.SetLogMessageCallback(
       [&callback_latch](const char* tag, const char* message) {
@@ -574,9 +805,9 @@ TEST_F(EmbedderTest, CanSetCustomLogTag) {
 /// set to true by default in these unit-tests).
 ///
 TEST_F(EmbedderTest, VMShutsDownWhenNoEnginesInProcess) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   const auto launch_count = DartVM::GetVMLaunchCount();
 
   {
@@ -593,9 +824,9 @@ TEST_F(EmbedderTest, VMShutsDownWhenNoEnginesInProcess) {
 //------------------------------------------------------------------------------
 ///
 TEST_F(EmbedderTest, DartEntrypointArgs) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.AddDartEntrypointArgument("foo");
   builder.AddDartEntrypointArgument("bar");
   builder.SetDartEntrypoint("dart_entrypoint_args");
@@ -627,9 +858,9 @@ TEST_F(EmbedderTest, VMAndIsolateSnapshotSizesAreRedundantInAOTMode) {
     GTEST_SKIP();
     return;
   }
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // The fixture sets this up correctly. Intentionally mess up the args.
   builder.GetProjectArgs().vm_snapshot_data_size = 0;
@@ -642,10 +873,10 @@ TEST_F(EmbedderTest, VMAndIsolateSnapshotSizesAreRedundantInAOTMode) {
 }
 
 TEST_F(EmbedderTest, CanRenderImplicitView) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetSurface(SkISize::Make(800, 600));
   builder.SetCompositor();
   builder.SetDartEntrypoint("render_implicit_view");
   builder.SetRenderTargetType(
@@ -674,10 +905,10 @@ TEST_F(EmbedderTest, CanRenderImplicitView) {
 }
 
 TEST_F(EmbedderTest, CanRenderImplicitViewUsingPresentLayersCallback) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetSurface(SkISize::Make(800, 600));
   builder.SetCompositor(/* avoid_backing_store_cache = */ false,
                         /* use_present_layers_callback = */ true);
   builder.SetDartEntrypoint("render_implicit_view");
@@ -719,10 +950,10 @@ TEST_F(EmbedderTest,
        CompositorMustBeAbleToRenderKnownSceneWithSoftwareCompositor) {
 #endif  // FML_OS_MACOSX && FML_ARCH_CPU_ARM64
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetSurface(SkISize::Make(800, 600));
   builder.SetCompositor();
   builder.SetDartEntrypoint("can_composite_platform_views_with_known_scene");
 
@@ -938,10 +1169,10 @@ TEST_F(EmbedderTest,
 /// compositor, with a transparent overlay
 ///
 TEST_F(EmbedderTest, NoLayerCreatedForTransparentOverlayOnTopOfPlatformLayer) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetSurface(SkISize::Make(800, 600));
   builder.SetCompositor();
   builder.SetDartEntrypoint("can_composite_platform_views_transparent_overlay");
 
@@ -1075,10 +1306,10 @@ TEST_F(EmbedderTest, NoLayerCreatedForTransparentOverlayOnTopOfPlatformLayer) {
 /// compositor, with a no overlay
 ///
 TEST_F(EmbedderTest, NoLayerCreatedForNoOverlayOnTopOfPlatformLayer) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(800, 600));
+  builder.SetSurface(SkISize::Make(800, 600));
   builder.SetCompositor();
   builder.SetDartEntrypoint("can_composite_platform_views_no_overlay");
 
@@ -1211,9 +1442,9 @@ TEST_F(EmbedderTest, NoLayerCreatedForNoOverlayOnTopOfPlatformLayer) {
 /// Test that an engine can be initialized but not run.
 ///
 TEST_F(EmbedderTest, CanCreateInitializedEngine) {
-  EmbedderConfigBuilder builder(
-      GetEmbedderContext(EmbedderTestContextType::kSoftwareContext));
-  builder.SetSoftwareRendererConfig();
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.InitializeEngine();
   ASSERT_TRUE(engine.is_valid());
   engine.reset();
@@ -1223,9 +1454,9 @@ TEST_F(EmbedderTest, CanCreateInitializedEngine) {
 /// Test that an initialized engine can be run exactly once.
 ///
 TEST_F(EmbedderTest, CanRunInitializedEngine) {
-  EmbedderConfigBuilder builder(
-      GetEmbedderContext(EmbedderTestContextType::kSoftwareContext));
-  builder.SetSoftwareRendererConfig();
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.InitializeEngine();
   ASSERT_TRUE(engine.is_valid());
   ASSERT_EQ(FlutterEngineRunInitialized(engine.get()), kSuccess);
@@ -1238,9 +1469,9 @@ TEST_F(EmbedderTest, CanRunInitializedEngine) {
 /// Test that an engine can be deinitialized.
 ///
 TEST_F(EmbedderTest, CanDeinitializeAnEngine) {
-  EmbedderConfigBuilder builder(
-      GetEmbedderContext(EmbedderTestContextType::kSoftwareContext));
-  builder.SetSoftwareRendererConfig();
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.InitializeEngine();
   ASSERT_TRUE(engine.is_valid());
   ASSERT_EQ(FlutterEngineRunInitialized(engine.get()), kSuccess);
@@ -1265,15 +1496,263 @@ TEST_F(EmbedderTest, CanDeinitializeAnEngine) {
   engine.reset();
 }
 
-TEST_F(EmbedderTest, CanRemoveView) {
-  // TODO(loicsharma): We can't test this until views can be added!
-  // https://github.com/flutter/flutter/issues/144806
+//------------------------------------------------------------------------------
+/// Test that a view can be added to a running engine.
+///
+TEST_F(EmbedderTest, CanAddView) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("window_metrics_event_all_view_ids");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  std::string message;
+  context.AddNativeCallback("SignalNativeMessage",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              message =
+                                  tonic::DartConverter<std::string>::FromDart(
+                                      Dart_GetNativeArgument(args, 0));
+                              message_latch.Signal();
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo info = {};
+  info.struct_size = sizeof(FlutterAddViewInfo);
+  info.view_id = 123;
+  info.view_metrics = &metrics;
+  info.add_view_callback = [](const FlutterAddViewResult* result) {
+    EXPECT_TRUE(result->added);
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ("View IDs: [0, 123]", message);
 }
 
-TEST_F(EmbedderTest, CannotRemoveImplicitView) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+//------------------------------------------------------------------------------
+/// Test that adding a view schedules a frame.
+///
+TEST_F(EmbedderTest, AddViewSchedulesFrame) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("add_view_schedules_frame");
+  fml::AutoResetWaitableEvent latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&latch](Dart_NativeArguments args) { latch.Signal(); }));
+
+  fml::AutoResetWaitableEvent check_latch;
+  context.AddNativeCallback(
+      "SignalNativeCount",
+      CREATE_NATIVE_ENTRY(
+          [&check_latch](Dart_NativeArguments args) { check_latch.Signal(); }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  // Wait for the application to attach the listener.
+  latch.Wait();
+
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo info = {};
+  info.struct_size = sizeof(FlutterAddViewInfo);
+  info.view_id = 123;
+  info.view_metrics = &metrics;
+  info.add_view_callback = [](const FlutterAddViewResult* result) {
+    EXPECT_TRUE(result->added);
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &info), kSuccess);
+
+  check_latch.Wait();
+}
+
+//------------------------------------------------------------------------------
+/// Test that a view that was added can be removed.
+///
+TEST_F(EmbedderTest, CanRemoveView) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("window_metrics_event_all_view_ids");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  std::string message;
+  context.AddNativeCallback("SignalNativeMessage",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              message =
+                                  tonic::DartConverter<std::string>::FromDart(
+                                      Dart_GetNativeArgument(args, 0));
+                              message_latch.Signal();
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  // Add view 123.
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo add_info = {};
+  add_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_info.view_id = 123;
+  add_info.view_metrics = &metrics;
+  add_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    ASSERT_TRUE(result->added);
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0, 123]");
+
+  // Remove view 123.
+  FlutterRemoveViewInfo remove_info = {};
+  remove_info.struct_size = sizeof(FlutterAddViewInfo);
+  remove_info.view_id = 123;
+  remove_info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
+    EXPECT_TRUE(result->removed);
+  };
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &remove_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0]");
+}
+
+// Regression test for:
+// https://github.com/flutter/flutter/issues/164564
+TEST_F(EmbedderTest, RemoveViewCallbackIsInvokedAfterRasterThreadIsDone) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  std::mutex engine_mutex;
+  UniqueEngine engine;
+  auto render_thread = CreateNewThread("custom_render_thread");
+  EmbedderTestTaskRunner render_task_runner(
+      render_thread, [&](FlutterTask task) {
+        std::scoped_lock engine_lock(engine_mutex);
+        if (engine.is_valid()) {
+          ASSERT_EQ(FlutterEngineRunTask(engine.get(), &task), kSuccess);
+        }
+      });
+
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("remove_view_callback_too_early");
+  builder.SetRenderTaskRunner(
+      &render_task_runner.GetFlutterTaskRunnerDescription());
+
+  fml::AutoResetWaitableEvent ready_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  {
+    std::scoped_lock lock(engine_mutex);
+    engine = builder.InitializeEngine();
+  }
+  ASSERT_EQ(FlutterEngineRunInitialized(engine.get()), kSuccess);
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  fml::AutoResetWaitableEvent add_view_latch;
+  // Add view 123.
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo add_info = {};
+  add_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_info.view_id = 123;
+  add_info.view_metrics = &metrics;
+  add_info.user_data = &add_view_latch;
+  add_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    ASSERT_TRUE(result->added);
+    auto add_view_latch =
+        reinterpret_cast<fml::AutoResetWaitableEvent*>(result->user_data);
+    add_view_latch->Signal();
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  add_view_latch.Wait();
+
+  std::atomic_bool view_available = true;
+
+  // Simulate pending rasterization task scheduled before view removal request
+  // that accesses view resources.
+  fml::AutoResetWaitableEvent raster_thread_latch;
+  render_thread->PostTask([&] {
+    std::this_thread::sleep_for(std::chrono::milliseconds(50));
+    // View must be available.
+    EXPECT_TRUE(view_available);
+    raster_thread_latch.Signal();
+  });
+
+  fml::AutoResetWaitableEvent remove_view_latch;
+  FlutterRemoveViewInfo remove_view_info = {};
+  remove_view_info.struct_size = sizeof(FlutterRemoveViewInfo);
+  remove_view_info.view_id = 123;
+  remove_view_info.user_data = &remove_view_latch;
+  remove_view_info.remove_view_callback =
+      [](const FlutterRemoveViewResult* result) {
+        ASSERT_TRUE(result->removed);
+        auto remove_view_latch =
+            reinterpret_cast<fml::AutoResetWaitableEvent*>(result->user_data);
+        remove_view_latch->Signal();
+      };
+
+  // Remove the view and wait until the callback is called.
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &remove_view_info), kSuccess);
+  remove_view_latch.Wait();
+
+  // After FlutterEngineRemoveViewCallback is called it should be safe to
+  // remove view - raster thread must not be accessing any view resources.
+  view_available = false;
+  raster_thread_latch.Wait();
+
+  FlutterEngineDeinitialize(engine.get());
+}
+
+//------------------------------------------------------------------------------
+/// The implicit view is a special view that the engine and framework assume
+/// can *always* be rendered to. Test that this view cannot be removed.
+///
+TEST_F(EmbedderTest, CannotRemoveImplicitView) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
 
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
@@ -1287,10 +1766,150 @@ TEST_F(EmbedderTest, CannotRemoveImplicitView) {
   ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &info), kInvalidArguments);
 }
 
-TEST_F(EmbedderTest, CannotRemoveUnknownView) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+//------------------------------------------------------------------------------
+/// Test that a view cannot be added if its ID already exists.
+///
+TEST_F(EmbedderTest, CannotAddDuplicateViews) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("window_metrics_event_all_view_ids");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  std::string message;
+  context.AddNativeCallback("SignalNativeMessage",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              message =
+                                  tonic::DartConverter<std::string>::FromDart(
+                                      Dart_GetNativeArgument(args, 0));
+                              message_latch.Signal();
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  // Add view 123.
+  struct Captures {
+    std::atomic<int> count = 0;
+    fml::AutoResetWaitableEvent failure_latch;
+  };
+  Captures captures;
+
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo add_info = {};
+  add_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_info.view_id = 123;
+  add_info.view_metrics = &metrics;
+  add_info.user_data = &captures;
+  add_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    auto captures = reinterpret_cast<Captures*>(result->user_data);
+
+    int count = captures->count.fetch_add(1);
+
+    if (count == 0) {
+      ASSERT_TRUE(result->added);
+    } else {
+      EXPECT_FALSE(result->added);
+      captures->failure_latch.Signal();
+    }
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0, 123]");
+  ASSERT_FALSE(captures.failure_latch.IsSignaledForTest());
+
+  // Add view 123 a second time.
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  captures.failure_latch.Wait();
+  ASSERT_EQ(captures.count, 2);
+  ASSERT_FALSE(message_latch.IsSignaledForTest());
+}
+
+//------------------------------------------------------------------------------
+/// Test that a removed view's ID can be reused to add a new view.
+///
+TEST_F(EmbedderTest, CanReuseViewIds) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("window_metrics_event_all_view_ids");
+
+  fml::AutoResetWaitableEvent ready_latch, message_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  std::string message;
+  context.AddNativeCallback("SignalNativeMessage",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              message =
+                                  tonic::DartConverter<std::string>::FromDart(
+                                      Dart_GetNativeArgument(args, 0));
+                              message_latch.Signal();
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  // Add view 123.
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 123;
+
+  FlutterAddViewInfo add_info = {};
+  add_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_info.view_id = 123;
+  add_info.view_metrics = &metrics;
+  add_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    ASSERT_TRUE(result->added);
+  };
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0, 123]");
+
+  // Remove view 123.
+  FlutterRemoveViewInfo remove_info = {};
+  remove_info.struct_size = sizeof(FlutterAddViewInfo);
+  remove_info.view_id = 123;
+  remove_info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
+    ASSERT_TRUE(result->removed);
+  };
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &remove_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0]");
+
+  // Re-add view 123.
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_info), kSuccess);
+  message_latch.Wait();
+  ASSERT_EQ(message, "View IDs: [0, 123]");
+}
+
+//------------------------------------------------------------------------------
+/// Test that attempting to remove a view that does not exist fails as expected.
+///
+TEST_F(EmbedderTest, CannotRemoveUnknownView) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
 
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
@@ -1301,17 +1920,520 @@ TEST_F(EmbedderTest, CannotRemoveUnknownView) {
   info.view_id = 123;
   info.user_data = &latch;
   info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
-    ASSERT_FALSE(result->removed);
+    EXPECT_FALSE(result->removed);
     reinterpret_cast<fml::AutoResetWaitableEvent*>(result->user_data)->Signal();
   };
   ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &info), kSuccess);
   latch.Wait();
 }
 
-TEST_F(EmbedderTest, CanUpdateLocales) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+//------------------------------------------------------------------------------
+/// View operations - adding, removing, sending window metrics - must execute in
+/// order even though they are asynchronous. This is necessary to ensure the
+/// embedder's and engine's states remain synchronized.
+///
+TEST_F(EmbedderTest, ViewOperationsOrdered) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("window_metrics_event_all_view_ids");
+
+  fml::AutoResetWaitableEvent ready_latch;
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&ready_latch](Dart_NativeArguments args) { ready_latch.Signal(); }));
+
+  std::atomic<int> message_count = 0;
+  context.AddNativeCallback("SignalNativeMessage",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              message_count.fetch_add(1);
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  ready_latch.Wait();
+
+  // Enqueue multiple view operations at once:
+  //
+  // 1. Add view 123 - This must succeed.
+  // 2. Add duplicate view 123 - This must fail asynchronously.
+  // 3. Add second view 456 - This must succeed.
+  // 4. Remove second view 456 - This must succeed.
+  //
+  // The engine must execute view operations asynchronously in serial order.
+  // If step 2 succeeds instead of step 1, this indicates the engine did not
+  // execute the view operations in the correct order. If step 4 fails,
+  // this indicates the engine did not wait until the add second view completed.
+  FlutterWindowMetricsEvent metrics123 = {};
+  metrics123.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics123.width = 800;
+  metrics123.height = 600;
+  metrics123.pixel_ratio = 1.0;
+  metrics123.view_id = 123;
+
+  FlutterWindowMetricsEvent metrics456 = {};
+  metrics456.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics456.width = 800;
+  metrics456.height = 600;
+  metrics456.pixel_ratio = 1.0;
+  metrics456.view_id = 456;
+
+  struct Captures {
+    fml::AutoResetWaitableEvent add_first_view;
+    fml::AutoResetWaitableEvent add_duplicate_view;
+    fml::AutoResetWaitableEvent add_second_view;
+    fml::AutoResetWaitableEvent remove_second_view;
+  };
+  Captures captures;
+
+  // Add view 123.
+  FlutterAddViewInfo add_view_info = {};
+  add_view_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_view_info.view_id = 123;
+  add_view_info.view_metrics = &metrics123;
+  add_view_info.user_data = &captures;
+  add_view_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    auto captures = reinterpret_cast<Captures*>(result->user_data);
+
+    ASSERT_TRUE(result->added);
+    ASSERT_FALSE(captures->add_first_view.IsSignaledForTest());
+    ASSERT_FALSE(captures->add_duplicate_view.IsSignaledForTest());
+    ASSERT_FALSE(captures->add_second_view.IsSignaledForTest());
+    ASSERT_FALSE(captures->remove_second_view.IsSignaledForTest());
+
+    captures->add_first_view.Signal();
+  };
+
+  // Add duplicate view 123.
+  FlutterAddViewInfo add_duplicate_view_info = {};
+  add_duplicate_view_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_duplicate_view_info.view_id = 123;
+  add_duplicate_view_info.view_metrics = &metrics123;
+  add_duplicate_view_info.user_data = &captures;
+  add_duplicate_view_info.add_view_callback =
+      [](const FlutterAddViewResult* result) {
+        auto captures = reinterpret_cast<Captures*>(result->user_data);
+
+        ASSERT_FALSE(result->added);
+        ASSERT_TRUE(captures->add_first_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->add_duplicate_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->add_second_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->remove_second_view.IsSignaledForTest());
+
+        captures->add_duplicate_view.Signal();
+      };
+
+  // Add view 456.
+  FlutterAddViewInfo add_second_view_info = {};
+  add_second_view_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_second_view_info.view_id = 456;
+  add_second_view_info.view_metrics = &metrics456;
+  add_second_view_info.user_data = &captures;
+  add_second_view_info.add_view_callback =
+      [](const FlutterAddViewResult* result) {
+        auto captures = reinterpret_cast<Captures*>(result->user_data);
+
+        ASSERT_TRUE(result->added);
+        ASSERT_TRUE(captures->add_first_view.IsSignaledForTest());
+        ASSERT_TRUE(captures->add_duplicate_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->add_second_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->remove_second_view.IsSignaledForTest());
+
+        captures->add_second_view.Signal();
+      };
+
+  // Remove view 456.
+  FlutterRemoveViewInfo remove_second_view_info = {};
+  remove_second_view_info.struct_size = sizeof(FlutterRemoveViewInfo);
+  remove_second_view_info.view_id = 456;
+  remove_second_view_info.user_data = &captures;
+  remove_second_view_info.remove_view_callback =
+      [](const FlutterRemoveViewResult* result) {
+        auto captures = reinterpret_cast<Captures*>(result->user_data);
+
+        ASSERT_TRUE(result->removed);
+        ASSERT_TRUE(captures->add_first_view.IsSignaledForTest());
+        ASSERT_TRUE(captures->add_duplicate_view.IsSignaledForTest());
+        ASSERT_TRUE(captures->add_second_view.IsSignaledForTest());
+        ASSERT_FALSE(captures->remove_second_view.IsSignaledForTest());
+
+        captures->remove_second_view.Signal();
+      };
+
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_view_info), kSuccess);
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_duplicate_view_info),
+            kSuccess);
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_second_view_info),
+            kSuccess);
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &remove_second_view_info),
+            kSuccess);
+  captures.remove_second_view.Wait();
+  captures.add_second_view.Wait();
+  captures.add_duplicate_view.Wait();
+  captures.add_first_view.Wait();
+  ASSERT_EQ(message_count, 3);
+}
+
+//------------------------------------------------------------------------------
+/// Test the engine can present to multiple views.
+///
+TEST_F(EmbedderTest, CanRenderMultipleViews) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetCompositor();
+  builder.SetDartEntrypoint("render_all_views");
+
+  builder.SetRenderTargetType(
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  fml::AutoResetWaitableEvent latch0, latch123;
+  context.GetCompositor().SetPresentCallback(
+      [&](FlutterViewId view_id, const FlutterLayer** layers,
+          size_t layers_count) {
+        switch (view_id) {
+          case 0:
+            latch0.Signal();
+            break;
+          case 123:
+            latch123.Signal();
+            break;
+          default:
+            FML_UNREACHABLE();
+        }
+      },
+      /* one_shot= */ false);
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  // Give the implicit view a non-zero size so that it renders something.
+  FlutterWindowMetricsEvent metrics0 = {};
+  metrics0.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics0.width = 800;
+  metrics0.height = 600;
+  metrics0.pixel_ratio = 1.0;
+  metrics0.view_id = 0;
+  ASSERT_EQ(FlutterEngineSendWindowMetricsEvent(engine.get(), &metrics0),
+            kSuccess);
+
+  // Add view 123.
+  FlutterWindowMetricsEvent metrics123 = {};
+  metrics123.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics123.width = 800;
+  metrics123.height = 600;
+  metrics123.pixel_ratio = 1.0;
+  metrics123.view_id = 123;
+
+  FlutterAddViewInfo add_view_info = {};
+  add_view_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_view_info.view_id = 123;
+  add_view_info.view_metrics = &metrics123;
+  add_view_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    ASSERT_TRUE(result->added);
+  };
+
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_view_info), kSuccess);
+
+  latch0.Wait();
+  latch123.Wait();
+}
+
+bool operator==(const FlutterViewFocusChangeRequest& lhs,
+                const FlutterViewFocusChangeRequest& rhs) {
+  return lhs.view_id == rhs.view_id && lhs.state == rhs.state &&
+         lhs.direction == rhs.direction;
+}
+
+TEST_F(EmbedderTest, SendsViewFocusChangeRequest) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  auto platform_task_runner = CreateNewThread("test_platform_thread");
+  UniqueEngine engine;
+  static std::mutex engine_mutex;
+  EmbedderTestTaskRunner test_platform_task_runner(
+      platform_task_runner, [&](FlutterTask task) {
+        std::scoped_lock lock(engine_mutex);
+        if (!engine.is_valid()) {
+          return;
+        }
+        FlutterEngineRunTask(engine.get(), &task);
+      });
+  fml::CountDownLatch latch(3);
+  std::vector<FlutterViewFocusChangeRequest> received_requests;
+  platform_task_runner->PostTask([&]() {
+    EmbedderConfigBuilder builder(context);
+    builder.SetSurface(SkISize::Make(1, 1));
+    builder.SetDartEntrypoint("testSendViewFocusChangeRequest");
+    const auto platform_task_runner_description =
+        test_platform_task_runner.GetFlutterTaskRunnerDescription();
+    builder.SetPlatformTaskRunner(&platform_task_runner_description);
+    builder.SetViewFocusChangeRequestCallback(
+        [&](const FlutterViewFocusChangeRequest* request) {
+          EXPECT_TRUE(platform_task_runner->RunsTasksOnCurrentThread());
+          received_requests.push_back(*request);
+          latch.CountDown();
+        });
+    engine = builder.LaunchEngine();
+    ASSERT_TRUE(engine.is_valid());
+  });
+  latch.Wait();
+
+  std::vector<FlutterViewFocusChangeRequest> expected_requests{
+      {.view_id = 1, .state = kUnfocused, .direction = kUndefined},
+      {.view_id = 2, .state = kFocused, .direction = kForward},
+      {.view_id = 3, .state = kFocused, .direction = kBackward},
+  };
+
+  ASSERT_EQ(received_requests.size(), expected_requests.size());
+  for (size_t i = 0; i < received_requests.size(); ++i) {
+    ASSERT_TRUE(received_requests[i] == expected_requests[i]);
+  }
+
+  fml::AutoResetWaitableEvent kill_latch;
+  platform_task_runner->PostTask(fml::MakeCopyable([&]() mutable {
+    std::scoped_lock lock(engine_mutex);
+    engine.reset();
+
+    // There may still be pending tasks on the platform thread that were queued
+    // by the test_task_runner.  Signal the latch after these tasks have been
+    // consumed.
+    platform_task_runner->PostTask([&kill_latch] { kill_latch.Signal(); });
+  }));
+  kill_latch.Wait();
+}
+
+TEST_F(EmbedderTest, CanSendViewFocusEvent) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
+  builder.SetDartEntrypoint("testSendViewFocusEvent");
+
+  fml::AutoResetWaitableEvent latch;
+  std::string last_event;
+
+  context.AddNativeCallback(
+      "SignalNativeTest",
+      CREATE_NATIVE_ENTRY(
+          [&latch](Dart_NativeArguments args) { latch.Signal(); }));
+  context.AddNativeCallback("NotifyStringValue",
+                            CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                              const auto message_from_dart =
+                                  tonic::DartConverter<std::string>::FromDart(
+                                      Dart_GetNativeArgument(args, 0));
+                              last_event = message_from_dart;
+                              latch.Signal();
+                            }));
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+  // Wait until the focus change handler is attached.
+  latch.Wait();
+  latch.Reset();
+
+  FlutterViewFocusEvent event1{
+      .struct_size = sizeof(FlutterViewFocusEvent),
+      .view_id = 1,
+      .state = kFocused,
+      .direction = kUndefined,
+  };
+  FlutterEngineResult result =
+      FlutterEngineSendViewFocusEvent(engine.get(), &event1);
+  ASSERT_EQ(result, kSuccess);
+  latch.Wait();
+  ASSERT_EQ(last_event,
+            "1 ViewFocusState.focused ViewFocusDirection.undefined");
+
+  FlutterViewFocusEvent event2{
+      .struct_size = sizeof(FlutterViewFocusEvent),
+      .view_id = 2,
+      .state = kUnfocused,
+      .direction = kBackward,
+  };
+  latch.Reset();
+  result = FlutterEngineSendViewFocusEvent(engine.get(), &event2);
+  ASSERT_EQ(result, kSuccess);
+  latch.Wait();
+  ASSERT_EQ(last_event,
+            "2 ViewFocusState.unfocused ViewFocusDirection.backward");
+}
+
+//------------------------------------------------------------------------------
+/// Test that the backing store is created with the correct view ID, is used
+/// for the correct view, and is cached according to their views.
+///
+/// The test involves two frames:
+/// 1. The first frame renders the implicit view and the second view.
+/// 2. The second frame renders the implicit view and the third view.
+///
+/// The test verifies that:
+/// - Each backing store is created with a valid view ID.
+/// - Each backing store is presented for the view that it was created for.
+/// - Both frames render the expected sets of views.
+/// - By the end of frame 1, only 2 backing stores were created.
+/// - By the end of frame 2, only 3 backing stores were created. This ensures
+/// that the backing store for the 2nd view is not reused for the 3rd view.
+TEST_F(EmbedderTest, BackingStoresCorrespondToTheirViews) {
+  constexpr FlutterViewId kSecondViewId = 123;
+  constexpr FlutterViewId kThirdViewId = 456;
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+
+  EmbedderConfigBuilder builder(context);
+  builder.SetDartEntrypoint("render_all_views");
+  builder.SetSurface(SkISize::Make(800, 600));
+  builder.SetCompositor();
+
+  EmbedderTestBackingStoreProducerSoftware producer(
+      context.GetCompositor().GetGrContext(),
+      EmbedderTestBackingStoreProducer::RenderTargetType::kSoftwareBuffer);
+
+  // The variables needed by the callbacks of the compositor.
+  struct CompositorUserData {
+    EmbedderTestBackingStoreProducer* producer;
+    // Each latch is signaled when its corresponding view is presented.
+    fml::AutoResetWaitableEvent latch_implicit;
+    fml::AutoResetWaitableEvent latch_second;
+    fml::AutoResetWaitableEvent latch_third;
+    // Whether the respective view should be rendered in the frame.
+    bool second_expected;
+    bool third_expected;
+    // The total number of backing stores created to verify caching.
+    int backing_stores_created;
+  };
+  CompositorUserData compositor_user_data{
+      .producer = &producer,
+      .backing_stores_created = 0,
+  };
+
+  builder.GetCompositor() = FlutterCompositor{
+      .struct_size = sizeof(FlutterCompositor),
+      .user_data = reinterpret_cast<void*>(&compositor_user_data),
+      .create_backing_store_callback =
+          [](const FlutterBackingStoreConfig* config,
+             FlutterBackingStore* backing_store_out, void* user_data) {
+            // Verify that the backing store comes with the correct view ID.
+            EXPECT_TRUE(config->view_id == 0 ||
+                        config->view_id == kSecondViewId ||
+                        config->view_id == kThirdViewId);
+            auto compositor_user_data =
+                reinterpret_cast<CompositorUserData*>(user_data);
+            compositor_user_data->backing_stores_created += 1;
+            bool result = compositor_user_data->producer->Create(
+                config, backing_store_out);
+            // The created backing store has a user_data that records the view
+            // that the store is created for.
+            backing_store_out->user_data =
+                reinterpret_cast<void*>(config->view_id);
+            return result;
+          },
+      .collect_backing_store_callback = [](const FlutterBackingStore* renderer,
+                                           void* user_data) { return true; },
+      .present_layers_callback = nullptr,
+      .avoid_backing_store_cache = false,
+      .present_view_callback =
+          [](const FlutterPresentViewInfo* info) {
+            EXPECT_EQ(info->layers_count, 1u);
+            // Verify that the given layer's backing store has the same view ID
+            // as the target view.
+            int64_t store_view_id = reinterpret_cast<int64_t>(
+                info->layers[0]->backing_store->user_data);
+            EXPECT_EQ(store_view_id, info->view_id);
+            auto compositor_user_data =
+                reinterpret_cast<CompositorUserData*>(info->user_data);
+            // Verify that the respective views are rendered.
+            switch (info->view_id) {
+              case 0:
+                compositor_user_data->latch_implicit.Signal();
+                break;
+              case kSecondViewId:
+                EXPECT_TRUE(compositor_user_data->second_expected);
+                compositor_user_data->latch_second.Signal();
+                break;
+              case kThirdViewId:
+                EXPECT_TRUE(compositor_user_data->third_expected);
+                compositor_user_data->latch_third.Signal();
+                break;
+              default:
+                FML_UNREACHABLE();
+            }
+            return true;
+          },
+  };
+
+  compositor_user_data.second_expected = true;
+  compositor_user_data.third_expected = false;
+
+  /*=== First frame ===*/
+
+  auto engine = builder.LaunchEngine();
+  ASSERT_TRUE(engine.is_valid());
+
+  // Give the implicit view a non-zero size so that it renders something.
+  FlutterWindowMetricsEvent metrics_implicit = {
+      .struct_size = sizeof(FlutterWindowMetricsEvent),
+      .width = 800,
+      .height = 600,
+      .pixel_ratio = 1.0,
+      .view_id = 0,
+  };
+  ASSERT_EQ(
+      FlutterEngineSendWindowMetricsEvent(engine.get(), &metrics_implicit),
+      kSuccess);
+
+  // Add the second view.
+  FlutterWindowMetricsEvent metrics_add = {
+      .struct_size = sizeof(FlutterWindowMetricsEvent),
+      .width = 800,
+      .height = 600,
+      .pixel_ratio = 1.0,
+      .view_id = kSecondViewId,
+  };
+
+  FlutterAddViewInfo add_view_info = {};
+  add_view_info.struct_size = sizeof(FlutterAddViewInfo);
+  add_view_info.view_id = kSecondViewId;
+  add_view_info.view_metrics = &metrics_add;
+  add_view_info.add_view_callback = [](const FlutterAddViewResult* result) {
+    ASSERT_TRUE(result->added);
+  };
+
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_view_info), kSuccess);
+
+  compositor_user_data.latch_implicit.Wait();
+  compositor_user_data.latch_second.Wait();
+
+  /*=== Second frame ===*/
+
+  compositor_user_data.second_expected = false;
+  compositor_user_data.third_expected = true;
+  EXPECT_EQ(compositor_user_data.backing_stores_created, 2);
+
+  // Remove the second view
+  FlutterRemoveViewInfo remove_view_info = {};
+  remove_view_info.struct_size = sizeof(FlutterRemoveViewInfo);
+  remove_view_info.view_id = kSecondViewId;
+  remove_view_info.remove_view_callback =
+      [](const FlutterRemoveViewResult* result) {
+        ASSERT_TRUE(result->removed);
+      };
+  ASSERT_EQ(FlutterEngineRemoveView(engine.get(), &remove_view_info), kSuccess);
+
+  // Add the third view.
+  add_view_info.view_id = kThirdViewId;
+  metrics_add.view_id = kThirdViewId;
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &add_view_info), kSuccess);
+  // Adding the view should have scheduled a frame.
+
+  compositor_user_data.latch_implicit.Wait();
+  compositor_user_data.latch_third.Wait();
+  EXPECT_EQ(compositor_user_data.backing_stores_created, 3);
+}
+
+TEST_F(EmbedderTest, CanUpdateLocales) {
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
+  EmbedderConfigBuilder builder(context);
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("can_receive_locale_updates");
   fml::AutoResetWaitableEvent latch;
   context.AddNativeCallback(
@@ -1368,11 +2490,11 @@ TEST_F(EmbedderTest, CanUpdateLocales) {
 }
 
 TEST_F(EmbedderTest, LocalizationCallbacksCalled) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   fml::AutoResetWaitableEvent latch;
   context.AddIsolateCreateCallback([&latch]() { latch.Signal(); });
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
   // Wait for the root isolate to launch.
@@ -1400,10 +2522,10 @@ TEST_F(EmbedderTest, CanQueryDartAOTMode) {
 }
 
 TEST_F(EmbedderTest, VerifyB143464703WithSoftwareBackend) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig(SkISize::Make(1024, 600));
+  builder.SetSurface(SkISize::Make(1024, 600));
   builder.SetCompositor();
   builder.SetDartEntrypoint("verify_b143464703");
 
@@ -1524,10 +2646,10 @@ TEST_F(EmbedderTest, VerifyB143464703WithSoftwareBackend) {
 }
 
 TEST_F(EmbedderTest, CanSendLowMemoryNotification) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   auto engine = builder.LaunchEngine();
 
@@ -1553,11 +2675,9 @@ TEST_F(EmbedderTest, CanPostTaskToAllNativeThreads) {
   auto platform_task_runner = CreateNewThread("platform_thread");
 
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
-
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
 
     engine = builder.LaunchEngine();
 
@@ -1633,6 +2753,8 @@ TEST_F(EmbedderTest, CanPostTaskToAllNativeThreads) {
   ASSERT_EQ(captures.render_threads_count, 1u);
   ASSERT_EQ(captures.ui_threads_count, 1u);
   ASSERT_EQ(captures.worker_threads_count, worker_count + 1u /* for IO */);
+  EXPECT_GE(captures.worker_threads_count - 1, 2u);
+  EXPECT_LE(captures.worker_threads_count - 1, 4u);
 
   platform_task_runner->PostTask([&]() {
     engine.reset();
@@ -1660,6 +2782,7 @@ TEST_F(EmbedderTest, InvalidAOTDataSourcesMustReturnError) {
   ASSERT_EQ(FlutterEngineCreateAOTData(&data_in, nullptr), kInvalidArguments);
 
   // Invalid FlutterEngineAOTDataSourceType type specified.
+  // NOLINTNEXTLINE(clang-analyzer-optin.core.EnumCastOutOfRange)
   data_in.type = static_cast<FlutterEngineAOTDataSourceType>(-1);
   ASSERT_EQ(FlutterEngineCreateAOTData(&data_in, &data_out), kInvalidArguments);
   ASSERT_EQ(data_out, nullptr);
@@ -1692,13 +2815,13 @@ TEST_F(EmbedderTest, MustNotRunWithMultipleAOTSources) {
     GTEST_SKIP();
     return;
   }
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(
       context,
       EmbedderConfigBuilder::InitializationPreference::kMultiAOTInitialize);
 
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   auto engine = builder.LaunchEngine();
   ASSERT_FALSE(engine.is_valid());
@@ -1734,7 +2857,7 @@ TEST_F(EmbedderTest, CanLaunchAndShutdownWithAValidElfSource) {
     GTEST_SKIP();
     return;
   }
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   fml::AutoResetWaitableEvent latch;
   context.AddIsolateCreateCallback([&latch]() { latch.Signal(); });
@@ -1743,7 +2866,7 @@ TEST_F(EmbedderTest, CanLaunchAndShutdownWithAValidElfSource) {
       context,
       EmbedderConfigBuilder::InitializationPreference::kAOTDataInitialize);
 
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
@@ -1754,10 +2877,10 @@ TEST_F(EmbedderTest, CanLaunchAndShutdownWithAValidElfSource) {
 }
 
 #if defined(__clang_analyzer__)
-#define TEST_VM_SNAPSHOT_DATA nullptr
-#define TEST_VM_SNAPSHOT_INSTRUCTIONS nullptr
-#define TEST_ISOLATE_SNAPSHOT_DATA nullptr
-#define TEST_ISOLATE_SNAPSHOT_INSTRUCTIONS nullptr
+#define TEST_VM_SNAPSHOT_DATA "vm_data"
+#define TEST_VM_SNAPSHOT_INSTRUCTIONS "vm_instructions"
+#define TEST_ISOLATE_SNAPSHOT_DATA "isolate_data"
+#define TEST_ISOLATE_SNAPSHOT_INSTRUCTIONS "isolate_instructions"
 #endif
 
 //------------------------------------------------------------------------------
@@ -1777,9 +2900,9 @@ TEST_F(EmbedderTest, CanSuccessfullyPopulateSpecificJITSnapshotCallbacks) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // Construct the location of valid JIT snapshots.
   const std::string src_path = GetSourcePath();
@@ -1833,9 +2956,9 @@ TEST_F(EmbedderTest, JITSnapshotCallbacksFailWithInvalidLocation) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // Explicitly define the locations of the invalid JIT snapshots
   builder.GetProjectArgs().vm_snapshot_data =
@@ -1870,9 +2993,9 @@ TEST_F(EmbedderTest, CanLaunchEngineWithSpecifiedJITSnapshots) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // Construct the location of valid JIT snapshots.
   const std::string src_path = GetSourcePath();
@@ -1910,9 +3033,9 @@ TEST_F(EmbedderTest, CanLaunchEngineWithSomeSpecifiedJITSnapshots) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // Construct the location of valid JIT snapshots.
   const std::string src_path = GetSourcePath();
@@ -1943,9 +3066,9 @@ TEST_F(EmbedderTest, CanLaunchEngineWithInvalidJITSnapshots) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   // Explicitly define the locations of the JIT snapshots
   builder.GetProjectArgs().isolate_snapshot_data =
@@ -1969,9 +3092,9 @@ TEST_F(EmbedderTest, CanLaunchEngineWithUnspecifiedJITSnapshots) {
     return;
   }
 
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
 
   ASSERT_EQ(builder.GetProjectArgs().vm_snapshot_data, nullptr);
   ASSERT_EQ(builder.GetProjectArgs().vm_snapshot_instructions, nullptr);
@@ -1983,9 +3106,9 @@ TEST_F(EmbedderTest, CanLaunchEngineWithUnspecifiedJITSnapshots) {
 }
 
 TEST_F(EmbedderTest, InvalidFlutterWindowMetricsEvent) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   auto engine = builder.LaunchEngine();
 
   ASSERT_TRUE(engine.is_valid());
@@ -2030,14 +3153,13 @@ static void expectSoftwareRenderingOutputMatches(
     std::string entrypoint,
     FlutterSoftwarePixelFormat pixfmt,
     const std::vector<uint8_t>& bytes) {
-  auto& context =
-      test.GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = test.GetEmbedderContext<EmbedderTestContextSoftware>();
 
   EmbedderConfigBuilder builder(context);
   fml::AutoResetWaitableEvent latch;
   bool matches = false;
 
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetCompositor();
   builder.SetDartEntrypoint(std::move(entrypoint));
   builder.SetRenderTargetType(
@@ -2048,16 +3170,15 @@ static void expectSoftwareRenderingOutputMatches(
   ASSERT_TRUE(engine.is_valid());
 
   context.GetCompositor().SetNextPresentCallback(
-      [&matches, &bytes, &latch](FlutterViewId view_id,
-                                 const FlutterLayer** layers,
-                                 size_t layers_count) {
+      [&context, &matches, &bytes, &latch](FlutterViewId view_id,
+                                           const FlutterLayer** layers,
+                                           size_t layers_count) {
         ASSERT_EQ(layers[0]->type, kFlutterLayerContentTypeBackingStore);
         ASSERT_EQ(layers[0]->backing_store->type,
                   kFlutterBackingStoreTypeSoftware2);
-        matches = SurfacePixelDataMatchesBytes(
-            static_cast<SkSurface*>(
-                layers[0]->backing_store->software2.user_data),
-            bytes);
+        sk_sp<SkSurface> surface =
+            context.GetCompositor().GetSurface(layers[0]->backing_store);
+        matches = SurfacePixelDataMatchesBytes(surface.get(), bytes);
         latch.Signal();
       });
 
@@ -2254,10 +3375,9 @@ TEST_F(EmbedderTest, KeyDataIsCorrectlySerialized) {
   UniqueEngine engine;
   fml::AutoResetWaitableEvent ready;
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("key_data_echo");
     builder.SetPlatformMessageCallback(
         [&](const FlutterPlatformMessage* message) {
@@ -2376,10 +3496,9 @@ TEST_F(EmbedderTest, KeyDataAreBuffered) {
   UniqueEngine engine;
   fml::AutoResetWaitableEvent ready;
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("key_data_late_echo");
     builder.SetPlatformMessageCallback(
         [&](const FlutterPlatformMessage* message) {
@@ -2477,10 +3596,9 @@ TEST_F(EmbedderTest, KeyDataResponseIsCorrectlyInvoked) {
   auto platform_task_runner = CreateNewThread("platform_thread");
 
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("key_data_echo");
     context.AddNativeCallback(
         "SignalNativeTest",
@@ -2551,11 +3669,9 @@ TEST_F(EmbedderTest, BackToBackKeyEventResponsesCorrectlyInvoked) {
   auto platform_task_runner = CreateNewThread("platform_thread");
 
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
-
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetDartEntrypoint("key_data_echo");
     context.AddNativeCallback(
         "SignalNativeTest",
@@ -2638,9 +3754,7 @@ TEST_F(EmbedderTest, VsyncCallbackPostedIntoFuture) {
   auto platform_task_runner = CreateNewThread("platform_thread");
 
   platform_task_runner->PostTask([&]() {
-    auto& context =
-        GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
-
+    auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
     context.SetVsyncCallback([&](intptr_t baton) {
       platform_task_runner->PostTask([baton = baton, &engine, &vsync_latch]() {
         FlutterEngineOnVsync(engine.get(), baton, NanosFromEpoch(16),
@@ -2654,7 +3768,7 @@ TEST_F(EmbedderTest, VsyncCallbackPostedIntoFuture) {
         }));
 
     EmbedderConfigBuilder builder(context);
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetupVsyncCallback();
     builder.SetDartEntrypoint("empty_scene");
     engine = builder.LaunchEngine();
@@ -2683,9 +3797,9 @@ TEST_F(EmbedderTest, VsyncCallbackPostedIntoFuture) {
 }
 
 TEST_F(EmbedderTest, CanScheduleFrame) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("can_schedule_frame");
   fml::AutoResetWaitableEvent latch;
   context.AddNativeCallback(
@@ -2711,9 +3825,9 @@ TEST_F(EmbedderTest, CanScheduleFrame) {
 }
 
 TEST_F(EmbedderTest, CanSetNextFrameCallback) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("draw_solid_red");
 
   auto engine = builder.LaunchEngine();
@@ -2769,6 +3883,7 @@ TEST_F(EmbedderTest, EmbedderThreadHostUseCustomThreadConfig) {
       flutter::EmbedderThreadHost::CreateEmbedderOrEngineManagedThreadHost(
           nullptr, MockThreadConfigSetter);
 
+  fml::AutoResetWaitableEvent ui_latch;
   int ui_policy;
   struct sched_param ui_param;
 
@@ -2776,24 +3891,30 @@ TEST_F(EmbedderTest, EmbedderThreadHostUseCustomThreadConfig) {
     pthread_t current_thread = pthread_self();
     pthread_getschedparam(current_thread, &ui_policy, &ui_param);
     ASSERT_EQ(ui_param.sched_priority, 10);
+    ui_latch.Signal();
   });
 
+  fml::AutoResetWaitableEvent io_latch;
   int io_policy;
   struct sched_param io_param;
   thread_host->GetTaskRunners().GetIOTaskRunner()->PostTask([&] {
     pthread_t current_thread = pthread_self();
     pthread_getschedparam(current_thread, &io_policy, &io_param);
     ASSERT_EQ(io_param.sched_priority, 1);
+    io_latch.Signal();
   });
+
+  ui_latch.Wait();
+  io_latch.Wait();
 }
 #endif
 
 /// Send a pointer event to Dart and wait until the Dart code signals
 /// it received the event.
 TEST_F(EmbedderTest, CanSendPointer) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("pointer_data_packet");
 
   fml::AutoResetWaitableEvent ready_latch, count_latch, message_latch;
@@ -2842,12 +3963,12 @@ TEST_F(EmbedderTest, CanSendPointer) {
 /// Send a pointer event to Dart and wait until the Dart code echos with the
 /// view ID.
 TEST_F(EmbedderTest, CanSendPointerEventWithViewId) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("pointer_data_packet_view_id");
 
-  fml::AutoResetWaitableEvent ready_latch, count_latch, message_latch;
+  fml::AutoResetWaitableEvent ready_latch, add_view_latch, message_latch;
   context.AddNativeCallback(
       "SignalNativeTest",
       CREATE_NATIVE_ENTRY(
@@ -2863,9 +3984,31 @@ TEST_F(EmbedderTest, CanSendPointerEventWithViewId) {
 
   auto engine = builder.LaunchEngine();
   ASSERT_TRUE(engine.is_valid());
-
   ready_latch.Wait();
 
+  // Add view 2
+  FlutterWindowMetricsEvent metrics = {};
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = 800;
+  metrics.height = 600;
+  metrics.pixel_ratio = 1.0;
+  metrics.view_id = 2;
+
+  FlutterAddViewInfo info = {};
+  info.struct_size = sizeof(FlutterAddViewInfo);
+  info.view_id = 2;
+  info.view_metrics = &metrics;
+  info.add_view_callback = [](const FlutterAddViewResult* result) {
+    EXPECT_TRUE(result->added);
+    fml::AutoResetWaitableEvent* add_view_latch =
+        reinterpret_cast<fml::AutoResetWaitableEvent*>(result->user_data);
+    add_view_latch->Signal();
+  };
+  info.user_data = &add_view_latch;
+  ASSERT_EQ(FlutterEngineAddView(engine.get(), &info), kSuccess);
+  add_view_latch.Wait();
+
+  // Send a pointer event for view 2
   FlutterPointerEvent pointer_event = {};
   pointer_event.struct_size = sizeof(FlutterPointerEvent);
   pointer_event.phase = FlutterPointerPhase::kAdd;
@@ -2882,9 +4025,9 @@ TEST_F(EmbedderTest, CanSendPointerEventWithViewId) {
 }
 
 TEST_F(EmbedderTest, WindowMetricsEventDefaultsToImplicitView) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("window_metrics_event_view_id");
 
   fml::AutoResetWaitableEvent ready_latch, message_latch;
@@ -2923,9 +4066,9 @@ TEST_F(EmbedderTest, WindowMetricsEventDefaultsToImplicitView) {
 }
 
 TEST_F(EmbedderTest, IgnoresWindowMetricsEventForUnknownView) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("window_metrics_event_view_id");
 
   fml::AutoResetWaitableEvent ready_latch, message_latch;
@@ -2979,7 +4122,7 @@ TEST_F(EmbedderTest, IgnoresWindowMetricsEventForUnknownView) {
 }
 
 TEST_F(EmbedderTest, RegisterChannelListener) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
 
   fml::AutoResetWaitableEvent latch;
   fml::AutoResetWaitableEvent latch2;
@@ -2995,7 +4138,7 @@ TEST_F(EmbedderTest, RegisterChannelListener) {
   });
 
   EmbedderConfigBuilder builder(context);
-  builder.SetSoftwareRendererConfig();
+  builder.SetSurface(SkISize::Make(1, 1));
   builder.SetDartEntrypoint("channel_listener_response");
 
   auto engine = builder.LaunchEngine();
@@ -3010,7 +4153,7 @@ TEST_F(EmbedderTest, RegisterChannelListener) {
 }
 
 TEST_F(EmbedderTest, PlatformThreadIsolatesWithCustomPlatformTaskRunner) {
-  auto& context = GetEmbedderContext(EmbedderTestContextType::kSoftwareContext);
+  auto& context = GetEmbedderContext<EmbedderTestContextSoftware>();
   static fml::AutoResetWaitableEvent latch;
 
   static std::thread::id ffi_call_thread_id;
@@ -3054,9 +4197,10 @@ TEST_F(EmbedderTest, PlatformThreadIsolatesWithCustomPlatformTaskRunner) {
     EmbedderConfigBuilder builder(context);
     const auto task_runner_description =
         test_task_runner.GetFlutterTaskRunnerDescription();
-    builder.SetSoftwareRendererConfig();
+    builder.SetSurface(SkISize::Make(1, 1));
     builder.SetPlatformTaskRunner(&task_runner_description);
     builder.SetDartEntrypoint("invokePlatformThreadIsolate");
+    builder.AddCommandLineArgument("--enable-platform-isolates");
     engine = builder.LaunchEngine();
     ASSERT_TRUE(engine.is_valid());
   });

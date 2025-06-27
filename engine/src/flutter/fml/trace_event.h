@@ -18,7 +18,7 @@
 // TODO(DNO-448): This is disabled because the Fuchsia counter id json parsing
 // only handles ints whereas this can produce ints or strings.
 #define FML_TRACE_COUNTER(a, b, c, arg1, ...) \
-  ::fml::tracing::TraceCounterNopHACK((a), (b), (c), (arg1), __VA_ARGS__)
+  ::fml::tracing::TraceCounterNopHACK((a), (b), (c), (arg1), __VA_ARGS__);
 
 #define FML_TRACE_EVENT(a, b, args...) TRACE_DURATION(a, b)
 // On Fuchsia, the flow_id arguments to this macro are ignored.

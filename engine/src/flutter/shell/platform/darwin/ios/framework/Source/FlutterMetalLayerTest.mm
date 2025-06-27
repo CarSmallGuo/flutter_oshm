@@ -196,7 +196,7 @@
     @autoreleasepool {
       id<CAMetalDrawable> drawable = [layer nextDrawable];
       XCTAssertNotNil(drawable);
-      texture = (id<MTLTexture>)drawable.texture;
+      texture = drawable.texture;
       // Dropping the drawable must return texture to pool, so
       // next drawable should return the same texture.
     }
@@ -268,6 +268,29 @@
   XCTAssertNotNil(drawable);
 
   [self removeMetalLayer:layer];
+}
+
+- (void)testDealloc {
+  __weak FlutterMetalLayer* weakLayer;
+  @autoreleasepool {
+    FlutterMetalLayer* layer = [self addMetalLayer];
+    weakLayer = layer;
+    TestCompositor* compositor = [[TestCompositor alloc] initWithLayer:layer];
+
+    id<CAMetalDrawable> drawable = [layer nextDrawable];
+    BAIL_IF_NO_DRAWABLE(drawable);
+    [drawable present];
+    [compositor commitTransaction];
+
+    [self removeMetalLayer:layer];
+  }
+  CFTimeInterval start = CACurrentMediaTime();
+  while (weakLayer != nil && CACurrentMediaTime() - start < 1) {
+    // Deallocating the layer after removing is not synchronous.
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.01, YES);
+  }
+
+  XCTAssertNil(weakLayer);
 }
 
 @end

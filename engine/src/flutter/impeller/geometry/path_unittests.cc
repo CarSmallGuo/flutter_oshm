@@ -8,6 +8,8 @@
 #include "impeller/geometry/geometry_asserts.h"
 #include "impeller/geometry/path.h"
 #include "impeller/geometry/path_builder.h"
+#include "impeller/geometry/path_component.h"
+#include "impeller/geometry/round_rect.h"
 
 namespace impeller {
 namespace testing {
@@ -20,6 +22,13 @@ TEST(PathTest, CubicPathComponentPolylineDoesNotIncludePointOne) {
   ASSERT_NE(polyline.front().y, 10);
   ASSERT_EQ(polyline.back().x, 40);
   ASSERT_EQ(polyline.back().y, 40);
+}
+
+TEST(PathTest, EmptyPathWithContour) {
+  PathBuilder builder;
+  auto path = builder.TakePath();
+
+  EXPECT_TRUE(path.IsEmpty());
 }
 
 TEST(PathTest, PathCreatePolyLineDoesNotDuplicatePoints) {
@@ -41,63 +50,51 @@ TEST(PathTest, PathCreatePolyLineDoesNotDuplicatePoints) {
   ASSERT_EQ(polyline.GetPoint(4).x, 50);
 }
 
-TEST(PathTest, PathBuilderSetsCorrectContourPropertiesForAddCommands) {
+TEST(PathTest, PathSingleContour) {
   // Closed shapes.
   {
     Path path = PathBuilder{}.AddCircle({100, 100}, 50).TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(100, 50));
-    ASSERT_TRUE(contour.is_closed);
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
     Path path =
         PathBuilder{}.AddOval(Rect::MakeXYWH(100, 100, 100, 100)).TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(150, 100));
-    ASSERT_TRUE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
     Path path =
         PathBuilder{}.AddRect(Rect::MakeXYWH(100, 100, 100, 100)).TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(100, 100));
-    ASSERT_TRUE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
     Path path = PathBuilder{}
-                    .AddRoundedRect(Rect::MakeXYWH(100, 100, 100, 100), 10)
+                    .AddRoundRect(RoundRect::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
                     .TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(110, 100));
-    ASSERT_TRUE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
-    Path path =
-        PathBuilder{}
-            .AddRoundedRect(Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20))
-            .TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(110, 100));
-    ASSERT_TRUE(contour.is_closed);
+    Path path = PathBuilder{}
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .TakePath();
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   // Open shapes.
   {
     Point p(100, 100);
     Path path = PathBuilder{}.AddLine(p, {200, 100}).TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, p);
-    ASSERT_FALSE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
@@ -105,20 +102,272 @@ TEST(PathTest, PathBuilderSetsCorrectContourPropertiesForAddCommands) {
         PathBuilder{}
             .AddCubicCurve({100, 100}, {100, 50}, {100, 150}, {200, 100})
             .TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(100, 100));
-    ASSERT_FALSE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
   }
 
   {
     Path path = PathBuilder{}
                     .AddQuadraticCurve({100, 100}, {100, 50}, {200, 100})
                     .TakePath();
-    ContourComponent contour;
-    path.GetContourComponentAtIndex(0, contour);
-    ASSERT_POINT_NEAR(contour.destination, Point(100, 100));
-    ASSERT_FALSE(contour.is_closed);
+
+    EXPECT_TRUE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddConicCurve({100, 100}, {100, 50}, {200, 100}, 0.75f)
+                    .TakePath();
+
+    EXPECT_TRUE(path.IsSingleContour());
+  }
+}
+
+TEST(PathTest, PathSingleContourDoubleShapes) {
+  // Closed shapes.
+  {
+    Path path = PathBuilder{}
+                    .AddCircle({100, 100}, 50)
+                    .AddCircle({100, 100}, 50)
+                    .TakePath();
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddOval(Rect::MakeXYWH(100, 100, 100, 100))
+                    .AddOval(Rect::MakeXYWH(100, 100, 100, 100))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRect(Rect::MakeXYWH(100, 100, 100, 100))
+                    .AddRect(Rect::MakeXYWH(100, 100, 100, 100))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundRect(RoundRect::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .AddRoundRect(RoundRect::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundRect(RoundRect::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .AddRoundRect(RoundRect::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  // Open shapes.
+  {
+    Point p(100, 100);
+    Path path =
+        PathBuilder{}.AddLine(p, {200, 100}).AddLine(p, {200, 100}).TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path =
+        PathBuilder{}
+            .AddCubicCurve({100, 100}, {100, 50}, {100, 150}, {200, 100})
+            .AddCubicCurve({100, 100}, {100, 50}, {100, 150}, {200, 100})
+            .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddQuadraticCurve({100, 100}, {100, 50}, {200, 100})
+                    .Close()
+                    .AddQuadraticCurve({100, 100}, {100, 50}, {200, 100})
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddConicCurve({100, 100}, {100, 50}, {200, 100}, 0.75f)
+                    .Close()
+                    .AddConicCurve({100, 100}, {100, 50}, {200, 100}, 0.75f)
+                    .TakePath();
+
+    EXPECT_FALSE(path.IsSingleContour());
+  }
+}
+
+TEST(PathTest, PathBuilderSetsCorrectContourPropertiesForAddCommands) {
+  // Closed shapes.
+  {
+    Path path = PathBuilder{}.AddCircle({100, 100}, 50).TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(100, 50));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path =
+        PathBuilder{}.AddOval(Rect::MakeXYWH(100, 100, 100, 100)).TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(150, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path =
+        PathBuilder{}.AddRect(Rect::MakeXYWH(100, 100, 100, 100)).TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(100, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundRect(RoundRect::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(110, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundRect(RoundRect::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(110, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectRadius(
+                        Rect::MakeXYWH(100, 100, 100, 100), 10))
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(150, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddRoundSuperellipse(RoundSuperellipse::MakeRectXY(
+                        Rect::MakeXYWH(100, 100, 100, 100), Size(10, 20)))
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(150, 100));
+    EXPECT_TRUE(contour->IsClosed());
+  }
+
+  // Open shapes.
+  {
+    Point p(100, 100);
+    Path path = PathBuilder{}.AddLine(p, {200, 100}).TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, p);
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    Path path =
+        PathBuilder{}
+            .AddCubicCurve({100, 100}, {100, 50}, {100, 150}, {200, 100})
+            .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(100, 100));
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddQuadraticCurve({100, 100}, {100, 50}, {200, 100})
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(100, 100));
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    Path path = PathBuilder{}
+                    .AddConicCurve({100, 100}, {100, 50}, {200, 100}, 0.75f)
+                    .TakePath();
+    EXPECT_NE(path.begin(), path.end());
+    EXPECT_EQ(path.begin().type(), Path::ComponentType::kContour);
+    auto contour = path.begin().contour();
+    ASSERT_NE(contour, nullptr);
+    EXPECT_POINT_NEAR(contour->destination, Point(100, 100));
+    EXPECT_FALSE(contour->IsClosed());
   }
 }
 
@@ -234,35 +483,68 @@ TEST(PathTest, PathShifting) {
   auto path =
       builder.AddLine(Point(0, 0), Point(10, 10))
           .AddQuadraticCurve(Point(10, 10), Point(15, 15), Point(20, 20))
+          .AddConicCurve(Point(10, 10), Point(15, 10), Point(15, 15), 0.75f)
           .AddCubicCurve(Point(20, 20), Point(25, 25), Point(-5, -5),
                          Point(30, 30))
           .Close()
           .Shift(Point(1, 1))
           .TakePath();
 
-  ContourComponent contour;
-  LinearPathComponent linear;
-  QuadraticPathComponent quad;
-  CubicPathComponent cubic;
+  auto it = path.begin();
 
-  ASSERT_TRUE(path.GetContourComponentAtIndex(0, contour));
-  ASSERT_TRUE(path.GetLinearComponentAtIndex(1, linear));
-  ASSERT_TRUE(path.GetQuadraticComponentAtIndex(3, quad));
-  ASSERT_TRUE(path.GetCubicComponentAtIndex(5, cubic));
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  const ContourComponent* contour = it.contour();
+  ASSERT_NE(contour, nullptr);
+  ++it;
 
-  EXPECT_EQ(contour.destination, Point(1, 1));
+  ASSERT_EQ(it.type(), Path::ComponentType::kLinear);
+  const LinearPathComponent* linear = it.linear();
+  ASSERT_NE(linear, nullptr);
+  ++it;
 
-  EXPECT_EQ(linear.p1, Point(1, 1));
-  EXPECT_EQ(linear.p2, Point(11, 11));
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
 
-  EXPECT_EQ(quad.cp, Point(16, 16));
-  EXPECT_EQ(quad.p1, Point(11, 11));
-  EXPECT_EQ(quad.p2, Point(21, 21));
+  ASSERT_EQ(it.type(), Path::ComponentType::kQuadratic);
+  const QuadraticPathComponent* quad = it.quadratic();
+  ASSERT_NE(quad, nullptr);
+  ++it;
 
-  EXPECT_EQ(cubic.cp1, Point(26, 26));
-  EXPECT_EQ(cubic.cp2, Point(-4, -4));
-  EXPECT_EQ(cubic.p1, Point(21, 21));
-  EXPECT_EQ(cubic.p2, Point(31, 31));
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
+
+  ASSERT_EQ(it.type(), Path::ComponentType::kConic);
+  const ConicPathComponent* conic = it.conic();
+  ASSERT_NE(conic, nullptr);
+  ++it;
+
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
+
+  ASSERT_EQ(it.type(), Path::ComponentType::kCubic);
+  const CubicPathComponent* cubic = it.cubic();
+  ASSERT_NE(cubic, nullptr);
+  ++it;
+
+  // Close always opens a new contour, even if it isn't needed
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
+
+  EXPECT_EQ(it, path.end());
+
+  EXPECT_EQ(contour->destination, Point(1, 1));
+
+  EXPECT_EQ(linear->p1, Point(1, 1));
+  EXPECT_EQ(linear->p2, Point(11, 11));
+
+  EXPECT_EQ(quad->cp, Point(16, 16));
+  EXPECT_EQ(quad->p1, Point(11, 11));
+  EXPECT_EQ(quad->p2, Point(21, 21));
+
+  EXPECT_EQ(cubic->cp1, Point(26, 26));
+  EXPECT_EQ(cubic->cp2, Point(-4, -4));
+  EXPECT_EQ(cubic->p1, Point(21, 21));
+  EXPECT_EQ(cubic->p2, Point(31, 31));
 }
 
 TEST(PathTest, PathBuilderWillComputeBounds) {
@@ -291,34 +573,68 @@ TEST(PathTest, PathHorizontalLine) {
   PathBuilder builder;
   auto path = builder.HorizontalLineTo(10).TakePath();
 
-  LinearPathComponent linear;
-  path.GetLinearComponentAtIndex(1, linear);
+  auto it = path.begin();
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
 
-  EXPECT_EQ(linear.p1, Point(0, 0));
-  EXPECT_EQ(linear.p2, Point(10, 0));
+  ASSERT_EQ(it.type(), Path::ComponentType::kLinear);
+  const LinearPathComponent* linear = it.linear();
+  ASSERT_NE(linear, nullptr);
+
+  EXPECT_EQ(linear->p1, Point(0, 0));
+  EXPECT_EQ(linear->p2, Point(10, 0));
 }
 
 TEST(PathTest, PathVerticalLine) {
   PathBuilder builder;
   auto path = builder.VerticalLineTo(10).TakePath();
 
-  LinearPathComponent linear;
-  path.GetLinearComponentAtIndex(1, linear);
+  auto it = path.begin();
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
 
-  EXPECT_EQ(linear.p1, Point(0, 0));
-  EXPECT_EQ(linear.p2, Point(0, 10));
+  ASSERT_EQ(it.type(), Path::ComponentType::kLinear);
+  const LinearPathComponent* linear = it.linear();
+  ASSERT_NE(linear, nullptr);
+
+  EXPECT_EQ(linear->p1, Point(0, 0));
+  EXPECT_EQ(linear->p2, Point(0, 10));
 }
 
 TEST(PathTest, QuadradicPath) {
   PathBuilder builder;
   auto path = builder.QuadraticCurveTo(Point(10, 10), Point(20, 20)).TakePath();
 
-  QuadraticPathComponent quad;
-  path.GetQuadraticComponentAtIndex(1, quad);
+  auto it = path.begin();
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
 
-  EXPECT_EQ(quad.p1, Point(0, 0));
-  EXPECT_EQ(quad.cp, Point(10, 10));
-  EXPECT_EQ(quad.p2, Point(20, 20));
+  ASSERT_EQ(it.type(), Path::ComponentType::kQuadratic);
+  const QuadraticPathComponent* quad = it.quadratic();
+  ASSERT_NE(quad, nullptr);
+
+  EXPECT_EQ(quad->p1, Point(0, 0));
+  EXPECT_EQ(quad->cp, Point(10, 10));
+  EXPECT_EQ(quad->p2, Point(20, 20));
+}
+
+TEST(PathTest, ConicPath) {
+  PathBuilder builder;
+  auto path =
+      builder.ConicCurveTo(Point(10, 10), Point(20, 20), 0.75f).TakePath();
+
+  auto it = path.begin();
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
+
+  ASSERT_EQ(it.type(), Path::ComponentType::kConic);
+  const ConicPathComponent* conic = it.conic();
+  ASSERT_NE(conic, nullptr);
+
+  EXPECT_EQ(conic->p1, Point(0, 0));
+  EXPECT_EQ(conic->cp, Point(10, 10));
+  EXPECT_EQ(conic->p2, Point(20, 20));
+  EXPECT_EQ(conic->weight, Point(0.75f, 0.75f));
 }
 
 TEST(PathTest, CubicPath) {
@@ -327,13 +643,18 @@ TEST(PathTest, CubicPath) {
       builder.CubicCurveTo(Point(10, 10), Point(-10, -10), Point(20, 20))
           .TakePath();
 
-  CubicPathComponent cubic;
-  path.GetCubicComponentAtIndex(1, cubic);
+  auto it = path.begin();
+  ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+  ++it;
 
-  EXPECT_EQ(cubic.p1, Point(0, 0));
-  EXPECT_EQ(cubic.cp1, Point(10, 10));
-  EXPECT_EQ(cubic.cp2, Point(-10, -10));
-  EXPECT_EQ(cubic.p2, Point(20, 20));
+  ASSERT_EQ(it.type(), Path::ComponentType::kCubic);
+  const CubicPathComponent* cubic = it.cubic();
+  ASSERT_NE(cubic, nullptr);
+
+  EXPECT_EQ(cubic->p1, Point(0, 0));
+  EXPECT_EQ(cubic->cp1, Point(10, 10));
+  EXPECT_EQ(cubic->cp2, Point(-10, -10));
+  EXPECT_EQ(cubic->p2, Point(20, 20));
 }
 
 TEST(PathTest, BoundingBoxCubic) {
@@ -349,7 +670,8 @@ TEST(PathTest, BoundingBoxCubic) {
 
 TEST(PathTest, BoundingBoxOfCompositePathIsCorrect) {
   PathBuilder builder;
-  builder.AddRoundedRect(Rect::MakeXYWH(10, 10, 300, 300), {50, 50, 50, 50});
+  builder.AddRoundRect(
+      RoundRect::MakeRectRadius(Rect::MakeXYWH(10, 10, 300, 300), 50));
   auto path = builder.TakePath();
   auto actual = path.GetBoundingBox();
   Rect expected = Rect::MakeXYWH(10, 10, 300, 300);
@@ -385,9 +707,8 @@ TEST(PathTest, EmptyPath) {
   auto path = PathBuilder{}.TakePath();
   ASSERT_EQ(path.GetComponentCount(), 1u);
 
-  ContourComponent c;
-  path.GetContourComponentAtIndex(0, c);
-  ASSERT_POINT_NEAR(c.destination, Point());
+  const ContourComponent* c = path.begin().contour();
+  ASSERT_POINT_NEAR(c->destination, Point());
 
   Path::Polyline polyline = path.CreatePolyline(1.0f);
   ASSERT_TRUE(polyline.points->empty());
@@ -399,59 +720,166 @@ TEST(PathTest, SimplePath) {
 
   auto path = builder.AddLine({0, 0}, {100, 100})
                   .AddQuadraticCurve({100, 100}, {200, 200}, {300, 300})
+                  .AddConicCurve({100, 100}, {200, 200}, {300, 300}, 0.75f)
                   .AddCubicCurve({300, 300}, {400, 400}, {500, 500}, {600, 600})
                   .TakePath();
 
-  ASSERT_EQ(path.GetComponentCount(), 6u);
-  ASSERT_EQ(path.GetComponentCount(Path::ComponentType::kLinear), 1u);
-  ASSERT_EQ(path.GetComponentCount(Path::ComponentType::kQuadratic), 1u);
-  ASSERT_EQ(path.GetComponentCount(Path::ComponentType::kCubic), 1u);
-  ASSERT_EQ(path.GetComponentCount(Path::ComponentType::kContour), 3u);
+  EXPECT_EQ(path.GetComponentCount(), 8u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kLinear), 1u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kQuadratic), 1u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kConic), 1u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kCubic), 1u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kContour), 4u);
 
-  path.EnumerateComponents(
-      [](size_t index, const LinearPathComponent& linear) {
-        Point p1(0, 0);
-        Point p2(100, 100);
-        ASSERT_EQ(index, 1u);
-        ASSERT_EQ(linear.p1, p1);
-        ASSERT_EQ(linear.p2, p2);
-      },
-      [](size_t index, const QuadraticPathComponent& quad) {
-        Point p1(100, 100);
-        Point cp(200, 200);
-        Point p2(300, 300);
-        ASSERT_EQ(index, 3u);
-        ASSERT_EQ(quad.p1, p1);
-        ASSERT_EQ(quad.cp, cp);
-        ASSERT_EQ(quad.p2, p2);
-      },
-      [](size_t index, const CubicPathComponent& cubic) {
-        Point p1(300, 300);
-        Point cp1(400, 400);
-        Point cp2(500, 500);
-        Point p2(600, 600);
-        ASSERT_EQ(index, 5u);
-        ASSERT_EQ(cubic.p1, p1);
-        ASSERT_EQ(cubic.cp1, cp1);
-        ASSERT_EQ(cubic.cp2, cp2);
-        ASSERT_EQ(cubic.p2, p2);
-      },
-      [](size_t index, const ContourComponent& contour) {
-        // There is an initial countour added for each curve.
-        if (index == 0u) {
-          Point p1(0, 0);
-          ASSERT_EQ(contour.destination, p1);
-        } else if (index == 2u) {
-          Point p1(100, 100);
-          ASSERT_EQ(contour.destination, p1);
-        } else if (index == 4u) {
-          Point p1(300, 300);
-          ASSERT_EQ(contour.destination, p1);
-        } else {
-          ASSERT_FALSE(true);
-        }
-        ASSERT_FALSE(contour.is_closed);
-      });
+  auto it = path.begin();
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+    const ContourComponent* contour = it.contour();
+    ASSERT_NE(contour, nullptr);
+    ++it;
+
+    Point p1(0, 0);
+    EXPECT_EQ(contour->destination, p1);
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kLinear);
+    const LinearPathComponent* linear = it.linear();
+    ASSERT_NE(linear, nullptr);
+    ++it;
+
+    Point p1(0, 0);
+    Point p2(100, 100);
+    EXPECT_EQ(linear->p1, p1);
+    EXPECT_EQ(linear->p2, p2);
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+    const ContourComponent* contour = it.contour();
+    ASSERT_NE(contour, nullptr);
+    ++it;
+
+    Point p1(100, 100);
+    EXPECT_EQ(contour->destination, p1);
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kQuadratic);
+    const QuadraticPathComponent* quad = it.quadratic();
+    ASSERT_NE(quad, nullptr);
+    ++it;
+
+    Point p1(100, 100);
+    Point cp(200, 200);
+    Point p2(300, 300);
+    EXPECT_EQ(quad->p1, p1);
+    EXPECT_EQ(quad->cp, cp);
+    EXPECT_EQ(quad->p2, p2);
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+    const ContourComponent* contour = it.contour();
+    ASSERT_NE(contour, nullptr);
+    ++it;
+
+    Point p1(100, 100);
+    EXPECT_EQ(contour->destination, p1);
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kConic);
+    const ConicPathComponent* conic = it.conic();
+    ASSERT_NE(conic, nullptr);
+    ++it;
+
+    Point p1(100, 100);
+    Point cp(200, 200);
+    Point p2(300, 300);
+    Point weight(0.75f, 0.75f);
+    EXPECT_EQ(conic->p1, p1);
+    EXPECT_EQ(conic->cp, cp);
+    EXPECT_EQ(conic->p2, p2);
+    EXPECT_EQ(conic->weight, weight);
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kContour);
+    const ContourComponent* contour = it.contour();
+    ASSERT_NE(contour, nullptr);
+    ++it;
+
+    Point p1(300, 300);
+    EXPECT_EQ(contour->destination, p1);
+    EXPECT_FALSE(contour->IsClosed());
+  }
+
+  {
+    ASSERT_EQ(it.type(), Path::ComponentType::kCubic);
+    const CubicPathComponent* cubic = it.cubic();
+    ASSERT_NE(cubic, nullptr);
+    ++it;
+
+    Point p1(300, 300);
+    Point cp1(400, 400);
+    Point cp2(500, 500);
+    Point p2(600, 600);
+    EXPECT_EQ(cubic->p1, p1);
+    EXPECT_EQ(cubic->cp1, cp1);
+    EXPECT_EQ(cubic->cp2, cp2);
+    EXPECT_EQ(cubic->p2, p2);
+  }
+
+  EXPECT_EQ(it, path.end());
+}
+
+TEST(PathTest, RepeatCloseDoesNotAddNewLines) {
+  PathBuilder builder;
+  auto path = builder.LineTo({0, 10})
+                  .LineTo({10, 10})
+                  .Close()  // Returns to (0, 0)
+                  .Close()  // No Op
+                  .Close()  // Still No op
+                  .TakePath();
+
+  EXPECT_EQ(path.GetComponentCount(), 5u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kLinear), 3u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kContour), 2u);
+}
+
+TEST(PathTest, CloseAfterMoveDoesNotAddNewLines) {
+  PathBuilder builder;
+  auto path = builder.LineTo({0, 10})
+                  .LineTo({10, 10})
+                  .MoveTo({30, 30})  // Moves to (30, 30)
+                  .Close()           // No Op
+                  .Close()           // Still No op
+                  .TakePath();
+
+  EXPECT_EQ(path.GetComponentCount(), 4u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kLinear), 2u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kContour), 2u);
+}
+
+TEST(PathTest, CloseAtOriginDoesNotAddNewLineSegment) {
+  PathBuilder builder;
+  // Create a path that has a current position at the origin when close is
+  // called. This should not insert a new line segment
+  auto path = builder.LineTo({10, 0})
+                  .LineTo({10, 10})
+                  .LineTo({0, 10})
+                  .LineTo({0, 0})
+                  .Close()
+                  .TakePath();
+
+  EXPECT_EQ(path.GetComponentCount(), 6u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kLinear), 4u);
+  EXPECT_EQ(path.GetComponentCount(Path::ComponentType::kContour), 2u);
 }
 
 TEST(PathTest, CanBeCloned) {
@@ -486,6 +914,154 @@ TEST(PathTest, CanBeCloned) {
   }
 }
 
+TEST(PathTest, FanTessellation) {
+  Path path = PathBuilder{}
+                  .AddRoundRect(RoundRect::MakeRectRadius(
+                      Rect::MakeLTRB(0, 0, 100, 100), 10))
+                  .TakePath();
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  FanVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(writer.GetIndexCount(), index_storage.size());
+  EXPECT_EQ(point_storage[0], Point(10, 0));
+}
+
+// Filled Paths without an explicit close should still be closed
+TEST(PathTest, FanTessellationUnclosedPath) {
+  // Create a rectangle that lacks an explicit close.
+  Path path = PathBuilder{}
+                  .LineTo({100, 0})
+                  .LineTo({100, 100})
+                  .LineTo({0, 100})
+                  .TakePath();
+
+  std::vector<Point> expected = {{0, 0},   {100, 0}, {100, 100},
+                                 {0, 100}, {0, 0},   {0, 0}};
+  std::vector<uint16_t> expected_indices = {0, 1, 2, 3, 0xFFFF, 0};
+
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  FanVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(index_storage, expected_indices);
+  EXPECT_EQ(point_storage, expected);
+}
+
+// Filled Paths without an explicit close should still be closed
+TEST(PathTest, StripTessellationUnclosedPath) {
+  // Create a rectangle that lacks an explicit close.
+  Path path = PathBuilder{}
+                  .LineTo({100, 0})
+                  .LineTo({100, 100})
+                  .LineTo({0, 100})
+                  .TakePath();
+
+  std::vector<Point> expected = {{0, 0},   {100, 0}, {100, 100},
+                                 {0, 100}, {0, 0},   {0, 0}};
+  std::vector<uint16_t> expected_indices = {0, 1, 3, 2, 0xFFFF, 0};
+
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  StripVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(index_storage, expected_indices);
+  EXPECT_EQ(point_storage, expected);
+}
+
+TEST(PathTest, FanTessellationMultiContour) {
+  PathBuilder builder{};
+  for (auto i = 0; i < 10; i++) {
+    builder.AddRoundRect(
+        RoundRect::MakeRectRadius(Rect::MakeLTRB(0 + i, 0 + i, 100, 100), 10));
+  }
+  auto path = builder.TakePath();
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  FanVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(writer.GetIndexCount(), index_storage.size());
+  EXPECT_EQ(point_storage[0], Point(10, 0));
+}
+
+TEST(PathTest, StripTessellation) {
+  Path path = PathBuilder{}
+                  .AddRoundRect(RoundRect::MakeRectRadius(
+                      Rect::MakeLTRB(0, 0, 100, 100), 10))
+                  .TakePath();
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  StripVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(writer.GetIndexCount(), index_storage.size());
+  EXPECT_EQ(point_storage[0], Point(10, 0));
+}
+
+TEST(PathTest, StripTessellationMultiContour) {
+  PathBuilder builder{};
+  for (auto i = 0; i < 10; i++) {
+    builder.AddRoundRect(
+        RoundRect::MakeRectRadius(Rect::MakeLTRB(0 + i, 0 + i, 100, 100), 10));
+  }
+  auto path = builder.TakePath();
+  auto [points, contours] = path.CountStorage(1.0);
+
+  std::vector<Point> point_storage(points);
+  std::vector<uint16_t> index_storage(points + (contours - 1));
+
+  StripVertexWriter writer(point_storage.data(), index_storage.data());
+  path.WritePolyline(1.0, writer);
+
+  EXPECT_LE(writer.GetIndexCount(), index_storage.size());
+  EXPECT_EQ(point_storage[0], Point(10, 0));
+}
+
+TEST(PathTest, PathBuilderAddPathBasher) {
+  PathBuilder test_path_builder;
+  test_path_builder.AddOval(Rect::MakeLTRB(10, 10, 50, 50));
+  Path test_path = test_path_builder.TakePath();
+  for (int i = 0; i < 2000; i++) {
+    PathBuilder path_builder;
+    for (int j = 0; j < 10; j++) {
+      path_builder.AddCircle(Point(50, 50), 25);
+      path_builder.AddOval(Rect::MakeLTRB(100, 100, 200, 200));
+      path_builder.AddPath(test_path);
+      path_builder.AddRect(Rect::MakeLTRB(50, 50, 75, 57));
+      path_builder.AddLine(Point(80, 70), Point(110, 95));
+      path_builder.AddArc(Rect::MakeLTRB(50, 50, 100, 100), Degrees(20),
+                          Degrees(100));
+      path_builder.AddRoundRect(RoundRect::MakeRectXY(
+          Rect::MakeLTRB(70, 70, 130, 130), Size(10, 10)));
+    }
+    Path test_path = path_builder.TakePath();
+    auto bounds = test_path.GetBoundingBox();
+    EXPECT_TRUE(bounds.has_value());
+    if (bounds.has_value()) {
+      EXPECT_EQ(bounds.value(), Rect::MakeLTRB(10, 10, 200, 200));
+    }
+  }
+}
+
 TEST(PathTest, PathBuilderDoesNotMutateCopiedPaths) {
   auto test_isolation =
       [](const std::function<void(PathBuilder & builder)>& mutator,
@@ -505,23 +1081,36 @@ TEST(PathTest, PathBuilderDoesNotMutateCopiedPaths) {
           } else {
             EXPECT_EQ(path.GetComponentCount(), 3u) << label;
           }
+          auto it = path.begin();
           {
-            ContourComponent contour;
-            EXPECT_TRUE(path.GetContourComponentAtIndex(0, contour)) << label;
-            EXPECT_EQ(contour.destination, offset + Point(10, 10)) << label;
-            EXPECT_EQ(contour.is_closed, is_closed) << label;
+            ASSERT_EQ(it.type(), Path::ComponentType::kContour) << label;
+            const ContourComponent* contour = it.contour();
+            ASSERT_NE(contour, nullptr) << label;
+            ++it;
+
+            EXPECT_EQ(contour->destination, offset + Point(10, 10)) << label;
+            EXPECT_EQ(contour->IsClosed(), is_closed) << label;
           }
           {
-            LinearPathComponent line;
-            EXPECT_TRUE(path.GetLinearComponentAtIndex(1, line)) << label;
-            EXPECT_EQ(line.p1, offset + Point(10, 10)) << label;
-            EXPECT_EQ(line.p2, offset + Point(20, 20)) << label;
+            ASSERT_EQ(it.type(), Path::ComponentType::kLinear) << label;
+            const LinearPathComponent* line = it.linear();
+            ASSERT_NE(line, nullptr) << label;
+            ++it;
+
+            EXPECT_EQ(line->p1, offset + Point(10, 10)) << label;
+            EXPECT_EQ(line->p2, offset + Point(20, 20)) << label;
           }
           {
-            LinearPathComponent line;
-            EXPECT_TRUE(path.GetLinearComponentAtIndex(2, line)) << label;
-            EXPECT_EQ(line.p1, offset + Point(20, 20)) << label;
-            EXPECT_EQ(line.p2, offset + Point(20, 10)) << label;
+            ASSERT_EQ(it.type(), Path::ComponentType::kLinear) << label;
+            const LinearPathComponent* line = it.linear();
+            ASSERT_NE(line, nullptr) << label;
+            ++it;
+
+            EXPECT_EQ(line->p1, offset + Point(20, 20)) << label;
+            EXPECT_EQ(line->p2, offset + Point(20, 10)) << label;
+          }
+          if (!is_mutated) {
+            EXPECT_EQ(it, path.end()) << label;
           }
         };
 
@@ -626,6 +1215,18 @@ TEST(PathTest, PathBuilderDoesNotMutateCopiedPaths) {
 
   test_isolation(
       [](PathBuilder& builder) {
+        builder.ConicCurveTo({20, 30}, {30, 20}, 0.75f, false);
+      },
+      false, {}, "Absolute ConicCurveTo");
+
+  test_isolation(
+      [](PathBuilder& builder) {
+        builder.ConicCurveTo({20, 30}, {30, 20}, 0.75f, true);
+      },
+      false, {}, "Relative ConicCurveTo");
+
+  test_isolation(
+      [](PathBuilder& builder) {
         builder.CubicCurveTo({20, 30}, {30, 20}, {30, 30}, false);
       },
       false, {}, "Absolute CubicCurveTo");
@@ -672,6 +1273,12 @@ TEST(PathTest, PathBuilderDoesNotMutateCopiedPaths) {
         builder.AddQuadraticCurve({100, 100}, {150, 100}, {150, 150});
       },
       false, {}, "AddQuadraticCurve");
+
+  test_isolation(
+      [](PathBuilder& builder) {
+        builder.AddConicCurve({100, 100}, {150, 100}, {150, 150}, 0.75f);
+      },
+      false, {}, "AddConicCurve");
 
   test_isolation(
       [](PathBuilder& builder) {

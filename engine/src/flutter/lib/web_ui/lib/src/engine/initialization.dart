@@ -4,7 +4,6 @@
 
 import 'dart:async';
 import 'dart:developer' as developer;
-import 'dart:js_interop';
 
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
@@ -13,17 +12,19 @@ import 'package:web_test_fonts/web_test_fonts.dart';
 
 /// The mode the app is running in.
 /// Keep these in sync with the same constants on the framework-side under foundation/constants.dart.
-const bool kReleaseMode =
-    bool.fromEnvironment('dart.vm.product');
+const bool kReleaseMode = bool.fromEnvironment('dart.vm.product');
+
 /// A constant that is true if the application was compiled in profile mode.
-const bool kProfileMode =
-    bool.fromEnvironment('dart.vm.profile');
+const bool kProfileMode = bool.fromEnvironment('dart.vm.profile');
+
 /// A constant that is true if the application was compiled in debug mode.
 const bool kDebugMode = !kReleaseMode && !kProfileMode;
+
 /// Returns mode of the app is running in as a string.
-String get buildMode => kReleaseMode
-    ? 'release'
-    : kProfileMode
+String get buildMode =>
+    kReleaseMode
+        ? 'release'
+        : kProfileMode
         ? 'profile'
         : 'debug';
 
@@ -115,14 +116,14 @@ void debugResetEngineInitializationState() {
 ///    puts UI elements on the page.
 Future<void> initializeEngineServices({
   ui_web.AssetManager? assetManager,
-  JsFlutterConfiguration? jsConfiguration
+  JsFlutterConfiguration? jsConfiguration,
 }) async {
   if (_initializationState != DebugEngineInitializationState.uninitialized) {
     assert(() {
       throw StateError(
         'Invalid engine initialization state. `initializeEngineServices` was '
         'called, but the engine has already started initialization and is '
-        'currently in state "$_initializationState".'
+        'currently in state "$_initializationState".',
       );
     }());
     return;
@@ -139,67 +140,23 @@ Future<void> initializeEngineServices({
   //
   // This extension does not need to clean-up Dart statics. Those are cleaned
   // up by the compiler.
-  developer.registerExtension('ext.flutter.disassemble', (_, __) {
+  developer.registerExtension('ext.flutter.disassemble', (_, _) {
     for (final ui.VoidCallback listener in _hotRestartListeners) {
       listener();
     }
     return Future<developer.ServiceExtensionResponse>.value(
-        developer.ServiceExtensionResponse.result('OK'));
+      developer.ServiceExtensionResponse.result('OK'),
+    );
   });
 
   if (Profiler.isBenchmarkMode) {
     Profiler.ensureInitialized();
   }
 
-  bool waitingForAnimation = false;
-  scheduleFrameCallback = () {
-    // We're asked to schedule a frame and call `frameHandler` when the frame
-    // fires.
-    if (!waitingForAnimation) {
-      waitingForAnimation = true;
-      domWindow.requestAnimationFrame((JSNumber highResTime) {
-        FrameTimingRecorder.recordCurrentFrameVsync();
-
-        // In Flutter terminology "building a frame" consists of "beginning
-        // frame" and "drawing frame".
-        //
-        // We do not call `recordBuildFinish` from here because
-        // part of the rasterization process, particularly in the HTML
-        // renderer, takes place in the `SceneBuilder.build()`.
-        FrameTimingRecorder.recordCurrentFrameBuildStart();
-
-        // Reset immediately, because `frameHandler` can schedule more frames.
-        waitingForAnimation = false;
-
-        // We have to convert high-resolution time to `int` so we can construct
-        // a `Duration` out of it. However, high-res time is supplied in
-        // milliseconds as a double value, with sub-millisecond information
-        // hidden in the fraction. So we first multiply it by 1000 to uncover
-        // microsecond precision, and only then convert to `int`.
-        final int highResTimeMicroseconds =
-            (1000 * highResTime.toDartDouble).toInt();
-
-        if (EnginePlatformDispatcher.instance.onBeginFrame != null) {
-          EnginePlatformDispatcher.instance.invokeOnBeginFrame(
-              Duration(microseconds: highResTimeMicroseconds));
-        }
-
-        if (EnginePlatformDispatcher.instance.onDrawFrame != null) {
-          // TODO(yjbanov): technically Flutter flushes microtasks between
-          //                onBeginFrame and onDrawFrame. We don't, which hasn't
-          //                been an issue yet, but eventually we'll have to
-          //                implement it properly. (Also see the to-do in
-          //                `EnginePlatformDispatcher.scheduleWarmUpFrame`).
-          EnginePlatformDispatcher.instance.invokeOnDrawFrame();
-        }
-      });
-    }
-  };
-
   assetManager ??= ui_web.AssetManager(assetBase: configuration.assetBase);
   _setAssetManager(assetManager);
 
-  Future<void> initializeRendererCallback () async => renderer.initialize();
+  Future<void> initializeRendererCallback() async => renderer.initialize();
   await Future.wait<void>(<Future<void>>[initializeRendererCallback(), _downloadAssetFonts()]);
   _initializationState = DebugEngineInitializationState.initializedServices;
 }
@@ -219,22 +176,21 @@ Future<void> initializeEngineUi() async {
         'called while the engine initialization state was '
         '"$_initializationState". `initializeEngineUi` can only be called '
         'when the engine is in state '
-        '"${DebugEngineInitializationState.initializedServices}".'
+        '"${DebugEngineInitializationState.initializedServices}".',
       );
     }());
     return;
   }
   _initializationState = DebugEngineInitializationState.initializingUi;
 
-  RawKeyboard.initialize(onMacOs: operatingSystem == OperatingSystem.macOs);
+  RawKeyboard.initialize(onMacOs: ui_web.browser.operatingSystem == ui_web.OperatingSystem.macOs);
   KeyboardBinding.initInstance();
 
+  // Ensures Flutter renders a global "generator" meta-tag.
+  ensureMetaTag('generator', 'Flutter');
+
   if (!configuration.multiViewEnabled) {
-    final EngineFlutterWindow implicitView =
-        ensureImplicitViewInitialized(hostElement: configuration.hostElement);
-    if (renderer is HtmlRenderer) {
-      ensureResourceManagerInitialized(implicitView);
-    }
+    ensureImplicitViewInitialized(hostElement: configuration.hostElement);
   }
   _initializationState = DebugEngineInitializationState.initialized;
 }
@@ -261,7 +217,7 @@ Future<void> _downloadAssetFonts() async {
     // the embedded test font is the default (first) font.
     await renderer.fontCollection.loadFontFromList(
       EmbeddedTestFont.flutterTest.data,
-      fontFamily: EmbeddedTestFont.flutterTest.fontFamily
+      fontFamily: EmbeddedTestFont.flutterTest.fontFamily,
     );
   }
 

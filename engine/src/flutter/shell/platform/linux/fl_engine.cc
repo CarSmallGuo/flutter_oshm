@@ -4,28 +4,29 @@
 
 #include "flutter/shell/platform/linux/public/flutter_linux/fl_engine.h"
 
+#include <epoxy/egl.h>
 #include <gmodule.h>
 
 #include <cstring>
-#include <string>
-#include <vector>
 
 #include "flutter/common/constants.h"
-#include "flutter/shell/platform/common/app_lifecycle_state.h"
 #include "flutter/shell/platform/common/engine_switches.h"
 #include "flutter/shell/platform/embedder/embedder.h"
 #include "flutter/shell/platform/linux/fl_binary_messenger_private.h"
+#include "flutter/shell/platform/linux/fl_compositor_opengl.h"
 #include "flutter/shell/platform/linux/fl_dart_project_private.h"
+#include "flutter/shell/platform/linux/fl_display_monitor.h"
 #include "flutter/shell/platform/linux/fl_engine_private.h"
+#include "flutter/shell/platform/linux/fl_keyboard_handler.h"
+#include "flutter/shell/platform/linux/fl_opengl_manager.h"
 #include "flutter/shell/platform/linux/fl_pixel_buffer_texture_private.h"
+#include "flutter/shell/platform/linux/fl_platform_handler.h"
 #include "flutter/shell/platform/linux/fl_plugin_registrar_private.h"
-#include "flutter/shell/platform/linux/fl_renderer.h"
-#include "flutter/shell/platform/linux/fl_renderer_headless.h"
-#include "flutter/shell/platform/linux/fl_settings_plugin.h"
+#include "flutter/shell/platform/linux/fl_settings_handler.h"
 #include "flutter/shell/platform/linux/fl_texture_gl_private.h"
 #include "flutter/shell/platform/linux/fl_texture_registrar_private.h"
+#include "flutter/shell/platform/linux/fl_windowing_handler.h"
 #include "flutter/shell/platform/linux/public/flutter_linux/fl_plugin_registry.h"
-#include "flutter/shell/platform/linux/public/flutter_linux/fl_string_codec.h"
 
 // Unique number associated with platform tasks.
 static constexpr size_t kPlatformTaskRunnerIdentifier = 1;
@@ -35,44 +36,84 @@ static constexpr size_t kPlatformTaskRunnerIdentifier = 1;
 static constexpr int32_t kMousePointerDeviceId = 0;
 static constexpr int32_t kPointerPanZoomDeviceId = 1;
 
-static constexpr const char* kFlutterLifecycleChannel = "flutter/lifecycle";
-
 struct _FlEngine {
   GObject parent_instance;
 
   // Thread the GLib main loop is running on.
   GThread* thread;
 
+  // The project this engine is running.
   FlDartProject* project;
-  FlRenderer* renderer;
+
+  // Watches for monitors changes to update engine.
+  FlDisplayMonitor* display_monitor;
+
+  // Renders the Flutter app.
+  FlCompositor* compositor;
+
+  // Manages OpenGL contexts.
+  FlOpenGLManager* opengl_manager;
+
+  // Messenger used to send and receive platform messages.
   FlBinaryMessenger* binary_messenger;
-  FlSettingsPlugin* settings_plugin;
+
+  // Implements the flutter/settings channel.
+  FlSettingsHandler* settings_handler;
+
+  // Implements the flutter/platform channel.
+  FlPlatformHandler* platform_handler;
+
+  // Implements the flutter/windowing channel.
+  FlWindowingHandler* windowing_handler;
+
+  // Process keyboard events.
+  FlKeyboardManager* keyboard_manager;
+
+  // Implements the flutter/textinput channel.
+  FlTextInputHandler* text_input_handler;
+
+  // Implements the flutter/keyboard channel.
+  FlKeyboardHandler* keyboard_handler;
+
+  // Implements the flutter/mousecursor channel.
+  FlMouseCursorHandler* mouse_cursor_handler;
+
+  // Manages textures rendered by native code.
   FlTextureRegistrar* texture_registrar;
+
+  // Schedules tasks to be run on the appropriate thread.
   FlTaskRunner* task_runner;
+
+  // Ahead of time data used to make engine run faster.
   FlutterEngineAOTData aot_data;
+
+  // The Flutter engine.
   FLUTTER_API_SYMBOL(FlutterEngine) engine;
+
+  // Function table for engine API, used to intercept engine calls for testing
+  // purposes.
   FlutterEngineProcTable embedder_api;
+
+  // Next ID to use for a view.
+  FlutterViewId next_view_id;
+
+  // Objects rendering the views.
+  GHashTable* renderables_by_view_id;
 
   // Function to call when a platform message is received.
   FlEnginePlatformMessageHandler platform_message_handler;
   gpointer platform_message_handler_data;
   GDestroyNotify platform_message_handler_destroy_notify;
-
-  // Function to call when a semantic node is received.
-  FlEngineUpdateSemanticsHandler update_semantics_handler;
-  gpointer update_semantics_handler_data;
-  GDestroyNotify update_semantics_handler_destroy_notify;
-
-  // Function to call right before the engine is restarted.
-  FlEngineOnPreEngineRestartHandler on_pre_engine_restart_handler;
-  gpointer on_pre_engine_restart_handler_data;
-  GDestroyNotify on_pre_engine_restart_handler_destroy_notify;
 };
 
 G_DEFINE_QUARK(fl_engine_error_quark, fl_engine_error)
 
 static void fl_engine_plugin_registry_iface_init(
     FlPluginRegistryInterface* iface);
+
+enum { SIGNAL_ON_PRE_ENGINE_RESTART, SIGNAL_UPDATE_SEMANTICS, LAST_SIGNAL };
+
+static guint fl_engine_signals[LAST_SIGNAL];
 
 G_DEFINE_TYPE_WITH_CODE(
     FlEngine,
@@ -81,7 +122,7 @@ G_DEFINE_TYPE_WITH_CODE(
     G_IMPLEMENT_INTERFACE(fl_plugin_registry_get_type(),
                           fl_engine_plugin_registry_iface_init))
 
-enum { kProp0, kPropBinaryMessenger, kPropLast };
+enum { PROP_0, PROP_BINARY_MESSENGER, PROP_LAST };
 
 // Parse a locale into its components.
 static void parse_locale(const gchar* locale,
@@ -127,47 +168,72 @@ static void parse_locale(const gchar* locale,
   }
 }
 
-static void set_app_lifecycle_state(FlEngine* self,
-                                    const flutter::AppLifecycleState state) {
-  FlBinaryMessenger* binary_messenger = fl_engine_get_binary_messenger(self);
+static void view_added_cb(const FlutterAddViewResult* result) {
+  g_autoptr(GTask) task = G_TASK(result->user_data);
 
-  g_autoptr(FlValue) value =
-      fl_value_new_string(flutter::AppLifecycleStateToString(state));
-  g_autoptr(FlStringCodec) codec = fl_string_codec_new();
-  g_autoptr(GBytes) message =
-      fl_message_codec_encode_message(FL_MESSAGE_CODEC(codec), value, nullptr);
-
-  if (message == nullptr) {
-    return;
+  if (result->added) {
+    g_task_return_boolean(task, TRUE);
+  } else {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "Failed to add view");
   }
+}
 
-  fl_binary_messenger_send_on_channel(binary_messenger,
-                                      kFlutterLifecycleChannel, message,
-                                      nullptr, nullptr, nullptr);
+static void view_removed_cb(const FlutterRemoveViewResult* result) {
+  g_autoptr(GTask) task = G_TASK(result->user_data);
+
+  if (result->removed) {
+    g_task_return_boolean(task, TRUE);
+  } else {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "Failed to remove view");
+  }
+}
+
+static void free_locale(FlutterLocale* locale) {
+  free(const_cast<gchar*>(locale->language_code));
+  free(const_cast<gchar*>(locale->country_code));
+  free(locale);
 }
 
 // Passes locale information to the Flutter engine.
 static void setup_locales(FlEngine* self) {
   const gchar* const* languages = g_get_language_names();
-  g_autoptr(GPtrArray) locales_array = g_ptr_array_new_with_free_func(g_free);
-  // Helper array to take ownership of the strings passed to Flutter.
-  g_autoptr(GPtrArray) locale_strings = g_ptr_array_new_with_free_func(g_free);
+  g_autoptr(GPtrArray) locales_array = g_ptr_array_new_with_free_func(
+      reinterpret_cast<GDestroyNotify>(free_locale));
   for (int i = 0; languages[i] != nullptr; i++) {
-    gchar *language, *territory;
-    parse_locale(languages[i], &language, &territory, nullptr, nullptr);
-    if (language != nullptr) {
-      g_ptr_array_add(locale_strings, language);
+    g_autofree gchar* locale_string = g_strstrip(g_strdup(languages[i]));
+
+    // Ignore empty locales, caused by settings like `LANGUAGE=pt_BR:`
+    if (strcmp(locale_string, "") == 0) {
+      continue;
     }
-    if (territory != nullptr) {
-      g_ptr_array_add(locale_strings, territory);
+
+    g_autofree gchar* language = nullptr;
+    g_autofree gchar* territory = nullptr;
+    parse_locale(locale_string, &language, &territory, nullptr, nullptr);
+
+    // Ignore duplicate locales, caused by settings like `LANGUAGE=C` (returns
+    // two "C") or `LANGUAGE=en:en`
+    gboolean has_locale = FALSE;
+    for (guint j = 0; !has_locale && j < locales_array->len; j++) {
+      FlutterLocale* locale =
+          reinterpret_cast<FlutterLocale*>(g_ptr_array_index(locales_array, j));
+      has_locale = g_strcmp0(locale->language_code, language) == 0 &&
+                   g_strcmp0(locale->country_code, territory) == 0;
+    }
+    if (has_locale) {
+      continue;
     }
 
     FlutterLocale* locale =
         static_cast<FlutterLocale*>(g_malloc0(sizeof(FlutterLocale)));
     g_ptr_array_add(locales_array, locale);
     locale->struct_size = sizeof(FlutterLocale);
-    locale->language_code = language;
-    locale->country_code = territory;
+    locale->language_code =
+        reinterpret_cast<const gchar*>(g_steal_pointer(&language));
+    locale->country_code =
+        reinterpret_cast<const gchar*>(g_steal_pointer(&territory));
     locale->script_code = nullptr;
     locale->variant_code = nullptr;
   }
@@ -186,61 +252,59 @@ static bool compositor_create_backing_store_callback(
     const FlutterBackingStoreConfig* config,
     FlutterBackingStore* backing_store_out,
     void* user_data) {
-  g_return_val_if_fail(FL_IS_RENDERER(user_data), false);
-  return fl_renderer_create_backing_store(FL_RENDERER(user_data), config,
-                                          backing_store_out);
+  FlEngine* self = static_cast<FlEngine*>(user_data);
+  return fl_compositor_create_backing_store(self->compositor, config,
+                                            backing_store_out);
 }
 
 // Called when the backing store is to be released.
 static bool compositor_collect_backing_store_callback(
-    const FlutterBackingStore* renderer,
+    const FlutterBackingStore* backing_store,
     void* user_data) {
-  g_return_val_if_fail(FL_IS_RENDERER(user_data), false);
-  return fl_renderer_collect_backing_store(FL_RENDERER(user_data), renderer);
+  FlEngine* self = static_cast<FlEngine*>(user_data);
+  return fl_compositor_collect_backing_store(self->compositor, backing_store);
 }
 
 // Called when embedder should composite contents of each layer onto the screen.
-static bool compositor_present_layers_callback(const FlutterLayer** layers,
-                                               size_t layers_count,
-                                               void* user_data) {
-  g_return_val_if_fail(FL_IS_RENDERER(user_data), false);
-  return fl_renderer_present_layers(FL_RENDERER(user_data), layers,
-                                    layers_count);
+static bool compositor_present_view_callback(
+    const FlutterPresentViewInfo* info) {
+  FlEngine* self = static_cast<FlEngine*>(info->user_data);
+  return fl_compositor_present_layers(self->compositor, info->view_id,
+                                      info->layers, info->layers_count);
 }
 
 // Flutter engine rendering callbacks.
 
 static void* fl_engine_gl_proc_resolver(void* user_data, const char* name) {
-  FlEngine* self = static_cast<FlEngine*>(user_data);
-  return fl_renderer_get_proc_address(self->renderer, name);
+  return reinterpret_cast<void*>(eglGetProcAddress(name));
 }
 
 static bool fl_engine_gl_make_current(void* user_data) {
   FlEngine* self = static_cast<FlEngine*>(user_data);
-  fl_renderer_make_current(self->renderer);
+  fl_opengl_manager_make_current(self->opengl_manager);
   return true;
 }
 
 static bool fl_engine_gl_clear_current(void* user_data) {
   FlEngine* self = static_cast<FlEngine*>(user_data);
-  fl_renderer_clear_current(self->renderer);
+  fl_opengl_manager_clear_current(self->opengl_manager);
   return true;
 }
 
 static uint32_t fl_engine_gl_get_fbo(void* user_data) {
-  FlEngine* self = static_cast<FlEngine*>(user_data);
-  return fl_renderer_get_fbo(self->renderer);
+  // There is only one frame buffer object - always return that.
+  return 0;
 }
 
 static bool fl_engine_gl_present(void* user_data) {
   // No action required, as this is handled in
-  // compositor_present_layers_callback.
+  // compositor_present_view_callback.
   return true;
 }
 
 static bool fl_engine_gl_make_resource_current(void* user_data) {
   FlEngine* self = static_cast<FlEngine*>(user_data);
-  fl_renderer_make_resource_current(self->renderer);
+  fl_opengl_manager_make_resource_current(self->opengl_manager);
   return true;
 }
 
@@ -297,7 +361,7 @@ static void fl_engine_post_task(FlutterTask task,
                                 void* user_data) {
   FlEngine* self = static_cast<FlEngine*>(user_data);
 
-  fl_task_runner_post_task(self->task_runner, task, target_time_nanos);
+  fl_task_runner_post_flutter_task(self->task_runner, task, target_time_nanos);
 }
 
 // Called when a platform message is received from the engine.
@@ -325,9 +389,25 @@ static void fl_engine_update_semantics_cb(const FlutterSemanticsUpdate2* update,
                                           void* user_data) {
   FlEngine* self = FL_ENGINE(user_data);
 
-  if (self->update_semantics_handler != nullptr) {
-    self->update_semantics_handler(self, update,
-                                   self->update_semantics_handler_data);
+  g_signal_emit(self, fl_engine_signals[SIGNAL_UPDATE_SEMANTICS], 0, update);
+}
+
+static void setup_keyboard(FlEngine* self) {
+  g_clear_object(&self->keyboard_manager);
+  self->keyboard_manager = fl_keyboard_manager_new(self);
+
+  g_clear_object(&self->keyboard_handler);
+  self->keyboard_handler =
+      fl_keyboard_handler_new(self->binary_messenger, self->keyboard_manager);
+
+  GtkWidget* widget =
+      self->text_input_handler != nullptr
+          ? fl_text_input_handler_get_widget(self->text_input_handler)
+          : nullptr;
+  g_clear_object(&self->text_input_handler);
+  self->text_input_handler = fl_text_input_handler_new(self->binary_messenger);
+  if (widget != nullptr) {
+    fl_text_input_handler_set_widget(self->text_input_handler, widget);
   }
 }
 
@@ -339,10 +419,9 @@ static void fl_engine_update_semantics_cb(const FlutterSemanticsUpdate2* update,
 static void fl_engine_on_pre_engine_restart_cb(void* user_data) {
   FlEngine* self = FL_ENGINE(user_data);
 
-  if (self->on_pre_engine_restart_handler != nullptr) {
-    self->on_pre_engine_restart_handler(
-        self, self->on_pre_engine_restart_handler_data);
-  }
+  setup_keyboard(self);
+
+  g_signal_emit(self, fl_engine_signals[SIGNAL_ON_PRE_ENGINE_RESTART], 0);
 }
 
 // Called when a response to a sent platform message is received from the
@@ -376,7 +455,7 @@ static void fl_engine_set_property(GObject* object,
                                    GParamSpec* pspec) {
   FlEngine* self = FL_ENGINE(object);
   switch (prop_id) {
-    case kPropBinaryMessenger:
+    case PROP_BINARY_MESSENGER:
       g_set_object(&self->binary_messenger,
                    FL_BINARY_MESSENGER(g_value_get_object(value)));
       break;
@@ -399,12 +478,24 @@ static void fl_engine_dispose(GObject* object) {
     self->aot_data = nullptr;
   }
 
+  fl_binary_messenger_shutdown(self->binary_messenger);
+  fl_texture_registrar_shutdown(self->texture_registrar);
+
   g_clear_object(&self->project);
-  g_clear_object(&self->renderer);
+  g_clear_object(&self->display_monitor);
+  g_clear_object(&self->compositor);
+  g_clear_object(&self->opengl_manager);
   g_clear_object(&self->texture_registrar);
   g_clear_object(&self->binary_messenger);
-  g_clear_object(&self->settings_plugin);
+  g_clear_object(&self->settings_handler);
+  g_clear_object(&self->platform_handler);
+  g_clear_object(&self->windowing_handler);
+  g_clear_object(&self->keyboard_manager);
+  g_clear_object(&self->text_input_handler);
+  g_clear_object(&self->keyboard_handler);
+  g_clear_object(&self->mouse_cursor_handler);
   g_clear_object(&self->task_runner);
+  g_clear_pointer(&self->renderables_by_view_id, g_hash_table_unref);
 
   if (self->platform_message_handler_destroy_notify) {
     self->platform_message_handler_destroy_notify(
@@ -412,20 +503,6 @@ static void fl_engine_dispose(GObject* object) {
   }
   self->platform_message_handler_data = nullptr;
   self->platform_message_handler_destroy_notify = nullptr;
-
-  if (self->update_semantics_handler_destroy_notify) {
-    self->update_semantics_handler_destroy_notify(
-        self->update_semantics_handler_data);
-  }
-  self->update_semantics_handler_data = nullptr;
-  self->update_semantics_handler_destroy_notify = nullptr;
-
-  if (self->on_pre_engine_restart_handler_destroy_notify) {
-    self->on_pre_engine_restart_handler_destroy_notify(
-        self->on_pre_engine_restart_handler_data);
-  }
-  self->on_pre_engine_restart_handler_data = nullptr;
-  self->on_pre_engine_restart_handler_destroy_notify = nullptr;
 
   G_OBJECT_CLASS(fl_engine_parent_class)->dispose(object);
 }
@@ -435,43 +512,106 @@ static void fl_engine_class_init(FlEngineClass* klass) {
   G_OBJECT_CLASS(klass)->set_property = fl_engine_set_property;
 
   g_object_class_install_property(
-      G_OBJECT_CLASS(klass), kPropBinaryMessenger,
+      G_OBJECT_CLASS(klass), PROP_BINARY_MESSENGER,
       g_param_spec_object(
           "binary-messenger", "messenger", "Binary messenger",
           fl_binary_messenger_get_type(),
           static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY |
                                    G_PARAM_STATIC_STRINGS)));
+
+  fl_engine_signals[SIGNAL_ON_PRE_ENGINE_RESTART] = g_signal_new(
+      "on-pre-engine-restart", fl_engine_get_type(), G_SIGNAL_RUN_LAST, 0,
+      nullptr, nullptr, nullptr, G_TYPE_NONE, 0);
+  fl_engine_signals[SIGNAL_UPDATE_SEMANTICS] = g_signal_new(
+      "update-semantics", fl_engine_get_type(), G_SIGNAL_RUN_LAST, 0, nullptr,
+      nullptr, nullptr, G_TYPE_NONE, 1, G_TYPE_POINTER);
 }
 
 static void fl_engine_init(FlEngine* self) {
   self->thread = g_thread_self();
 
   self->embedder_api.struct_size = sizeof(FlutterEngineProcTable);
-  FlutterEngineGetProcAddresses(&self->embedder_api);
+  if (FlutterEngineGetProcAddresses(&self->embedder_api) != kSuccess) {
+    g_warning("Failed get get engine function pointers");
+  }
+
+  self->opengl_manager = fl_opengl_manager_new();
+
+  self->display_monitor =
+      fl_display_monitor_new(self, gdk_display_get_default());
+  self->task_runner = fl_task_runner_new(self);
+
+  // Implicit view is 0, so start at 1.
+  self->next_view_id = 1;
+  self->renderables_by_view_id = g_hash_table_new_full(
+      g_direct_hash, g_direct_equal, nullptr, [](gpointer value) {
+        GWeakRef* ref = static_cast<GWeakRef*>(value);
+        g_weak_ref_clear(ref);
+        free(ref);
+      });
 
   self->texture_registrar = fl_texture_registrar_new(self);
 }
 
-FlEngine* fl_engine_new(FlDartProject* project, FlRenderer* renderer) {
+static FlEngine* fl_engine_new_full(FlDartProject* project,
+                                    FlBinaryMessenger* binary_messenger) {
   g_return_val_if_fail(FL_IS_DART_PROJECT(project), nullptr);
-  g_return_val_if_fail(FL_IS_RENDERER(renderer), nullptr);
 
   FlEngine* self = FL_ENGINE(g_object_new(fl_engine_get_type(), nullptr));
+
   self->project = FL_DART_PROJECT(g_object_ref(project));
-  self->renderer = FL_RENDERER(g_object_ref(renderer));
-  self->binary_messenger = fl_binary_messenger_new(self);
+  self->compositor = FL_COMPOSITOR(fl_compositor_opengl_new(self));
+  if (binary_messenger != nullptr) {
+    self->binary_messenger =
+        FL_BINARY_MESSENGER(g_object_ref(binary_messenger));
+  } else {
+    self->binary_messenger = fl_binary_messenger_new(self);
+  }
+  self->keyboard_manager = fl_keyboard_manager_new(self);
+  self->mouse_cursor_handler =
+      fl_mouse_cursor_handler_new(self->binary_messenger);
+  self->windowing_handler = fl_windowing_handler_new(self);
+
   return self;
 }
 
+FlEngine* fl_engine_for_id(int64_t id) {
+  void* engine = reinterpret_cast<void*>(id);
+  g_return_val_if_fail(FL_IS_ENGINE(engine), nullptr);
+  return FL_ENGINE(engine);
+}
+
+G_MODULE_EXPORT FlEngine* fl_engine_new(FlDartProject* project) {
+  return fl_engine_new_full(project, nullptr);
+}
+
+FlEngine* fl_engine_new_with_binary_messenger(
+    FlBinaryMessenger* binary_messenger) {
+  g_autoptr(FlDartProject) project = fl_dart_project_new();
+  return fl_engine_new_full(project, binary_messenger);
+}
+
 G_MODULE_EXPORT FlEngine* fl_engine_new_headless(FlDartProject* project) {
-  g_autoptr(FlRendererHeadless) renderer = fl_renderer_headless_new();
-  return fl_engine_new(project, FL_RENDERER(renderer));
+  return fl_engine_new(project);
+}
+
+FlCompositor* fl_engine_get_compositor(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->compositor;
+}
+
+FlOpenGLManager* fl_engine_get_opengl_manager(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->opengl_manager;
+}
+
+FlDisplayMonitor* fl_engine_get_display_monitor(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->display_monitor;
 }
 
 gboolean fl_engine_start(FlEngine* self, GError** error) {
   g_return_val_if_fail(FL_IS_ENGINE(self), FALSE);
-
-  self->task_runner = fl_task_runner_new(self);
 
   FlutterRendererConfig config = {};
   config.type = kOpenGL;
@@ -496,13 +636,13 @@ gboolean fl_engine_start(FlEngine* self, GError** error) {
   FlutterCustomTaskRunners custom_task_runners = {};
   custom_task_runners.struct_size = sizeof(FlutterCustomTaskRunners);
   custom_task_runners.platform_task_runner = &platform_task_runner;
-  custom_task_runners.render_task_runner = &platform_task_runner;
 
-  g_autoptr(GPtrArray) command_line_args = fl_engine_get_switches(self);
-  // FlutterProjectArgs expects a full argv, so when processing it for flags
-  // the first item is treated as the executable and ignored. Add a dummy value
-  // so that all switches are used.
+  g_autoptr(GPtrArray) command_line_args =
+      g_ptr_array_new_with_free_func(g_free);
   g_ptr_array_insert(command_line_args, 0, g_strdup("flutter"));
+  for (const auto& env_switch : flutter::GetSwitchesFromEnvironment()) {
+    g_ptr_array_add(command_line_args, g_strdup(env_switch.c_str()));
+  }
 
   gchar** dart_entrypoint_args =
       fl_dart_project_get_dart_entrypoint_arguments(self->project);
@@ -523,15 +663,16 @@ gboolean fl_engine_start(FlEngine* self, GError** error) {
       dart_entrypoint_args != nullptr ? g_strv_length(dart_entrypoint_args) : 0;
   args.dart_entrypoint_argv =
       reinterpret_cast<const char* const*>(dart_entrypoint_args);
+  args.engine_id = reinterpret_cast<int64_t>(self);
 
   FlutterCompositor compositor = {};
   compositor.struct_size = sizeof(FlutterCompositor);
-  compositor.user_data = self->renderer;
+  compositor.user_data = self;
   compositor.create_backing_store_callback =
       compositor_create_backing_store_callback;
   compositor.collect_backing_store_callback =
       compositor_collect_backing_store_callback;
-  compositor.present_layers_callback = compositor_present_layers_callback;
+  compositor.present_view_callback = compositor_present_view_callback;
   args.compositor = &compositor;
 
   if (self->embedder_api.RunsAOTCompiledDartCode()) {
@@ -565,19 +706,143 @@ gboolean fl_engine_start(FlEngine* self, GError** error) {
   setup_locales(self);
 
   g_autoptr(FlSettings) settings = fl_settings_new();
-  self->settings_plugin = fl_settings_plugin_new(self);
-  fl_settings_plugin_start(self->settings_plugin, settings);
+  self->settings_handler = fl_settings_handler_new(self);
+  fl_settings_handler_start(self->settings_handler, settings);
+
+  self->platform_handler = fl_platform_handler_new(self->binary_messenger);
+
+  setup_keyboard(self);
 
   result = self->embedder_api.UpdateSemanticsEnabled(self->engine, TRUE);
   if (result != kSuccess) {
     g_warning("Failed to enable accessibility features on Flutter engine");
   }
 
+  fl_display_monitor_start(self->display_monitor);
+
   return TRUE;
 }
 
 FlutterEngineProcTable* fl_engine_get_embedder_api(FlEngine* self) {
   return &(self->embedder_api);
+}
+
+void fl_engine_notify_display_update(FlEngine* self,
+                                     const FlutterEngineDisplay* displays,
+                                     size_t displays_length) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  FlutterEngineResult result = self->embedder_api.NotifyDisplayUpdate(
+      self->engine, kFlutterEngineDisplaysUpdateTypeStartup, displays,
+      displays_length);
+  if (result != kSuccess) {
+    g_warning("Failed to notify display update to Flutter engine: %d", result);
+  }
+}
+
+void fl_engine_set_implicit_view(FlEngine* self, FlRenderable* renderable) {
+  GWeakRef* ref = g_new(GWeakRef, 1);
+  g_weak_ref_init(ref, G_OBJECT(renderable));
+  g_hash_table_insert(self->renderables_by_view_id,
+                      GINT_TO_POINTER(flutter::kFlutterImplicitViewId), ref);
+}
+
+FlutterViewId fl_engine_add_view(FlEngine* self,
+                                 FlRenderable* renderable,
+                                 size_t width,
+                                 size_t height,
+                                 double pixel_ratio,
+                                 GCancellable* cancellable,
+                                 GAsyncReadyCallback callback,
+                                 gpointer user_data) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), -1);
+
+  g_autoptr(GTask) task = g_task_new(self, cancellable, callback, user_data);
+
+  FlutterViewId view_id = self->next_view_id;
+  self->next_view_id++;
+
+  GWeakRef* ref = g_new(GWeakRef, 1);
+  g_weak_ref_init(ref, G_OBJECT(renderable));
+  g_hash_table_insert(self->renderables_by_view_id, GINT_TO_POINTER(view_id),
+                      ref);
+
+  // We don't know which display this view will open on, so set to zero and this
+  // will be updated in a following FlutterWindowMetricsEvent
+  FlutterEngineDisplayId display_id = 0;
+
+  FlutterWindowMetricsEvent metrics;
+  metrics.struct_size = sizeof(FlutterWindowMetricsEvent);
+  metrics.width = width;
+  metrics.height = height;
+  metrics.pixel_ratio = pixel_ratio;
+  metrics.display_id = display_id;
+  metrics.view_id = view_id;
+  FlutterAddViewInfo info;
+  info.struct_size = sizeof(FlutterAddViewInfo);
+  info.view_id = view_id;
+  info.view_metrics = &metrics;
+  info.user_data = g_object_ref(task);
+  info.add_view_callback = view_added_cb;
+  FlutterEngineResult result = self->embedder_api.AddView(self->engine, &info);
+  if (result != kSuccess) {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "AddView returned %d",
+                            result);
+    // This would have been done in the callback, but that won't occur now.
+    g_object_unref(task);
+  }
+
+  return view_id;
+}
+
+gboolean fl_engine_add_view_finish(FlEngine* self,
+                                   GAsyncResult* result,
+                                   GError** error) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), FALSE);
+  return g_task_propagate_boolean(G_TASK(result), error);
+}
+
+FlRenderable* fl_engine_get_renderable(FlEngine* self, FlutterViewId view_id) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+
+  GWeakRef* ref = static_cast<GWeakRef*>(g_hash_table_lookup(
+      self->renderables_by_view_id, GINT_TO_POINTER(view_id)));
+  return FL_RENDERABLE(g_weak_ref_get(ref));
+}
+
+void fl_engine_remove_view(FlEngine* self,
+                           FlutterViewId view_id,
+                           GCancellable* cancellable,
+                           GAsyncReadyCallback callback,
+                           gpointer user_data) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  g_hash_table_remove(self->renderables_by_view_id, GINT_TO_POINTER(view_id));
+
+  g_autoptr(GTask) task = g_task_new(self, cancellable, callback, user_data);
+
+  FlutterRemoveViewInfo info;
+  info.struct_size = sizeof(FlutterRemoveViewInfo);
+  info.view_id = view_id;
+  info.user_data = g_object_ref(task);
+  info.remove_view_callback = view_removed_cb;
+  FlutterEngineResult result =
+      self->embedder_api.RemoveView(self->engine, &info);
+  if (result != kSuccess) {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "RemoveView returned %d",
+                            result);
+    // This would have been done in the callback, but that won't occur now.
+    g_object_unref(task);
+  }
+}
+
+gboolean fl_engine_remove_view_finish(FlEngine* self,
+                                      GAsyncResult* result,
+                                      GError** error) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), FALSE);
+  return g_task_propagate_boolean(G_TASK(result), error);
 }
 
 void fl_engine_set_platform_message_handler(
@@ -596,40 +861,6 @@ void fl_engine_set_platform_message_handler(
   self->platform_message_handler = handler;
   self->platform_message_handler_data = user_data;
   self->platform_message_handler_destroy_notify = destroy_notify;
-}
-
-void fl_engine_set_update_semantics_handler(
-    FlEngine* self,
-    FlEngineUpdateSemanticsHandler handler,
-    gpointer user_data,
-    GDestroyNotify destroy_notify) {
-  g_return_if_fail(FL_IS_ENGINE(self));
-
-  if (self->update_semantics_handler_destroy_notify) {
-    self->update_semantics_handler_destroy_notify(
-        self->update_semantics_handler_data);
-  }
-
-  self->update_semantics_handler = handler;
-  self->update_semantics_handler_data = user_data;
-  self->update_semantics_handler_destroy_notify = destroy_notify;
-}
-
-void fl_engine_set_on_pre_engine_restart_handler(
-    FlEngine* self,
-    FlEngineOnPreEngineRestartHandler handler,
-    gpointer user_data,
-    GDestroyNotify destroy_notify) {
-  g_return_if_fail(FL_IS_ENGINE(self));
-
-  if (self->on_pre_engine_restart_handler_destroy_notify) {
-    self->on_pre_engine_restart_handler_destroy_notify(
-        self->on_pre_engine_restart_handler_data);
-  }
-
-  self->on_pre_engine_restart_handler = handler;
-  self->on_pre_engine_restart_handler_data = user_data;
-  self->on_pre_engine_restart_handler_destroy_notify = destroy_notify;
 }
 
 // Note: This function can be called from any thread.
@@ -733,19 +964,9 @@ GBytes* fl_engine_send_platform_message_finish(FlEngine* self,
   return static_cast<GBytes*>(g_task_propagate_pointer(G_TASK(result), error));
 }
 
-void fl_engine_send_window_state_event(FlEngine* self,
-                                       gboolean visible,
-                                       gboolean focused) {
-  if (visible && focused) {
-    set_app_lifecycle_state(self, flutter::AppLifecycleState::kResumed);
-  } else if (visible) {
-    set_app_lifecycle_state(self, flutter::AppLifecycleState::kInactive);
-  } else {
-    set_app_lifecycle_state(self, flutter::AppLifecycleState::kHidden);
-  }
-}
-
 void fl_engine_send_window_metrics_event(FlEngine* self,
+                                         FlutterEngineDisplayId display_id,
+                                         FlutterViewId view_id,
                                          size_t width,
                                          size_t height,
                                          double pixel_ratio) {
@@ -760,18 +981,18 @@ void fl_engine_send_window_metrics_event(FlEngine* self,
   event.width = width;
   event.height = height;
   event.pixel_ratio = pixel_ratio;
-  // TODO(dkwingsmt): Assign the correct view ID once the Linux embedder
-  // supports multiple views.
-  // https://github.com/flutter/flutter/issues/138178
-  event.view_id = flutter::kFlutterImplicitViewId;
+  event.display_id = display_id;
+  event.view_id = view_id;
   self->embedder_api.SendWindowMetricsEvent(self->engine, &event);
 }
 
 void fl_engine_send_mouse_pointer_event(FlEngine* self,
+                                        FlutterViewId view_id,
                                         FlutterPointerPhase phase,
                                         size_t timestamp,
                                         double x,
                                         double y,
+                                        FlutterPointerDeviceKind device_kind,
                                         double scroll_delta_x,
                                         double scroll_delta_y,
                                         int64_t buttons) {
@@ -792,17 +1013,145 @@ void fl_engine_send_mouse_pointer_event(FlEngine* self,
   }
   fl_event.scroll_delta_x = scroll_delta_x;
   fl_event.scroll_delta_y = scroll_delta_y;
-  fl_event.device_kind = kFlutterPointerDeviceKindMouse;
+  fl_event.device_kind = device_kind;
   fl_event.buttons = buttons;
   fl_event.device = kMousePointerDeviceId;
-  // TODO(dkwingsmt): Assign the correct view ID once the Linux embedder
-  // supports multiple views.
-  // https://github.com/flutter/flutter/issues/138178
-  fl_event.view_id = flutter::kFlutterImplicitViewId;
+  fl_event.view_id = view_id;
   self->embedder_api.SendPointerEvent(self->engine, &fl_event, 1);
 }
 
+void fl_engine_send_touch_up_event(FlEngine* self,
+                                   FlutterViewId view_id,
+                                   size_t timestamp,
+                                   double x,
+                                   double y,
+                                   int32_t device) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  if (self->engine == nullptr) {
+    return;
+  }
+
+  FlutterPointerEvent event;
+  event.timestamp = timestamp;
+  event.x = x;
+  event.y = y;
+  event.device_kind = kFlutterPointerDeviceKindTouch;
+  event.device = device;
+  event.buttons = 0;
+  event.view_id = view_id;
+  event.phase = FlutterPointerPhase::kUp;
+  event.struct_size = sizeof(event);
+
+  self->embedder_api.SendPointerEvent(self->engine, &event, 1);
+}
+
+void fl_engine_send_touch_down_event(FlEngine* self,
+                                     FlutterViewId view_id,
+                                     size_t timestamp,
+                                     double x,
+                                     double y,
+                                     int32_t device) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  if (self->engine == nullptr) {
+    return;
+  }
+
+  FlutterPointerEvent event;
+  event.timestamp = timestamp;
+  event.x = x;
+  event.y = y;
+  event.device_kind = kFlutterPointerDeviceKindTouch;
+  event.device = device;
+  event.buttons = FlutterPointerMouseButtons::kFlutterPointerButtonMousePrimary;
+  event.view_id = view_id;
+  event.phase = FlutterPointerPhase::kDown;
+  event.struct_size = sizeof(event);
+
+  self->embedder_api.SendPointerEvent(self->engine, &event, 1);
+}
+
+void fl_engine_send_touch_move_event(FlEngine* self,
+                                     FlutterViewId view_id,
+                                     size_t timestamp,
+                                     double x,
+                                     double y,
+                                     int32_t device) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  if (self->engine == nullptr) {
+    return;
+  }
+
+  FlutterPointerEvent event;
+  event.timestamp = timestamp;
+  event.x = x;
+  event.y = y;
+  event.device_kind = kFlutterPointerDeviceKindTouch;
+  event.device = device;
+  event.buttons = FlutterPointerMouseButtons::kFlutterPointerButtonMousePrimary;
+  event.view_id = view_id;
+  event.phase = FlutterPointerPhase::kMove;
+  event.struct_size = sizeof(event);
+
+  self->embedder_api.SendPointerEvent(self->engine, &event, 1);
+}
+
+void fl_engine_send_touch_add_event(FlEngine* self,
+                                    FlutterViewId view_id,
+                                    size_t timestamp,
+                                    double x,
+                                    double y,
+                                    int32_t device) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  if (self->engine == nullptr) {
+    return;
+  }
+
+  FlutterPointerEvent event;
+  event.timestamp = timestamp;
+  event.x = x;
+  event.y = y;
+  event.device_kind = kFlutterPointerDeviceKindTouch;
+  event.device = device;
+  event.buttons = 0;
+  event.view_id = view_id;
+  event.phase = FlutterPointerPhase::kAdd;
+  event.struct_size = sizeof(event);
+
+  self->embedder_api.SendPointerEvent(self->engine, &event, 1);
+}
+
+void fl_engine_send_touch_remove_event(FlEngine* self,
+                                       FlutterViewId view_id,
+                                       size_t timestamp,
+                                       double x,
+                                       double y,
+                                       int32_t device) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+
+  if (self->engine == nullptr) {
+    return;
+  }
+
+  FlutterPointerEvent event;
+  event.timestamp = timestamp;
+  event.x = x;
+  event.y = y;
+  event.device_kind = kFlutterPointerDeviceKindTouch;
+  event.device = device;
+  event.buttons = 0;
+  event.view_id = view_id;
+  event.phase = FlutterPointerPhase::kRemove;
+  event.struct_size = sizeof(event);
+
+  self->embedder_api.SendPointerEvent(self->engine, &event, 1);
+}
+
 void fl_engine_send_pointer_pan_zoom_event(FlEngine* self,
+                                           FlutterViewId view_id,
                                            size_t timestamp,
                                            double x,
                                            double y,
@@ -829,28 +1178,60 @@ void fl_engine_send_pointer_pan_zoom_event(FlEngine* self,
   fl_event.rotation = rotation;
   fl_event.device = kPointerPanZoomDeviceId;
   fl_event.device_kind = kFlutterPointerDeviceKindTrackpad;
-  // TODO(dkwingsmt): Assign the correct view ID once the Linux embedder
-  // supports multiple views.
-  // https://github.com/flutter/flutter/issues/138178
-  fl_event.view_id = flutter::kFlutterImplicitViewId;
+  fl_event.view_id = view_id;
   self->embedder_api.SendPointerEvent(self->engine, &fl_event, 1);
+}
+
+static void send_key_event_cb(bool handled, void* user_data) {
+  g_autoptr(GTask) task = G_TASK(user_data);
+  gboolean* return_value = g_new0(gboolean, 1);
+  *return_value = handled;
+  g_task_return_pointer(task, return_value, g_free);
 }
 
 void fl_engine_send_key_event(FlEngine* self,
                               const FlutterKeyEvent* event,
-                              FlutterKeyEventCallback callback,
-                              void* user_data) {
+                              GCancellable* cancellable,
+                              GAsyncReadyCallback callback,
+                              gpointer user_data) {
   g_return_if_fail(FL_IS_ENGINE(self));
 
+  g_autoptr(GTask) task = g_task_new(self, cancellable, callback, user_data);
+
   if (self->engine == nullptr) {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "No engine");
     return;
   }
 
-  self->embedder_api.SendKeyEvent(self->engine, event, callback, user_data);
+  if (self->embedder_api.SendKeyEvent(self->engine, event, send_key_event_cb,
+                                      g_object_ref(task)) != kSuccess) {
+    g_task_return_new_error(task, fl_engine_error_quark(),
+                            FL_ENGINE_ERROR_FAILED, "Failed to send key event");
+    g_object_unref(task);
+  }
+}
+
+gboolean fl_engine_send_key_event_finish(FlEngine* self,
+                                         GAsyncResult* result,
+                                         gboolean* handled,
+                                         GError** error) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), FALSE);
+  g_return_val_if_fail(g_task_is_valid(result, self), FALSE);
+
+  g_autofree gboolean* return_value =
+      static_cast<gboolean*>(g_task_propagate_pointer(G_TASK(result), error));
+  if (return_value == nullptr) {
+    return FALSE;
+  }
+
+  *handled = *return_value;
+  return TRUE;
 }
 
 void fl_engine_dispatch_semantics_action(FlEngine* self,
-                                         uint64_t id,
+                                         FlutterViewId view_id,
+                                         uint64_t node_id,
                                          FlutterSemanticsAction action,
                                          GBytes* data) {
   g_return_if_fail(FL_IS_ENGINE(self));
@@ -866,8 +1247,14 @@ void fl_engine_dispatch_semantics_action(FlEngine* self,
         g_bytes_get_data(data, &action_data_length));
   }
 
-  self->embedder_api.DispatchSemanticsAction(self->engine, id, action,
-                                             action_data, action_data_length);
+  FlutterSendSemanticsActionInfo info;
+  info.struct_size = sizeof(FlutterSendSemanticsActionInfo);
+  info.view_id = view_id;
+  info.node_id = node_id;
+  info.action = action;
+  info.data = action_data;
+  info.data_length = action_data_length;
+  self->embedder_api.SendSemanticsAction(self->engine, &info);
 }
 
 gboolean fl_engine_mark_texture_frame_available(FlEngine* self,
@@ -924,10 +1311,27 @@ void fl_engine_update_accessibility_features(FlEngine* self, int32_t flags) {
       self->engine, static_cast<FlutterAccessibilityFeature>(flags));
 }
 
-GPtrArray* fl_engine_get_switches(FlEngine* self) {
-  GPtrArray* switches = g_ptr_array_new_with_free_func(g_free);
-  for (const auto& env_switch : flutter::GetSwitchesFromEnvironment()) {
-    g_ptr_array_add(switches, g_strdup(env_switch.c_str()));
-  }
-  return switches;
+void fl_engine_request_app_exit(FlEngine* self) {
+  g_return_if_fail(FL_IS_ENGINE(self));
+  fl_platform_handler_request_app_exit(self->platform_handler);
+}
+
+FlWindowingHandler* fl_engine_get_windowing_handler(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->windowing_handler;
+}
+
+FlKeyboardManager* fl_engine_get_keyboard_manager(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->keyboard_manager;
+}
+
+FlTextInputHandler* fl_engine_get_text_input_handler(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->text_input_handler;
+}
+
+FlMouseCursorHandler* fl_engine_get_mouse_cursor_handler(FlEngine* self) {
+  g_return_val_if_fail(FL_IS_ENGINE(self), nullptr);
+  return self->mouse_cursor_handler;
 }

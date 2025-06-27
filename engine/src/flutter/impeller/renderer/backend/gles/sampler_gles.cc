@@ -6,29 +6,31 @@
 
 #include "impeller/base/validation.h"
 #include "impeller/core/formats.h"
+#include "impeller/core/sampler_descriptor.h"
 #include "impeller/renderer/backend/gles/formats_gles.h"
 #include "impeller/renderer/backend/gles/proc_table_gles.h"
 #include "impeller/renderer/backend/gles/texture_gles.h"
 
 namespace impeller {
 
-SamplerGLES::SamplerGLES(SamplerDescriptor desc) : Sampler(std::move(desc)) {}
+SamplerGLES::SamplerGLES(const SamplerDescriptor& desc) : Sampler(desc) {}
 
 SamplerGLES::~SamplerGLES() = default;
 
-static GLint ToParam(MinMagFilter minmag_filter,
-                     std::optional<MipFilter> mip_filter = std::nullopt) {
-  if (!mip_filter.has_value()) {
-    switch (minmag_filter) {
-      case MinMagFilter::kNearest:
-        return GL_NEAREST;
-      case MinMagFilter::kLinear:
-        return GL_LINEAR;
-    }
-    FML_UNREACHABLE();
+static GLint ToParam(MinMagFilter minmag_filter) {
+  switch (minmag_filter) {
+    case MinMagFilter::kNearest:
+      return GL_NEAREST;
+    case MinMagFilter::kLinear:
+      return GL_LINEAR;
   }
+  FML_UNREACHABLE();
+}
 
-  switch (mip_filter.value()) {
+static GLint ToParam(MinMagFilter minmag_filter, MipFilter mip_filter) {
+  switch (mip_filter) {
+    case MipFilter::kBase:
+      return ToParam(minmag_filter);
     case MipFilter::kNearest:
       switch (minmag_filter) {
         case MinMagFilter::kNearest:
@@ -80,16 +82,20 @@ bool SamplerGLES::ConfigureBoundTexture(const TextureGLES& texture,
   if (!target.has_value()) {
     return false;
   }
-  const auto& desc = GetDescriptor();
+  const SamplerDescriptor& desc = GetDescriptor();
 
-  std::optional<MipFilter> mip_filter = std::nullopt;
+  GLint mag_filter = ToParam(desc.mag_filter);
+
+  // If the texture doesn't have mipmaps, we can't use mip filtering.
+  GLint min_filter;
   if (texture.GetTextureDescriptor().mip_count > 1) {
-    mip_filter = desc.mip_filter;
+    min_filter = ToParam(desc.min_filter, desc.mip_filter);
+  } else {
+    min_filter = ToParam(desc.min_filter);
   }
 
-  gl.TexParameteri(*target, GL_TEXTURE_MIN_FILTER,
-                   ToParam(desc.min_filter, mip_filter));
-  gl.TexParameteri(*target, GL_TEXTURE_MAG_FILTER, ToParam(desc.mag_filter));
+  gl.TexParameteri(*target, GL_TEXTURE_MIN_FILTER, min_filter);
+  gl.TexParameteri(*target, GL_TEXTURE_MAG_FILTER, mag_filter);
 
   const auto supports_decal_mode =
       gl.GetCapabilities()->SupportsDecalSamplerAddressMode();

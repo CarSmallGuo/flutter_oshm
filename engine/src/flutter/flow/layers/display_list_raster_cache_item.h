@@ -5,6 +5,8 @@
 #ifndef FLUTTER_FLOW_LAYERS_DISPLAY_LIST_RASTER_CACHE_ITEM_H_
 #define FLUTTER_FLOW_LAYERS_DISPLAY_LIST_RASTER_CACHE_ITEM_H_
 
+#if !SLIMPELLER
+
 #include <memory>
 #include <optional>
 
@@ -29,10 +31,10 @@ class DisplayListRasterCacheItem : public RasterCacheItem {
       bool is_complex,
       bool will_change);
 
-  void PrerollSetup(PrerollContext* context, const SkMatrix& matrix) override;
+  void PrerollSetup(PrerollContext* context, const DlMatrix& matrix) override;
 
   void PrerollFinalize(PrerollContext* context,
-                       const SkMatrix& matrix) override;
+                       const DlMatrix& matrix) override;
 
   bool Draw(const PaintContext& context, const DlPaint* paint) const override;
 
@@ -58,5 +60,11 @@ class DisplayListRasterCacheItem : public RasterCacheItem {
 };
 
 }  // namespace flutter
+
+#else  // !SLIMPELLER
+
+class DisplayListRasterCacheItem;
+
+#endif  // !SLIMPELLER
 
 #endif  // FLUTTER_FLOW_LAYERS_DISPLAY_LIST_RASTER_CACHE_ITEM_H_

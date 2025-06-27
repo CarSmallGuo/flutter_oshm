@@ -3,17 +3,15 @@
 // found in the LICENSE file.
 
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
 const String kCanvasContainerTag = 'flt-canvas-container';
 
-typedef RenderResult = ({
-  List<DomImageBitmap> imageBitmaps,
-  int rasterStartMicros,
-  int rasterEndMicros,
-});
+typedef RenderResult =
+    ({List<DomImageBitmap> imageBitmaps, int rasterStartMicros, int rasterEndMicros});
 
 // This is an interface that renders a `ScenePicture` as a `DomImageBitmap`.
 // It is optionally asynchronous. It is required for the `EngineSceneView` to
@@ -24,11 +22,7 @@ abstract class PictureRenderer {
 }
 
 class _SceneRender {
-  _SceneRender(
-    this.scene,
-    this._completer, {
-    this.recorder,
-  }) {
+  _SceneRender(this.scene, this._completer, {this.recorder}) {
     scene.beginRender();
   }
 
@@ -44,7 +38,7 @@ class _SceneRender {
 
 // This class builds a DOM tree that composites an `EngineScene`.
 class EngineSceneView {
-  factory EngineSceneView(PictureRenderer pictureRenderer, ui.FlutterView flutterView) {
+  factory EngineSceneView(PictureRenderer pictureRenderer, EngineFlutterView flutterView) {
     final DomElement sceneElement = createDomElement('flt-scene');
     return EngineSceneView._(pictureRenderer, flutterView, sceneElement);
   }
@@ -53,12 +47,15 @@ class EngineSceneView {
 
   final PictureRenderer pictureRenderer;
   final DomElement sceneElement;
-  final ui.FlutterView flutterView;
+  final EngineFlutterView flutterView;
 
   List<SliceContainer> containers = <SliceContainer>[];
 
   _SceneRender? _currentRender;
   _SceneRender? _nextRender;
+
+  // Only populated in debug mode.
+  _SceneRender? _previousRender;
 
   Future<void> renderScene(EngineScene scene, FrameTimingRecorder? recorder) {
     if (_currentRender != null) {
@@ -78,7 +75,7 @@ class EngineSceneView {
   Future<void> _kickRenderLoop() async {
     final _SceneRender current = _currentRender!;
     await _renderScene(current.scene, current.recorder);
-    current.done();
+    _renderComplete(current);
     _currentRender = _nextRender;
     _nextRender = null;
     if (_currentRender == null) {
@@ -95,23 +92,24 @@ class EngineSceneView {
       flutterView.physicalSize.width,
       flutterView.physicalSize.height,
     );
-    final List<LayerSlice> slices = scene.rootLayer.slices;
+    final List<LayerSlice?> slices = scene.rootLayer.slices;
     final List<ScenePicture> picturesToRender = <ScenePicture>[];
     final List<ScenePicture> originalPicturesToRender = <ScenePicture>[];
-    for (final LayerSlice slice in slices) {
-      if (slice is PictureSlice) {
-        final ui.Rect clippedRect = slice.picture.cullRect.intersect(screenBounds);
-        if (clippedRect.isEmpty) {
-          // This picture is completely offscreen, so don't render it at all
-          continue;
-        } else if (clippedRect == slice.picture.cullRect) {
-          // The picture doesn't need to be clipped, just render the original
-          originalPicturesToRender.add(slice.picture);
-          picturesToRender.add(slice.picture);
-        } else {
-          originalPicturesToRender.add(slice.picture);
-          picturesToRender.add(pictureRenderer.clipPicture(slice.picture, clippedRect));
-        }
+    for (final LayerSlice? slice in slices) {
+      if (slice == null) {
+        continue;
+      }
+      final ui.Rect clippedRect = slice.picture.cullRect.intersect(screenBounds);
+      if (clippedRect.isEmpty) {
+        // This picture is completely offscreen, so don't render it at all
+        continue;
+      } else if (clippedRect == slice.picture.cullRect) {
+        // The picture doesn't need to be clipped, just render the original
+        originalPicturesToRender.add(slice.picture);
+        picturesToRender.add(slice.picture);
+      } else {
+        originalPicturesToRender.add(slice.picture);
+        picturesToRender.add(pictureRenderer.clipPicture(slice.picture, clippedRect));
       }
     }
     final Map<ScenePicture, DomImageBitmap> renderMap;
@@ -132,58 +130,58 @@ class EngineSceneView {
 
     final List<SliceContainer?> reusableContainers = List<SliceContainer?>.from(containers);
     final List<SliceContainer> newContainers = <SliceContainer>[];
-    for (final LayerSlice slice in slices) {
-      switch (slice) {
-        case PictureSlice():
-          final DomImageBitmap? bitmap = renderMap[slice.picture];
-          if (bitmap == null) {
-            // We didn't render this slice because no part of it is visible.
-            continue;
+    for (final LayerSlice? slice in slices) {
+      if (slice == null) {
+        continue;
+      }
+      final DomImageBitmap? bitmap = renderMap[slice.picture];
+      if (bitmap != null) {
+        PictureSliceContainer? container;
+        for (int j = 0; j < reusableContainers.length; j++) {
+          final SliceContainer? candidate = reusableContainers[j];
+          if (candidate is PictureSliceContainer) {
+            container = candidate;
+            reusableContainers[j] = null;
+            break;
           }
-          PictureSliceContainer? container;
-          for (int j = 0; j < reusableContainers.length; j++) {
-            final SliceContainer? candidate = reusableContainers[j];
-            if (candidate is PictureSliceContainer) {
-              container = candidate;
-              reusableContainers[j] = null;
-              break;
-            }
-          }
+        }
 
-          final ui.Rect clippedBounds = slice.picture.cullRect.intersect(screenBounds);
-          if (container != null) {
-            container.bounds = clippedBounds;
-          } else {
-            container = PictureSliceContainer(clippedBounds);
-          }
-          container.updateContents();
-          container.renderBitmap(bitmap);
-          newContainers.add(container);
+        final ui.Rect clippedBounds = slice.picture.cullRect.intersect(screenBounds);
+        if (container != null) {
+          container.bounds = clippedBounds;
+        } else {
+          container = PictureSliceContainer(clippedBounds);
+        }
+        container.updateContents();
+        container.renderBitmap(bitmap);
+        newContainers.add(container);
+      }
 
-        case PlatformViewSlice():
-          for (final PlatformView view in slice.views) {
-            // TODO(harryterkelsen): Inject the FlutterView instance from `renderScene`,
-            // instead of using `EnginePlatformDispatcher...implicitView` directly,
-            // or make the FlutterView "register" like in canvaskit.
-            // Ensure the platform view contents are injected in the DOM.
-            EnginePlatformDispatcher.instance.implicitView?.dom.injectPlatformView(view.viewId);
+      for (final PlatformView view in slice.platformViews) {
+        // Ensure the contents of the platform view are injected into the DOM.
+        flutterView.dom.injectPlatformView(view.viewId);
 
-            // Attempt to reuse a container for the existing view
-            PlatformViewContainer? container;
-            for (int j = 0; j < reusableContainers.length; j++) {
-              final SliceContainer? candidate = reusableContainers[j];
-              if (candidate is PlatformViewContainer && candidate.viewId == view.viewId) {
-                container = candidate;
-                reusableContainers[j] = null;
-                break;
-              }
-            }
-            container ??= PlatformViewContainer(view.viewId);
-            container.size = view.size;
-            container.styling = view.styling;
-            container.updateContents();
-            newContainers.add(container);
+        // Attempt to reuse a container for the existing view
+        PlatformViewContainer? container;
+        for (int j = 0; j < reusableContainers.length; j++) {
+          final SliceContainer? candidate = reusableContainers[j];
+          if (candidate is PlatformViewContainer && candidate.viewId == view.viewId) {
+            container = candidate;
+            reusableContainers[j] = null;
+            break;
           }
+        }
+        container ??= PlatformViewContainer(view.viewId);
+        container.bounds = view.bounds;
+        container.styling = view.styling;
+        container.updateContents();
+        newContainers.add(container);
+      }
+    }
+
+    for (final SliceContainer? container in reusableContainers) {
+      if (container != null) {
+        sceneElement.removeChild(container.container);
       }
     }
 
@@ -199,12 +197,36 @@ class EngineSceneView {
         sceneElement.insertBefore(container.container, currentElement);
       }
     }
+  }
 
-    // Remove any other unused containers
-    while (currentElement != null) {
-      final DomElement? sibling = currentElement.nextElementSibling;
-      sceneElement.removeChild(currentElement);
-      currentElement = sibling;
+  void _renderComplete(_SceneRender render) {
+    render.done();
+    if (kDebugMode) {
+      _previousRender = render;
+    }
+  }
+
+  String _generateDebugFilename() {
+    final now = DateTime.now();
+    final String y = now.year.toString().padLeft(4, '0');
+    final String mo = now.month.toString().padLeft(2, '0');
+    final String d = now.day.toString().padLeft(2, '0');
+    final String h = now.hour.toString().padLeft(2, '0');
+    final String mi = now.minute.toString().padLeft(2, '0');
+    final String s = now.second.toString().padLeft(2, '0');
+    return 'flutter-scene-$y-$mo-$d-$h-$mi-$s.json';
+  }
+
+  void dumpDebugInfo() {
+    if (kDebugMode && _previousRender != null) {
+      final Map<String, Object?> debugJson = _previousRender!.scene.debugJsonDescription;
+      final String jsonString = jsonEncode(debugJson);
+      final blob = createDomBlob([jsonString], {'type': 'application/json'});
+      final url = domWindow.URL.createObjectURL(blob);
+      final element = domDocument.createElement('a');
+      element.setAttribute('href', url);
+      element.setAttribute('download', _generateDebugFilename());
+      element.click();
     }
   }
 }
@@ -218,9 +240,9 @@ sealed class SliceContainer {
 final class PictureSliceContainer extends SliceContainer {
   factory PictureSliceContainer(ui.Rect bounds) {
     final DomElement container = domDocument.createElement(kCanvasContainerTag);
-    final DomCanvasElement canvas = createDomCanvasElement(
+    final DomHTMLCanvasElement canvas = createDomCanvasElement(
       width: bounds.width.toInt(),
-      height: bounds.height.toInt()
+      height: bounds.height.toInt(),
     );
     container.appendChild(canvas);
     return PictureSliceContainer._(bounds, container, canvas);
@@ -248,7 +270,7 @@ final class PictureSliceContainer extends SliceContainer {
         bounds.left.floorToDouble(),
         bounds.top.floorToDouble(),
         bounds.right.ceilToDouble(),
-        bounds.bottom.ceilToDouble()
+        bounds.bottom.ceilToDouble(),
       );
       final DomCSSStyleDeclaration style = canvas.style;
       final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
@@ -267,25 +289,34 @@ final class PictureSliceContainer extends SliceContainer {
   }
 
   void renderBitmap(DomImageBitmap bitmap) {
-    final DomCanvasRenderingContextBitmapRenderer ctx = canvas.contextBitmapRenderer;
+    final DomImageBitmapRenderingContext ctx = canvas.contextBitmapRenderer;
     ctx.transferFromImageBitmap(bitmap);
   }
 
   @override
   final DomElement container;
-  final DomCanvasElement canvas;
+  final DomHTMLCanvasElement canvas;
 }
 
 final class PlatformViewContainer extends SliceContainer {
-  PlatformViewContainer(this.viewId) : container = createPlatformViewSlot(viewId);
+  PlatformViewContainer(this.viewId)
+    : container = createDomElement('flt-clip'),
+      slot = createPlatformViewSlot(viewId) {
+    container.appendChild(slot);
+  }
 
   final int viewId;
   PlatformViewStyling? _styling;
-  ui.Size? _size;
+  ui.Rect? _bounds;
   bool _dirty = false;
+
+  ui.Path? _clipPath;
+  String? _clipPathString;
 
   @override
   final DomElement container;
+
+  final DomElement slot;
 
   set styling(PlatformViewStyling styling) {
     if (_styling != styling) {
@@ -294,37 +325,98 @@ final class PlatformViewContainer extends SliceContainer {
     }
   }
 
-  set size(ui.Size size) {
-    if (_size != size) {
-      _size = size;
+  set bounds(ui.Rect bounds) {
+    if (_bounds != bounds) {
+      _bounds = bounds;
       _dirty = true;
     }
   }
 
+  set clipPath(ScenePath? path) {
+    if (_clipPath == path) {
+      return;
+    }
+
+    _clipPath = path;
+    _clipPathString = path?.toSvgString();
+  }
+
+  String cssStringForClip(PlatformViewClip clip, double devicePixelRatio) {
+    switch (clip) {
+      case PlatformViewNoClip():
+        clipPath = null;
+        return '';
+      case PlatformViewRectClip():
+        clipPath = null;
+        final double top = clip.rect.top / devicePixelRatio;
+        final double right = clip.rect.right / devicePixelRatio;
+        final double bottom = clip.rect.bottom / devicePixelRatio;
+        final double left = clip.rect.left / devicePixelRatio;
+        return 'rect(${top}px ${right}px ${bottom}px ${left}px)';
+      case PlatformViewRRectClip():
+        clipPath = null;
+        final double top = clip.rrect.top / devicePixelRatio;
+        final double right = clip.rrect.right / devicePixelRatio;
+        final double bottom = clip.rrect.bottom / devicePixelRatio;
+        final double left = clip.rrect.left / devicePixelRatio;
+        final double tlRadiusX = clip.rrect.tlRadiusX / devicePixelRatio;
+        final double tlRadiusY = clip.rrect.tlRadiusY / devicePixelRatio;
+        final double trRadiusX = clip.rrect.trRadiusX / devicePixelRatio;
+        final double trRadiusY = clip.rrect.trRadiusY / devicePixelRatio;
+        final double brRadiusX = clip.rrect.brRadiusX / devicePixelRatio;
+        final double brRadiusY = clip.rrect.brRadiusY / devicePixelRatio;
+        final double blRadiusX = clip.rrect.blRadiusX / devicePixelRatio;
+        final double blRadiusY = clip.rrect.blRadiusY / devicePixelRatio;
+        return 'rect(${top}px ${right}px ${bottom}px ${left}px round ${tlRadiusX}px ${trRadiusX}px ${brRadiusX}px ${blRadiusX}px / ${tlRadiusY}px ${trRadiusY}px ${brRadiusY}px ${blRadiusY}px)';
+      case PlatformViewPathClip():
+        ScenePath path = clip.path;
+        if (devicePixelRatio != 1.0) {
+          final dprTransform = Matrix4.identity()..scale(1 / devicePixelRatio);
+          path = path.transform(dprTransform.toFloat64()) as ScenePath;
+        }
+        clipPath = path;
+        return "path('$_clipPathString')";
+    }
+  }
 
   @override
   void updateContents() {
     assert(_styling != null);
-    assert(_size != null);
+    assert(_bounds != null);
     if (_dirty) {
-      final DomCSSStyleDeclaration style = container.style;
-      final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
-      final double logicalWidth = _size!.width / devicePixelRatio;
-      final double logicalHeight = _size!.height / devicePixelRatio;
-      style.width = '${logicalWidth}px';
-      style.height = '${logicalHeight}px';
+      final DomCSSStyleDeclaration style = slot.style;
       style.position = 'absolute';
+      style.width = '${_bounds!.width}px';
+      style.height = '${_bounds!.height}px';
 
-      final ui.Offset? offset = _styling!.position.offset;
-      final double logicalLeft = (offset?.dx ?? 0) / devicePixelRatio;
-      final double logicalTop = (offset?.dy ?? 0) / devicePixelRatio;
-      style.left = '${logicalLeft}px';
-      style.top = '${logicalTop}px';
+      final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
+      final PlatformViewPosition position = _styling!.position;
 
-      final Matrix4? transform = _styling!.position.transform;
-      style.transform = transform != null ? float64ListToCssTransform3d(transform.storage) : '';
+      final Matrix4 transform;
+      if (position.transform != null) {
+        transform = position.transform!.clone()..translate(_bounds!.left, _bounds!.top);
+      } else {
+        final ui.Offset offset = position.offset ?? ui.Offset.zero;
+        transform = Matrix4.translationValues(
+          _bounds!.left + offset.dx,
+          _bounds!.top + offset.dy,
+          0,
+        );
+      }
+      final double inverseScale = 1.0 / devicePixelRatio;
+      final Matrix4 scaleMatrix = Matrix4.diagonal3Values(inverseScale, inverseScale, 1);
+      scaleMatrix.multiply(transform);
+      style.transform = float64ListToCssTransform(scaleMatrix.storage);
+      style.transformOrigin = '0 0 0';
       style.opacity = _styling!.opacity != 1.0 ? '${_styling!.opacity}' : '';
-      // TODO(jacksongardner): Implement clip styling for platform views
+
+      final DomCSSStyleDeclaration containerStyle = container.style;
+      containerStyle.position = 'absolute';
+      containerStyle.width = '100%';
+      containerStyle.height = '100%';
+
+      final String clipPathString = cssStringForClip(_styling!.clip, devicePixelRatio);
+      containerStyle.clipPath = clipPathString;
 
       _dirty = false;
     }

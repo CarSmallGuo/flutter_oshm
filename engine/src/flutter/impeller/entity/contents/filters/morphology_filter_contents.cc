@@ -59,8 +59,7 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
   }
 
   if (radius_.radius < kEhCloseEnough) {
-    return Entity::FromSnapshot(input_snapshot.value(), entity.GetBlendMode(),
-                                entity.GetClipDepth());
+    return Entity::FromSnapshot(input_snapshot.value(), entity.GetBlendMode());
   }
 
   auto maybe_input_uvs = input_snapshot->GetCoverageUVs(coverage);
@@ -77,13 +76,12 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
                                                  RenderPass& pass) {
     auto& host_buffer = renderer.GetTransientsBuffer();
 
-    VertexBufferBuilder<VS::PerVertexData> vtx_builder;
-    vtx_builder.AddVertices({
-        {Point(0, 0), input_uvs[0]},
-        {Point(1, 0), input_uvs[1]},
-        {Point(0, 1), input_uvs[2]},
-        {Point(1, 1), input_uvs[3]},
-    });
+    std::array<VS::PerVertexData, 4> vertices = {
+        VS::PerVertexData{Point(0, 0), input_uvs[0]},
+        VS::PerVertexData{Point(1, 0), input_uvs[1]},
+        VS::PerVertexData{Point(0, 1), input_uvs[2]},
+        VS::PerVertexData{Point(1, 1), input_uvs[3]},
+    };
 
     VS::FrameInfo frame_info;
     frame_info.mvp = Matrix::MakeOrthographic(ISize(1, 1));
@@ -115,9 +113,9 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
     pass.SetCommandLabel("Morphology Filter");
     auto options = OptionsFromPass(pass);
     options.primitive_type = PrimitiveType::kTriangleStrip;
-    options.blend_mode = BlendMode::kSource;
+    options.blend_mode = BlendMode::kSrc;
     pass.SetPipeline(renderer.GetMorphologyFilterPipeline(options));
-    pass.SetVertexBuffer(vtx_builder.CreateVertexBuffer(host_buffer));
+    pass.SetVertexBuffer(CreateVertexBuffer(vertices, host_buffer));
 
     auto sampler_descriptor = input_snapshot->sampler_descriptor;
     if (renderer.GetDeviceCapabilities().SupportsDecalSamplerAddressMode()) {
@@ -134,10 +132,20 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
 
     return pass.Draw().ok();
   };
+  std::shared_ptr<CommandBuffer> command_buffer =
+      renderer.GetContext()->CreateCommandBuffer();
+  if (command_buffer == nullptr) {
+    return std::nullopt;
+  }
 
-  fml::StatusOr<RenderTarget> render_target = renderer.MakeSubpass(
-      "Directional Morphology Filter", ISize(coverage.GetSize()), callback);
+  fml::StatusOr<RenderTarget> render_target =
+      renderer.MakeSubpass("Directional Morphology Filter",
+                           ISize(coverage.GetSize()), command_buffer, callback);
   if (!render_target.ok()) {
+    return std::nullopt;
+  }
+
+  if (!renderer.GetContext()->EnqueueCommandBuffer(std::move(command_buffer))) {
     return std::nullopt;
   }
 
@@ -150,7 +158,7 @@ std::optional<Entity> DirectionalMorphologyFilterContents::RenderFilter(
                .transform = Matrix::MakeTranslation(coverage.GetOrigin()),
                .sampler_descriptor = sampler_desc,
                .opacity = input_snapshot->opacity},
-      entity.GetBlendMode(), entity.GetClipDepth());
+      entity.GetBlendMode());
 }
 
 std::optional<Rect> DirectionalMorphologyFilterContents::GetFilterCoverage(

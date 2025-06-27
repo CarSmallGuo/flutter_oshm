@@ -28,7 +28,6 @@
 #include "flutter/lib/ui/painting/image_generator_registry.h"
 #include "flutter/lib/ui/semantics/custom_accessibility_action.h"
 #include "flutter/lib/ui/semantics/semantics_node.h"
-#include "flutter/lib/ui/volatile_path_tracker.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/runtime/dart_vm_lifecycle.h"
 #include "flutter/runtime/platform_data.h"
@@ -40,6 +39,7 @@
 #include "flutter/shell/common/rasterizer.h"
 #include "flutter/shell/common/resource_cache_limit_calculator.h"
 #include "flutter/shell/common/shell_io_manager.h"
+#include "impeller/renderer/context.h"
 #include "impeller/runtime_stage/runtime_stage.h"
 
 namespace flutter {
@@ -129,11 +129,9 @@ class Shell final : public PlatformView::Delegate,
       fml::WeakPtr<IOManager> io_manager,
       fml::RefPtr<SkiaUnrefQueue> unref_queue,
       fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
-      std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
       const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
       impeller::RuntimeStageBackend runtime_stage_type)>
       EngineCreateCallback;
-  using RemoveViewCallback = std::function<void(bool removed)>;
 
   //----------------------------------------------------------------------------
   /// @brief      Creates a shell instance using the provided settings. The
@@ -292,6 +290,13 @@ class Shell final : public PlatformView::Delegate,
   void NotifyLowMemoryWarning() const;
 
   //----------------------------------------------------------------------------
+  /// @brief      Used by embedders to flush the microtask queue. Required
+  ///             when running with merged platform and UI threads, in which
+  ///             case the embedder is responsible for flushing the microtask
+  ///             queue.
+  void FlushMicrotaskQueue() const;
+
+  //----------------------------------------------------------------------------
   /// @brief      Used by embedders to check if all shell subcomponents are
   ///             initialized. It is the embedder's responsibility to make this
   ///             call before accessing any other shell method. A shell that is
@@ -302,39 +307,6 @@ class Shell final : public PlatformView::Delegate,
   ///             not change for the life-cycle of the shell.
   ///
   bool IsSetup() const;
-
-  /// @brief  Allocates resources for a new non-implicit view.
-  ///
-  ///         This method returns immediately and does not wait for the task on
-  ///         the UI thread to finish. This is safe because operations are
-  ///         either initiated from the UI thread (such as rendering), or are
-  ///         sent as posted tasks that are queued. In either case, it's ok for
-  ///         the engine to have views that the Dart VM doesn't.
-  ///
-  ///         The implicit view should never be added with this function.
-  ///         Instead, it is added internally on Shell initialization. Trying to
-  ///         add `kFlutterImplicitViewId` triggers an assertion.
-  ///
-  /// @param[in]  view_id           The view ID of the new view.
-  /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
-  ///
-  void AddView(int64_t view_id, const ViewportMetrics& viewport_metrics);
-
-  /// @brief  Deallocates resources for a non-implicit view.
-  ///
-  ///         This method returns immediately and does not wait for the task on
-  ///         the UI thread to finish. This means that the Dart VM might still
-  ///         send messages regarding this view ID for a short while, even
-  ///         though this view ID is already invalid.
-  ///
-  ///         The implicit view should never be removed. Trying to remove
-  ///         `kFlutterImplicitViewId` triggers an assertion.
-  ///
-  /// @param[in]  view_id     The view ID of the view to be removed.
-  /// @param[in]  callback    The callback that's invoked once the engine has
-  ///                         attempted to remove the view.
-  ///
-  void RemoveView(int64_t view_id, RemoveViewCallback callback);
 
   //----------------------------------------------------------------------------
   /// @brief      Captures a screenshot and optionally Base64 encodes the data
@@ -392,6 +364,17 @@ class Shell final : public PlatformView::Delegate,
   ///             Dart ports.
   ///
   bool EngineHasLivePorts() const;
+
+  //----------------------------------------------------------------------------
+  /// @brief      Used by embedders to check if the Engine is running and has
+  ///             any microtasks that have been queued but have not yet run.
+  ///             The Flutter tester uses this as a signal that a test is still
+  ///             running.
+  ///
+  /// @return     Returns if the shell has an engine and the engine has pending
+  ///             microtasks.
+  ///
+  bool EngineHasPendingMicrotasks() const;
 
   //----------------------------------------------------------------------------
   /// @brief     Accessor for the disable GPU SyncSwitch.
@@ -484,7 +467,6 @@ class Shell final : public PlatformView::Delegate,
   std::unique_ptr<Rasterizer> rasterizer_;       // on raster task runner
   std::shared_ptr<ShellIOManager> io_manager_;   // on IO task runner
   std::shared_ptr<fml::SyncSwitch> is_gpu_disabled_sync_switch_;
-  std::shared_ptr<VolatilePathTracker> volatile_path_tracker_;
   std::shared_ptr<PlatformMessageHandler> platform_message_handler_;
   std::atomic<bool> route_messages_through_platform_thread_ = false;
 
@@ -537,6 +519,9 @@ class Shell final : public PlatformView::Delegate,
   // Used to communicate the right frame bounds via service protocol.
   double device_pixel_ratio_ = 0.0;
 
+  // Cached refresh rate used by the performance overlay.
+  std::optional<fml::Milliseconds> cached_display_refresh_rate_;
+
   // How many frames have been timed since last report.
   size_t UnreportedFramesCount() const;
 
@@ -546,7 +531,6 @@ class Shell final : public PlatformView::Delegate,
         const std::shared_ptr<ResourceCacheLimitCalculator>&
             resource_cache_limit_calculator,
         const Settings& settings,
-        std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
         bool is_gpu_disabled);
 
   static std::unique_ptr<Shell> CreateShellOnPlatformThread(
@@ -596,6 +580,18 @@ class Shell final : public PlatformView::Delegate,
   void OnPlatformViewScheduleFrame() override;
 
   // |PlatformView::Delegate|
+  void OnPlatformViewAddView(int64_t view_id,
+                             const ViewportMetrics& viewport_metrics,
+                             AddViewCallback callback) override;
+
+  // |PlatformView::Delegate|
+  void OnPlatformViewRemoveView(int64_t view_id,
+                                RemoveViewCallback callback) override;
+
+  // |PlatformView::Delegate|
+  void OnPlatformViewSendViewFocusEvent(const ViewFocusEvent& event) override;
+
+  // |PlatformView::Delegate|
   void OnPlatformViewSetViewportMetrics(
       int64_t view_id,
       const ViewportMetrics& metrics) override;
@@ -609,7 +605,8 @@ class Shell final : public PlatformView::Delegate,
       std::unique_ptr<PointerDataPacket> packet) override;
 
   // |PlatformView::Delegate|
-  void OnPlatformViewDispatchSemanticsAction(int32_t node_id,
+  void OnPlatformViewDispatchSemanticsAction(int64_t view_id,
+                                             int32_t node_id,
                                              SemanticsAction action,
                                              fml::MallocMapping args) override;
 
@@ -670,6 +667,7 @@ class Shell final : public PlatformView::Delegate,
 
   // |Engine::Delegate|
   void OnEngineUpdateSemantics(
+      int64_t view_id,
       SemanticsNodeUpdates update,
       CustomAccessibilityActionUpdates actions) override;
 
@@ -708,6 +706,9 @@ class Shell final : public PlatformView::Delegate,
   // |Engine::Delegate|
   double GetScaledFontSize(double unscaled_font_size,
                            int configuration_id) const override;
+
+  // |Engine::Delegate|
+  void RequestViewFocusChange(const ViewFocusChangeRequest& request) override;
 
   // |Rasterizer::Delegate|
   void OnFrameRasterized(const FrameTiming&) override;
@@ -776,15 +777,6 @@ class Shell final : public PlatformView::Delegate,
 
   // Service protocol handler
   bool OnServiceProtocolEstimateRasterCacheMemory(
-      const ServiceProtocol::Handler::ServiceProtocolMap& params,
-      rapidjson::Document* response);
-
-  // Service protocol handler
-  //
-  // Renders a frame and responds with various statistics pertaining to the
-  // raster call. These include time taken to raster every leaf layer and also
-  // leaf layer snapshots.
-  bool OnServiceProtocolRenderFrameWithRasterStats(
       const ServiceProtocol::Handler::ServiceProtocolMap& params,
       rapidjson::Document* response);
 

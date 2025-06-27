@@ -21,20 +21,18 @@ import 'package:ui/src/engine.dart';
 /// 5. The finalizer function is called with the SkPaint as the sole argument.
 /// 6. We call `delete` on SkPaint.
 DomFinalizationRegistry _finalizationRegistry = DomFinalizationRegistry(
-  (JSAny boxedUniq) {
-    final UniqueRef<Object> uniq = boxedUniq.fromJSWrapper as UniqueRef<Object>;
-    uniq.collect();
-  }.toJS
+  ((ExternalDartReference<UniqueRef<JSObject>> boxedUniq) => boxedUniq.toDartObject.collect()).toJS,
 );
 
-NativeMemoryFinalizationRegistry nativeMemoryFinalizationRegistry = NativeMemoryFinalizationRegistry();
+NativeMemoryFinalizationRegistry nativeMemoryFinalizationRegistry =
+    NativeMemoryFinalizationRegistry();
 
 /// An indirection to [DomFinalizationRegistry] to enable tests provide a
 /// mock implementation of a finalization registry.
 class NativeMemoryFinalizationRegistry {
-  void register(Object owner, UniqueRef<Object> ref) {
+  void register(Object owner, UniqueRef<JSObject> ref) {
     if (browserSupportsFinalizationRegistry) {
-      _finalizationRegistry.register(owner.toJSWrapper, ref.toJSWrapper);
+      _finalizationRegistry.register(owner.toExternalReference, ref.toExternalReference);
     }
   }
 }
@@ -46,7 +44,7 @@ class NativeMemoryFinalizationRegistry {
 ///
 /// To prevent memory leaks, the underlying C++ object is deleted by the GC if
 /// it wasn't previously disposed of explicitly.
-class UniqueRef<T extends Object> {
+class UniqueRef<T extends JSObject> {
   UniqueRef(Object owner, T nativeObject, this._debugOwnerLabel) {
     _nativeObject = nativeObject;
     if (Instrumentation.enabled) {
@@ -136,7 +134,7 @@ abstract class StackTraceDebugger {
 /// deleted. This is mostly done to prevent memory leaks in production. Well
 /// behaving framework and app code are expected to rely on [ref] and [unref]
 /// for timely collection of resources.
-class CountedRef<R extends StackTraceDebugger, T extends Object> {
+class CountedRef<R extends StackTraceDebugger, T extends JSObject> {
   /// Creates a counted reference.
   CountedRef(T nativeObject, R debugReferrer, String debugLabel) {
     _ref = UniqueRef<T>(this, nativeObject, debugLabel);
@@ -183,9 +181,7 @@ class CountedRef<R extends StackTraceDebugger, T extends Object> {
   List<StackTrace> debugGetStackTraces() {
     List<StackTrace>? result;
     assert(() {
-      result = debugReferrers
-          .map<StackTrace>((R referrer) => referrer.debugStackTrace)
-          .toList();
+      result = debugReferrers.map<StackTrace>((R referrer) => referrer.debugStackTrace).toList();
       return true;
     }());
 
@@ -199,10 +195,7 @@ class CountedRef<R extends StackTraceDebugger, T extends Object> {
   /// Increases the reference count of this box because a new object began
   /// sharing ownership of the underlying [nativeObject].
   void ref(R debugReferrer) {
-    assert(
-      !_ref.isDisposed,
-      'Cannot increment ref count on a deleted handle.',
-    );
+    assert(!_ref.isDisposed, 'Cannot increment ref count on a deleted handle.');
     assert(_refCount > 0);
     assert(
       debugReferrers.add(debugReferrer),
@@ -219,10 +212,7 @@ class CountedRef<R extends StackTraceDebugger, T extends Object> {
   /// If this causes the reference count to drop to zero, deletes the
   /// [nativeObject].
   void unref(R debugReferrer) {
-    assert(
-      !_ref.isDisposed,
-      'Attempted to unref an already deleted native object.',
-    );
+    assert(!_ref.isDisposed, 'Attempted to unref an already deleted native object.');
     assert(
       debugReferrers.remove(debugReferrer),
       'Attempted to decrement ref count by the same referrer more than once.',

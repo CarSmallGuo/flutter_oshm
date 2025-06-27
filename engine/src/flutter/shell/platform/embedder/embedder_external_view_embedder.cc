@@ -10,7 +10,7 @@
 #include "flutter/common/constants.h"
 #include "flutter/shell/platform/embedder/embedder_layers.h"
 #include "flutter/shell/platform/embedder/embedder_render_target.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace flutter {
 
@@ -28,6 +28,10 @@ EmbedderExternalViewEmbedder::EmbedderExternalViewEmbedder(
 }
 
 EmbedderExternalViewEmbedder::~EmbedderExternalViewEmbedder() = default;
+
+void EmbedderExternalViewEmbedder::CollectView(int64_t view_id) {
+  render_target_caches_.erase(view_id);
+}
 
 void EmbedderExternalViewEmbedder::SetSurfaceTransformationCallback(
     SurfaceTransformationCallback surface_transformation_callback) {
@@ -114,6 +118,7 @@ DlCanvas* EmbedderExternalViewEmbedder::CompositeEmbeddedView(int64_t view_id) {
 }
 
 static FlutterBackingStoreConfig MakeBackingStoreConfig(
+    int64_t view_id,
     const SkISize& backing_store_size) {
   FlutterBackingStoreConfig config = {};
 
@@ -121,6 +126,7 @@ static FlutterBackingStoreConfig MakeBackingStoreConfig(
 
   config.size.width = backing_store_size.width();
   config.size.height = backing_store_size.height();
+  config.view_id = view_id;
 
   return config;
 }
@@ -139,42 +145,42 @@ struct PlatformView {
     view_identifier = view->GetViewIdentifier();
     params = view->GetEmbeddedViewParams();
 
-    clipped_frame = view->GetEmbeddedViewParams()->finalBoundingRect();
-    SkMatrix transform;
+    DlRect clip = ToDlRect(view->GetEmbeddedViewParams()->finalBoundingRect());
+    DlMatrix matrix;
     for (auto i = params->mutatorsStack().Begin();
          i != params->mutatorsStack().End(); ++i) {
       const auto& m = *i;
       switch (m->GetType()) {
-        case kClipRect: {
-          auto rect = transform.mapRect(m->GetRect());
-          if (!clipped_frame.intersect(rect)) {
-            clipped_frame = SkRect::MakeEmpty();
-          }
+        case MutatorType::kClipRect: {
+          auto rect = m->GetRect().TransformAndClipBounds(matrix);
+          clip = clip.IntersectionOrEmpty(rect);
           break;
         }
-        case kClipRRect: {
-          auto rect = transform.mapRect(m->GetRRect().getBounds());
-          if (!clipped_frame.intersect(rect)) {
-            clipped_frame = SkRect::MakeEmpty();
-          }
+        case MutatorType::kClipRRect: {
+          auto rect = m->GetRRect().GetBounds().TransformAndClipBounds(matrix);
+          clip = clip.IntersectionOrEmpty(rect);
           break;
         }
-        case kClipPath: {
-          auto rect = transform.mapRect(m->GetPath().getBounds());
-          if (!clipped_frame.intersect(rect)) {
-            clipped_frame = SkRect::MakeEmpty();
-          }
+        case MutatorType::kClipRSE: {
+          auto rect = m->GetRSE().GetBounds().TransformAndClipBounds(matrix);
+          clip = clip.IntersectionOrEmpty(rect);
           break;
         }
-        case kTransform: {
-          transform.preConcat(m->GetMatrix());
+        case MutatorType::kClipPath: {
+          auto rect = m->GetPath().GetBounds().TransformAndClipBounds(matrix);
+          clip = clip.IntersectionOrEmpty(rect);
           break;
         }
-        case kOpacity:
-        case kBackdropFilter:
+        case MutatorType::kTransform: {
+          matrix = matrix * m->GetMatrix();
+          break;
+        }
+        case MutatorType::kOpacity:
+        case MutatorType::kBackdropFilter:
           break;
       }
     }
+    clipped_frame = ToSkRect(clip);
   }
 };
 
@@ -262,7 +268,7 @@ class Layer {
 
   EmbedderRenderTarget* render_target() { return render_target_.get(); }
 
-  std::vector<SkIRect> coverage() {
+  std::vector<DlIRect> coverage() {
     return flutter_contents_region_.getRects();
   }
 
@@ -284,6 +290,10 @@ class Layer {
 /// Implements https://flutter.dev/go/optimized-platform-view-layers
 class LayerBuilder {
  public:
+  using RenderTargetProvider =
+      std::function<std::unique_ptr<EmbedderRenderTarget>(
+          const SkISize& frame_size)>;
+
   explicit LayerBuilder(SkISize frame_size) : frame_size_(frame_size) {
     layers_.push_back(Layer());
   }
@@ -304,13 +314,10 @@ class LayerBuilder {
   }
 
   /// Prepares the render targets for all layers that have Flutter contents.
-  void PrepareBackingStore(
-      const std::function<std::unique_ptr<EmbedderRenderTarget>(
-          FlutterBackingStoreConfig)>& target_provider) {
-    auto config = MakeBackingStoreConfig(frame_size_);
+  void PrepareBackingStore(const RenderTargetProvider& target_provider) {
     for (auto& layer : layers_) {
       if (layer.has_flutter_contents()) {
-        layer.SetRenderTarget(target_provider(config));
+        layer.SetRenderTarget(target_provider(frame_size_));
       }
     }
   }
@@ -416,6 +423,10 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
     GrDirectContext* context,
     const std::shared_ptr<impeller::AiksContext>& aiks_context,
     std::unique_ptr<SurfaceFrame> frame) {
+  // The unordered_map render_target_cache creates a new entry if the view ID is
+  // unrecognized.
+  EmbedderRenderTargetCache& render_target_cache =
+      render_target_caches_[flutter_view_id];
   SkRect _rect = SkRect::MakeIWH(pending_frame_size_.width(),
                                  pending_frame_size_.height());
   pending_surface_transformation_.mapRect(&_rect);
@@ -427,17 +438,16 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
     builder.AddExternalView(view.get());
   }
 
-  builder.PrepareBackingStore([&](FlutterBackingStoreConfig config) {
-    std::unique_ptr<EmbedderRenderTarget> target;
+  builder.PrepareBackingStore([&](const SkISize& frame_size) {
     if (!avoid_backing_store_cache_) {
-      target = render_target_cache_.GetRenderTarget(
-          EmbedderExternalView::RenderTargetDescriptor(
-              SkISize{static_cast<int32_t>(config.size.width),
-                      static_cast<int32_t>(config.size.height)}));
+      std::unique_ptr<EmbedderRenderTarget> target =
+          render_target_cache.GetRenderTarget(
+              EmbedderExternalView::RenderTargetDescriptor(frame_size));
+      if (target != nullptr) {
+        return target;
+      }
     }
-    if (target != nullptr) {
-      return target;
-    }
+    auto config = MakeBackingStoreConfig(flutter_view_id, frame_size);
     return create_render_target_callback_(context, aiks_context, config);
   });
 
@@ -454,17 +464,20 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
   //
   // @warning: Embedder may trample on our OpenGL context here.
   auto deferred_cleanup_render_targets =
-      render_target_cache_.ClearAllRenderTargetsInCache();
+      render_target_cache.ClearAllRenderTargetsInCache();
 
+#if !SLIMPELLER
   // The OpenGL context could have been trampled by the embedder at this point
   // as it attempted to collect old render targets and create new ones. Tell
   // Skia to not rely on existing bindings.
   if (context) {
     context->resetContext(kAll_GrBackendState);
   }
+#endif  //  !SLIMPELLER
 
   builder.Render();
 
+#if !SLIMPELLER
   // We are going to be transferring control back over to the embedder there
   // the context may be trampled upon again. Flush all operations to the
   // underlying rendering API.
@@ -473,6 +486,7 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
   if (context) {
     context->flushAndSubmit();
   }
+#endif  //  !SLIMPELLER
 
   {
     auto presentation_time_optional = frame->submit_info().presentation_time;
@@ -502,7 +516,7 @@ void EmbedderExternalViewEmbedder::SubmitFlutterView(
   auto render_targets = builder.ClearAndCollectRenderTargets();
   for (auto& render_target : render_targets) {
     if (!avoid_backing_store_cache_) {
-      render_target_cache_.CacheRenderTarget(std::move(render_target));
+      render_target_cache.CacheRenderTarget(std::move(render_target));
     }
   }
 

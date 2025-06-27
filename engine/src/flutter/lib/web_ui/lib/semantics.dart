@@ -32,6 +32,8 @@ class SemanticsAction {
   static const int _kMoveCursorForwardByWordIndex = 1 << 19;
   static const int _kMoveCursorBackwardByWordIndex = 1 << 20;
   static const int _kSetTextIndex = 1 << 21;
+  static const int _kFocusIndex = 1 << 22;
+  static const int _kScrollToOffsetIndex = 1 << 23;
 
   static const SemanticsAction tap = SemanticsAction._(_kTapIndex, 'tap');
   static const SemanticsAction longPress = SemanticsAction._(_kLongPressIndex, 'longPress');
@@ -39,22 +41,54 @@ class SemanticsAction {
   static const SemanticsAction scrollRight = SemanticsAction._(_kScrollRightIndex, 'scrollRight');
   static const SemanticsAction scrollUp = SemanticsAction._(_kScrollUpIndex, 'scrollUp');
   static const SemanticsAction scrollDown = SemanticsAction._(_kScrollDownIndex, 'scrollDown');
+  static const SemanticsAction scrollToOffset = SemanticsAction._(
+    _kScrollToOffsetIndex,
+    'scrollToOffset',
+  );
   static const SemanticsAction increase = SemanticsAction._(_kIncreaseIndex, 'increase');
   static const SemanticsAction decrease = SemanticsAction._(_kDecreaseIndex, 'decrease');
-  static const SemanticsAction showOnScreen = SemanticsAction._(_kShowOnScreenIndex, 'showOnScreen');
-  static const SemanticsAction moveCursorForwardByCharacter = SemanticsAction._(_kMoveCursorForwardByCharacterIndex, 'moveCursorForwardByCharacter');
-  static const SemanticsAction moveCursorBackwardByCharacter = SemanticsAction._(_kMoveCursorBackwardByCharacterIndex, 'moveCursorBackwardByCharacter');
+  static const SemanticsAction showOnScreen = SemanticsAction._(
+    _kShowOnScreenIndex,
+    'showOnScreen',
+  );
+  static const SemanticsAction moveCursorForwardByCharacter = SemanticsAction._(
+    _kMoveCursorForwardByCharacterIndex,
+    'moveCursorForwardByCharacter',
+  );
+  static const SemanticsAction moveCursorBackwardByCharacter = SemanticsAction._(
+    _kMoveCursorBackwardByCharacterIndex,
+    'moveCursorBackwardByCharacter',
+  );
   static const SemanticsAction setText = SemanticsAction._(_kSetTextIndex, 'setText');
-  static const SemanticsAction setSelection = SemanticsAction._(_kSetSelectionIndex, 'setSelection');
+  static const SemanticsAction setSelection = SemanticsAction._(
+    _kSetSelectionIndex,
+    'setSelection',
+  );
   static const SemanticsAction copy = SemanticsAction._(_kCopyIndex, 'copy');
   static const SemanticsAction cut = SemanticsAction._(_kCutIndex, 'cut');
   static const SemanticsAction paste = SemanticsAction._(_kPasteIndex, 'paste');
-  static const SemanticsAction didGainAccessibilityFocus = SemanticsAction._(_kDidGainAccessibilityFocusIndex, 'didGainAccessibilityFocus');
-  static const SemanticsAction didLoseAccessibilityFocus = SemanticsAction._(_kDidLoseAccessibilityFocusIndex, 'didLoseAccessibilityFocus');
-  static const SemanticsAction customAction = SemanticsAction._(_kCustomActionIndex, 'customAction');
+  static const SemanticsAction didGainAccessibilityFocus = SemanticsAction._(
+    _kDidGainAccessibilityFocusIndex,
+    'didGainAccessibilityFocus',
+  );
+  static const SemanticsAction didLoseAccessibilityFocus = SemanticsAction._(
+    _kDidLoseAccessibilityFocusIndex,
+    'didLoseAccessibilityFocus',
+  );
+  static const SemanticsAction customAction = SemanticsAction._(
+    _kCustomActionIndex,
+    'customAction',
+  );
   static const SemanticsAction dismiss = SemanticsAction._(_kDismissIndex, 'dismiss');
-  static const SemanticsAction moveCursorForwardByWord = SemanticsAction._(_kMoveCursorForwardByWordIndex, 'moveCursorForwardByWord');
-  static const SemanticsAction moveCursorBackwardByWord = SemanticsAction._(_kMoveCursorBackwardByWordIndex, 'moveCursorBackwardByWord');
+  static const SemanticsAction moveCursorForwardByWord = SemanticsAction._(
+    _kMoveCursorForwardByWordIndex,
+    'moveCursorForwardByWord',
+  );
+  static const SemanticsAction moveCursorBackwardByWord = SemanticsAction._(
+    _kMoveCursorBackwardByWordIndex,
+    'moveCursorBackwardByWord',
+  );
+  static const SemanticsAction focus = SemanticsAction._(_kFocusIndex, 'focus');
 
   static const Map<int, SemanticsAction> _kActionById = <int, SemanticsAction>{
     _kTapIndex: tap,
@@ -63,6 +97,7 @@ class SemanticsAction {
     _kScrollRightIndex: scrollRight,
     _kScrollUpIndex: scrollUp,
     _kScrollDownIndex: scrollDown,
+    _kScrollToOffsetIndex: scrollToOffset,
     _kIncreaseIndex: increase,
     _kDecreaseIndex: decrease,
     _kShowOnScreenIndex: showOnScreen,
@@ -79,6 +114,7 @@ class SemanticsAction {
     _kMoveCursorForwardByWordIndex: moveCursorForwardByWord,
     _kMoveCursorBackwardByWordIndex: moveCursorBackwardByWord,
     _kSetTextIndex: setText,
+    _kFocusIndex: focus,
   };
 
   static List<SemanticsAction> get values => _kActionById.values.toList(growable: false);
@@ -123,9 +159,20 @@ class SemanticsFlag {
   static const int _kIsCheckStateMixedIndex = 1 << 25;
   static const int _kHasExpandedStateIndex = 1 << 26;
   static const int _kIsExpandedIndex = 1 << 27;
+  static const int _kHasSelectedStateIndex = 1 << 28;
+  static const int _kHasRequiredStateIndex = 1 << 29;
+  static const int _kIsRequiredIndex = 1 << 30;
+  // WARNING: JavaScript can only go up to 32 bits!
 
-  static const SemanticsFlag hasCheckedState = SemanticsFlag._(_kHasCheckedStateIndex, 'hasCheckedState');
+  static const SemanticsFlag hasCheckedState = SemanticsFlag._(
+    _kHasCheckedStateIndex,
+    'hasCheckedState',
+  );
   static const SemanticsFlag isChecked = SemanticsFlag._(_kIsCheckedIndex, 'isChecked');
+  static const SemanticsFlag hasSelectedState = SemanticsFlag._(
+    _kHasSelectedStateIndex,
+    'hasSelectedState',
+  );
   static const SemanticsFlag isSelected = SemanticsFlag._(_kIsSelectedIndex, 'isSelected');
   static const SemanticsFlag isButton = SemanticsFlag._(_kIsButtonIndex, 'isButton');
   static const SemanticsFlag isTextField = SemanticsFlag._(_kIsTextFieldIndex, 'isTextField');
@@ -135,9 +182,15 @@ class SemanticsFlag {
   static const SemanticsFlag isLink = SemanticsFlag._(_kIsLinkIndex, 'isLink');
   static const SemanticsFlag isFocusable = SemanticsFlag._(_kIsFocusableIndex, 'isFocusable');
   static const SemanticsFlag isFocused = SemanticsFlag._(_kIsFocusedIndex, 'isFocused');
-  static const SemanticsFlag hasEnabledState = SemanticsFlag._(_kHasEnabledStateIndex, 'hasEnabledState');
+  static const SemanticsFlag hasEnabledState = SemanticsFlag._(
+    _kHasEnabledStateIndex,
+    'hasEnabledState',
+  );
   static const SemanticsFlag isEnabled = SemanticsFlag._(_kIsEnabledIndex, 'isEnabled');
-  static const SemanticsFlag isInMutuallyExclusiveGroup = SemanticsFlag._(_kIsInMutuallyExclusiveGroupIndex, 'isInMutuallyExclusiveGroup');
+  static const SemanticsFlag isInMutuallyExclusiveGroup = SemanticsFlag._(
+    _kIsInMutuallyExclusiveGroupIndex,
+    'isInMutuallyExclusiveGroup',
+  );
   static const SemanticsFlag isHeader = SemanticsFlag._(_kIsHeaderIndex, 'isHeader');
   static const SemanticsFlag isObscured = SemanticsFlag._(_kIsObscuredIndex, 'isObscured');
   static const SemanticsFlag isMultiline = SemanticsFlag._(_kIsMultilineIndex, 'isMultiline');
@@ -146,16 +199,34 @@ class SemanticsFlag {
   static const SemanticsFlag isHidden = SemanticsFlag._(_kIsHiddenIndex, 'isHidden');
   static const SemanticsFlag isImage = SemanticsFlag._(_kIsImageIndex, 'isImage');
   static const SemanticsFlag isLiveRegion = SemanticsFlag._(_kIsLiveRegionIndex, 'isLiveRegion');
-  static const SemanticsFlag hasToggledState = SemanticsFlag._(_kHasToggledStateIndex, 'hasToggledState');
+  static const SemanticsFlag hasToggledState = SemanticsFlag._(
+    _kHasToggledStateIndex,
+    'hasToggledState',
+  );
   static const SemanticsFlag isToggled = SemanticsFlag._(_kIsToggledIndex, 'isToggled');
-  static const SemanticsFlag hasImplicitScrolling = SemanticsFlag._(_kHasImplicitScrollingIndex, 'hasImplicitScrolling');
-  static const SemanticsFlag isCheckStateMixed = SemanticsFlag._(_kIsCheckStateMixedIndex, 'isCheckStateMixed');
-  static const SemanticsFlag hasExpandedState = SemanticsFlag._(_kHasExpandedStateIndex, 'hasExpandedState');
+  static const SemanticsFlag hasImplicitScrolling = SemanticsFlag._(
+    _kHasImplicitScrollingIndex,
+    'hasImplicitScrolling',
+  );
+  static const SemanticsFlag isCheckStateMixed = SemanticsFlag._(
+    _kIsCheckStateMixedIndex,
+    'isCheckStateMixed',
+  );
+  static const SemanticsFlag hasExpandedState = SemanticsFlag._(
+    _kHasExpandedStateIndex,
+    'hasExpandedState',
+  );
   static const SemanticsFlag isExpanded = SemanticsFlag._(_kIsExpandedIndex, 'isExpanded');
+  static const SemanticsFlag hasRequiredState = SemanticsFlag._(
+    _kHasRequiredStateIndex,
+    'hasRequiredState',
+  );
+  static const SemanticsFlag isRequired = SemanticsFlag._(_kIsRequiredIndex, 'isRequired');
 
   static const Map<int, SemanticsFlag> _kFlagById = <int, SemanticsFlag>{
     _kHasCheckedStateIndex: hasCheckedState,
     _kIsCheckedIndex: isChecked,
+    _kHasSelectedStateIndex: hasSelectedState,
     _kIsSelectedIndex: isSelected,
     _kIsButtonIndex: isButton,
     _kIsTextFieldIndex: isTextField,
@@ -182,6 +253,8 @@ class SemanticsFlag {
     _kIsCheckStateMixedIndex: isCheckStateMixed,
     _kHasExpandedStateIndex: hasExpandedState,
     _kIsExpandedIndex: isExpanded,
+    _kHasRequiredStateIndex: hasRequiredState,
+    _kIsRequiredIndex: isRequired,
   };
 
   static List<SemanticsFlag> get values => _kFlagById.values.toList(growable: false);
@@ -192,6 +265,42 @@ class SemanticsFlag {
   String toString() => 'SemanticsFlag.$name';
 }
 
+// Mirrors engine/src/flutter/lib/ui/semantics.dart
+enum SemanticsRole {
+  none,
+  tab,
+  tabBar,
+  tabPanel,
+  dialog,
+  alertDialog,
+  table,
+  cell,
+  row,
+  columnHeader,
+  searchBox,
+  dragHandle,
+  spinButton,
+  comboBox,
+  menuBar,
+  menu,
+  menuItem,
+  menuItemCheckbox,
+  menuItemRadio,
+  list,
+  listItem,
+  form,
+  tooltip,
+  loadingSpinner,
+  progressBar,
+  hotKey,
+  radioGroup,
+  status,
+  alert,
+}
+
+// Mirrors engine/src/flutter/lib/ui/semantics.dart
+enum SemanticsInputType { none, text, url, phone, search, email }
+
 // When adding a new StringAttributeType, the classes in these file must be
 // updated as well.
 //  * engine/src/flutter/lib/ui/semantics.dart
@@ -201,9 +310,7 @@ class SemanticsFlag {
 //  * engine/src/flutter/testing/dart/semantics_test.dart
 
 abstract class StringAttribute {
-  StringAttribute._({
-    required this.range,
-  });
+  StringAttribute._({required this.range});
 
   final TextRange range;
 
@@ -211,9 +318,7 @@ abstract class StringAttribute {
 }
 
 class SpellOutStringAttribute extends StringAttribute {
-  SpellOutStringAttribute({
-    required super.range,
-  }) : super._();
+  SpellOutStringAttribute({required super.range}) : super._();
 
   @override
   StringAttribute copy({required TextRange range}) {
@@ -227,10 +332,7 @@ class SpellOutStringAttribute extends StringAttribute {
 }
 
 class LocaleStringAttribute extends StringAttribute {
-  LocaleStringAttribute({
-    required super.range,
-    required this.locale,
-  }) : super._();
+  LocaleStringAttribute({required super.range, required this.locale}) : super._();
 
   final Locale locale;
 
@@ -244,6 +346,8 @@ class LocaleStringAttribute extends StringAttribute {
     return 'LocaleStringAttribute($range, ${locale.toLanguageTag()})';
   }
 }
+
+enum SemanticsValidationResult { none, valid, invalid }
 
 class SemanticsUpdateBuilder {
   SemanticsUpdateBuilder();
@@ -283,59 +387,66 @@ class SemanticsUpdateBuilder {
     required Int32List childrenInTraversalOrder,
     required Int32List childrenInHitTestOrder,
     required Int32List additionalActions,
+    int headingLevel = 0,
+    String? linkUrl,
+    SemanticsRole role = SemanticsRole.none,
+    required List<String>? controlsNodes,
+    SemanticsValidationResult validationResult = SemanticsValidationResult.none,
+    required SemanticsInputType inputType,
   }) {
     if (transform.length != 16) {
       throw ArgumentError('transform argument must have 16 entries.');
     }
-    _nodeUpdates.add(engine.SemanticsNodeUpdate(
-      id: id,
-      flags: flags,
-      actions: actions,
-      maxValueLength: maxValueLength,
-      currentValueLength: currentValueLength,
-      textSelectionBase: textSelectionBase,
-      textSelectionExtent: textSelectionExtent,
-      scrollChildren: scrollChildren,
-      scrollIndex: scrollIndex,
-      scrollPosition: scrollPosition,
-      scrollExtentMax: scrollExtentMax,
-      scrollExtentMin: scrollExtentMin,
-      rect: rect,
-      identifier: identifier,
-      label: label,
-      labelAttributes: labelAttributes,
-      value: value,
-      valueAttributes: valueAttributes,
-      increasedValue: increasedValue,
-      increasedValueAttributes: increasedValueAttributes,
-      decreasedValue: decreasedValue,
-      decreasedValueAttributes: decreasedValueAttributes,
-      hint: hint,
-      hintAttributes: hintAttributes,
-      tooltip: tooltip,
-      textDirection: textDirection,
-      transform: engine.toMatrix32(transform),
-      elevation: elevation,
-      thickness: thickness,
-      childrenInTraversalOrder: childrenInTraversalOrder,
-      childrenInHitTestOrder: childrenInHitTestOrder,
-      additionalActions: additionalActions,
-      platformViewId: platformViewId,
-    ));
+    _nodeUpdates.add(
+      engine.SemanticsNodeUpdate(
+        id: id,
+        flags: flags,
+        actions: actions,
+        maxValueLength: maxValueLength,
+        currentValueLength: currentValueLength,
+        textSelectionBase: textSelectionBase,
+        textSelectionExtent: textSelectionExtent,
+        scrollChildren: scrollChildren,
+        scrollIndex: scrollIndex,
+        scrollPosition: scrollPosition,
+        scrollExtentMax: scrollExtentMax,
+        scrollExtentMin: scrollExtentMin,
+        rect: rect,
+        identifier: identifier,
+        label: label,
+        labelAttributes: labelAttributes,
+        value: value,
+        valueAttributes: valueAttributes,
+        increasedValue: increasedValue,
+        increasedValueAttributes: increasedValueAttributes,
+        decreasedValue: decreasedValue,
+        decreasedValueAttributes: decreasedValueAttributes,
+        hint: hint,
+        hintAttributes: hintAttributes,
+        tooltip: tooltip,
+        textDirection: textDirection,
+        transform: engine.toMatrix32(transform),
+        elevation: elevation,
+        thickness: thickness,
+        childrenInTraversalOrder: childrenInTraversalOrder,
+        childrenInHitTestOrder: childrenInHitTestOrder,
+        additionalActions: additionalActions,
+        platformViewId: platformViewId,
+        headingLevel: headingLevel,
+        linkUrl: linkUrl,
+        role: role,
+        controlsNodes: controlsNodes,
+        validationResult: validationResult,
+        inputType: inputType,
+      ),
+    );
   }
 
-  void updateCustomAction({
-    required int id,
-    String? label,
-    String? hint,
-    int overrideId = -1,
-  }) {
+  void updateCustomAction({required int id, String? label, String? hint, int overrideId = -1}) {
     // TODO(yjbanov): implement.
   }
   SemanticsUpdate build() {
-    return SemanticsUpdate._(
-      nodeUpdates: _nodeUpdates,
-    );
+    return SemanticsUpdate._(nodeUpdates: _nodeUpdates);
   }
 }
 

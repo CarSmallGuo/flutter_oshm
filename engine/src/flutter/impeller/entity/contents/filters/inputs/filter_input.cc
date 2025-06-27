@@ -39,7 +39,6 @@ FilterInput::Ref FilterInput::Make(Variant input, bool msaa_enabled) {
   }
 
   FML_UNREACHABLE();
-  return std::shared_ptr<FilterContentsFilterInput>();
 }
 
 FilterInput::Ref FilterInput::Make(std::shared_ptr<Texture> texture,
@@ -77,21 +76,7 @@ Matrix FilterInput::GetTransform(const Entity& entity) const {
   return entity.GetTransform() * GetLocalTransform(entity);
 }
 
-void FilterInput::PopulateGlyphAtlas(
-    const std::shared_ptr<LazyGlyphAtlas>& lazy_glyph_atlas,
-    Scalar scale) {}
-
 FilterInput::~FilterInput() = default;
-
-bool FilterInput::IsTranslationOnly() const {
-  return true;
-}
-
-bool FilterInput::IsLeaf() const {
-  return true;
-}
-
-void FilterInput::SetLeafInputs(const FilterInput::Vector& inputs) {}
 
 void FilterInput::SetEffectTransform(const Matrix& matrix) {}
 

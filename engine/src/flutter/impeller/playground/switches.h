@@ -9,7 +9,7 @@
 #include <optional>
 
 #include "flutter/fml/command_line.h"
-#include "flutter/fml/macros.h"
+#include "impeller/base/flags.h"
 
 namespace impeller {
 
@@ -32,6 +32,10 @@ struct PlaygroundSwitches {
   /// via the flag with the system OpenGL ES implementation used by fault.
   ///
   bool use_angle = false;
+
+  bool enable_wide_gamut = false;
+
+  Flags flags;
 
   PlaygroundSwitches();
 

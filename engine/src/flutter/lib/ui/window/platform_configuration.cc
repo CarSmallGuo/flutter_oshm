@@ -49,6 +49,11 @@ void PlatformConfiguration::DidCreateIsolate() {
                 Dart_GetField(library, tonic::ToDart("_addView")));
   remove_view_.Set(tonic::DartState::Current(),
                    Dart_GetField(library, tonic::ToDart("_removeView")));
+  send_view_focus_event_.Set(
+      tonic::DartState::Current(),
+      Dart_GetField(library, tonic::ToDart("_sendViewFocusEvent")));
+  set_engine_id_.Set(tonic::DartState::Current(),
+                     Dart_GetField(library, tonic::ToDart("_setEngineId")));
   update_window_metrics_.Set(
       tonic::DartState::Current(),
       Dart_GetField(library, tonic::ToDart("_updateWindowMetrics")));
@@ -86,15 +91,18 @@ void PlatformConfiguration::DidCreateIsolate() {
                       Dart_GetField(library, tonic::ToDart("_reportTimings")));
 }
 
-void PlatformConfiguration::AddView(int64_t view_id,
+bool PlatformConfiguration::AddView(int64_t view_id,
                                     const ViewportMetrics& view_metrics) {
   auto [view_iterator, insertion_happened] =
       metrics_.emplace(view_id, view_metrics);
-  FML_DCHECK(insertion_happened);
+  if (!insertion_happened) {
+    FML_LOG(ERROR) << "View #" << view_id << " already exists.";
+    return false;
+  }
 
   std::shared_ptr<tonic::DartState> dart_state = add_view_.dart_state().lock();
   if (!dart_state) {
-    return;
+    return false;
   }
   tonic::DartState::Scope scope(dart_state);
   tonic::CheckAndHandleError(tonic::DartInvoke(
@@ -122,6 +130,7 @@ void PlatformConfiguration::AddView(int64_t view_id,
           tonic::ToDart(view_metrics.physical_display_features_state),
           tonic::ToDart(view_metrics.display_id),
       }));
+  return true;
 }
 
 bool PlatformConfiguration::RemoveView(int64_t view_id) {
@@ -145,6 +154,36 @@ bool PlatformConfiguration::RemoveView(int64_t view_id) {
       tonic::DartInvoke(remove_view_.Get(), {
                                                 tonic::ToDart(view_id),
                                             }));
+  return true;
+}
+
+bool PlatformConfiguration::SendFocusEvent(const ViewFocusEvent& event) {
+  std::shared_ptr<tonic::DartState> dart_state =
+      remove_view_.dart_state().lock();
+  if (!dart_state) {
+    return false;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(tonic::DartInvoke(
+      send_view_focus_event_.Get(), {
+                                        tonic::ToDart(event.view_id()),
+                                        tonic::ToDart(event.state()),
+                                        tonic::ToDart(event.direction()),
+                                    }));
+  return true;
+}
+
+bool PlatformConfiguration::SetEngineId(int64_t engine_id) {
+  std::shared_ptr<tonic::DartState> dart_state =
+      set_engine_id_.dart_state().lock();
+  if (!dart_state) {
+    return false;
+  }
+  tonic::DartState::Scope scope(dart_state);
+  tonic::CheckAndHandleError(
+      tonic::DartInvoke(set_engine_id_.Get(), {
+                                                  tonic::ToDart(engine_id),
+                                              }));
   return true;
 }
 
@@ -296,7 +335,6 @@ void PlatformConfiguration::DispatchPlatformMessage(
     std::unique_ptr<PlatformMessage> message) {
   std::shared_ptr<tonic::DartState> dart_state =
       dispatch_platform_message_.dart_state().lock();
-
   if (!dart_state) {
     FML_DLOG(WARNING)
         << "Dropping platform message for lack of DartState on channel: "
@@ -345,7 +383,8 @@ void PlatformConfiguration::DispatchPointerDataPacket(
       tonic::DartInvoke(dispatch_pointer_data_packet_.Get(), {data_handle}));
 }
 
-void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
+void PlatformConfiguration::DispatchSemanticsAction(int64_t view_id,
+                                                    int32_t node_id,
                                                     SemanticsAction action,
                                                     fml::MallocMapping args) {
   std::shared_ptr<tonic::DartState> dart_state =
@@ -361,10 +400,11 @@ void PlatformConfiguration::DispatchSemanticsAction(int32_t node_id,
   if (Dart_IsError(args_handle)) {
     return;
   }
+
   tonic::CheckAndHandleError(tonic::DartInvoke(
       dispatch_semantics_action_.Get(),
-      {tonic::ToDart(node_id), tonic::ToDart(static_cast<int32_t>(action)),
-       args_handle}));
+      {tonic::ToDart(view_id), tonic::ToDart(node_id),
+       tonic::ToDart(static_cast<int32_t>(action)), args_handle}));
 }
 
 void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
@@ -377,9 +417,27 @@ void PlatformConfiguration::BeginFrame(fml::TimePoint frameTime,
   }
   tonic::DartState::Scope scope(dart_state);
 
-  int64_t microseconds = (frameTime - fml::TimePoint()).ToMicroseconds();
+  if (last_frame_number_ > frame_number) {
+    FML_LOG(ERROR) << "Frame number is out of order: " << frame_number << " < "
+                   << last_frame_number_;
+  }
+  last_frame_number_ = frame_number;
 
+  // frameTime is not a delta; its the timestamp of the presentation.
+  // This is just a type conversion.
+  int64_t microseconds = frameTime.ToEpochDelta().ToMicroseconds();
   TRACE_EVENT0("flutter", "PlatformConfiguration::begin_frame_");
+  if (last_microseconds_ > microseconds) {
+    // Do not allow time traveling frametimes
+    // github.com/flutter/flutter/issues/106277
+    FML_LOG(ERROR)
+        << "Reported frame time is older than the last one; clamping. "
+        << microseconds << " < " << last_microseconds_
+        << " ~= " << last_microseconds_ - microseconds;
+    microseconds = last_microseconds_;
+  }
+  last_microseconds_ = microseconds;
+
   tonic::CheckAndHandleError(
       tonic::DartInvoke(begin_frame_.Get(), {
                                                 Dart_NewInteger(microseconds),
@@ -536,6 +594,17 @@ Dart_Handle PlatformConfigurationNativeApi::SendPortPlatformMessage(
   return HandlePlatformMessage(dart_state, name, data_handle, response);
 }
 
+void PlatformConfigurationNativeApi::RequestViewFocusChange(int64_t view_id,
+                                                            int64_t state,
+                                                            int64_t direction) {
+  ViewFocusChangeRequest request{view_id,  //
+                                 static_cast<ViewFocusState>(state),
+                                 static_cast<ViewFocusDirection>(direction)};
+  UIDartState* dart_state = UIDartState::Current();
+  dart_state->platform_configuration()->client()->RequestViewFocusChange(
+      request);
+}
+
 void PlatformConfigurationNativeApi::RespondToPlatformMessage(
     int response_id,
     const tonic::DartByteData& data) {
@@ -599,10 +668,11 @@ void PlatformConfigurationNativeApi::EndWarmUpFrame() {
   UIDartState::Current()->platform_configuration()->client()->EndWarmUpFrame();
 }
 
-void PlatformConfigurationNativeApi::UpdateSemantics(SemanticsUpdate* update) {
+void PlatformConfigurationNativeApi::UpdateSemantics(int64_t view_id,
+                                                     SemanticsUpdate* update) {
   UIDartState::ThrowIfUIOperationsProhibited();
   UIDartState::Current()->platform_configuration()->client()->UpdateSemantics(
-      update);
+      view_id, update);
 }
 
 Dart_Handle PlatformConfigurationNativeApi::ComputePlatformResolvedLocale(

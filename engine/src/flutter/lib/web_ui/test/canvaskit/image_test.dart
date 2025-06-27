@@ -7,10 +7,11 @@ import 'dart:typed_data';
 
 import 'package:test/bootstrap/browser.dart';
 import 'package:test/test.dart';
-import 'package:ui/src/engine/canvaskit/image.dart';
+import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
 import 'common.dart';
+import 'test_data.dart';
 
 void main() {
   internalBootstrapBrowserTest(() => testMain);
@@ -18,6 +19,11 @@ void main() {
 
 void testMain() {
   setUpCanvasKitTest();
+
+  tearDown(() {
+    ui.Image.onCreate = null;
+    ui.Image.onDispose = null;
+  });
 
   test('toImage succeeds', () async {
     final ui.Image image = await _createImage();
@@ -33,7 +39,7 @@ void testMain() {
       createdImage = image;
     };
 
-    final ui.Image  image1 = await _createImage();
+    final ui.Image image1 = await _createImage();
 
     expect(onCreateInvokedCount, 1);
     expect(createdImage, image1);
@@ -42,8 +48,6 @@ void testMain() {
 
     expect(onCreateInvokedCount, 2);
     expect(createdImage, image2);
-
-    ui.Image.onCreate = null;
   });
 
   test('dispose() invokes onDispose once', () async {
@@ -54,23 +58,28 @@ void testMain() {
       disposedImage = image;
     };
 
-    final ui.Image image1 = await _createImage()..dispose();
+    final ui.Image image1 =
+        await _createImage()
+          ..dispose();
 
     expect(onDisposeInvokedCount, 1);
     expect(disposedImage, image1);
 
-    final ui.Image image2 = await _createImage()..dispose();
+    final ui.Image image2 =
+        await _createImage()
+          ..dispose();
 
     expect(onDisposeInvokedCount, 2);
     expect(disposedImage, image2);
-
-    ui.Image.onDispose = null;
   });
 
   test('fetchImage fetches image in chunks', () async {
     final List<int> cumulativeBytesLoadedInvocations = <int>[];
     final List<int> expectedTotalBytesInvocations = <int>[];
-    final Uint8List result = await fetchImage('/long_test_payload?length=100000&chunk=1000', (int cumulativeBytesLoaded, int expectedTotalBytes) {
+    final Uint8List result = await fetchImage('/long_test_payload?length=100000&chunk=1000', (
+      int cumulativeBytesLoaded,
+      int expectedTotalBytes,
+    ) {
       cumulativeBytesLoadedInvocations.add(cumulativeBytesLoaded);
       expectedTotalBytesInvocations.add(expectedTotalBytes);
     });
@@ -93,10 +102,66 @@ void testMain() {
     expect(cumulativeBytesLoadedInvocations.last, 100000);
 
     // Check the contents of the returned data.
-    expect(
-      result,
-      List<int>.generate(100000, (int i) => i & 0xFF),
+    expect(result, List<int>.generate(100000, (int i) => i & 0xFF));
+  });
+
+  test('scaledImageSize scales to a target width with no target height', () {
+    final BitmapSize? size = scaledImageSize(200, 100, 600, null);
+    expect(size?.width, 600);
+    expect(size?.height, 300);
+  });
+
+  test('instantiateImageCodecWithSize disposes temporary image', () async {
+    final Set<ui.Image> activeImages = <ui.Image>{};
+    ui.Image.onCreate = activeImages.add;
+    ui.Image.onDispose = activeImages.remove;
+
+    final ui.Image image = await _createImage();
+    final ByteData? imageData = await image.toByteData(format: ui.ImageByteFormat.png);
+    final ui.ImmutableBuffer imageBuffer = await ui.ImmutableBuffer.fromUint8List(
+      imageData!.buffer.asUint8List(),
     );
+    image.dispose();
+
+    final ui.Codec codec = await ui.instantiateImageCodecWithSize(
+      imageBuffer,
+      getTargetSize: (w, h) => ui.TargetImageSize(width: w ~/ 2, height: h ~/ 2),
+    );
+    final ui.FrameInfo frameInfo = await codec.getNextFrame();
+
+    expect(activeImages.length, 1);
+
+    frameInfo.image.dispose();
+    codec.dispose();
+
+    expect(activeImages.length, 0);
+  });
+
+  test('CkImage does not close image source too early', () async {
+    final ImageSource imageSource = ImageBitmapImageSource(
+      await domWindow.createImageBitmap(createBlankDomImageData(4, 4)),
+    );
+
+    final SkImage skImage1 =
+        canvasKit.MakeAnimatedImageFromEncoded(k4x4PngImage)!.makeImageAtCurrentFrame();
+    final CkImage image1 = CkImage(skImage1, imageSource: imageSource);
+
+    final SkImage skImage2 =
+        canvasKit.MakeAnimatedImageFromEncoded(k4x4PngImage)!.makeImageAtCurrentFrame();
+    final CkImage image2 = CkImage(skImage2, imageSource: imageSource);
+
+    final CkImage image3 = image1.clone();
+
+    expect(imageSource.debugIsClosed, isFalse);
+
+    image1.dispose();
+    expect(imageSource.debugIsClosed, isFalse);
+
+    image2.dispose();
+    expect(imageSource.debugIsClosed, isFalse);
+
+    image3.dispose();
+    expect(imageSource.debugIsClosed, isTrue);
   });
 }
 

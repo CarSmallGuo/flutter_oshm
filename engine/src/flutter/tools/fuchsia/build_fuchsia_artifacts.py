@@ -19,11 +19,27 @@ import tempfile
 
 from gather_flutter_runner_artifacts import CreateMetaPackage, CopyPath
 from gen_package import CreateFarPackage
-
 _script_dir = os.path.abspath(os.path.join(os.path.realpath(__file__), '..'))
 _src_root_dir = os.path.join(_script_dir, '..', '..', '..')
-_out_dir = os.path.join(_src_root_dir, 'out')
+_out_dir = os.path.join(_src_root_dir, 'out', 'ci')
 _bucket_directory = os.path.join(_out_dir, 'fuchsia_bucket')
+
+
+def EnsureParentExists(path):
+  dir_name, _ = os.path.split(path)
+  if not os.path.exists(dir_name):
+    os.makedirs(dir_name)
+
+
+def CopyPath(src, dst):
+  try:
+    EnsureParentExists(dst)
+    shutil.copytree(src, dst)
+  except OSError as exc:
+    if exc.errno == errno.ENOTDIR:
+      shutil.copy(src, dst)
+    else:
+      raise
 
 
 def IsLinux():
@@ -148,17 +164,12 @@ def CopyZirconFFILibIfExists(source, destination):
 
 def CopyToBucketWithMode(source, destination, aot, product, runner_type, api_level):
   mode = 'aot' if aot else 'jit'
-  product_suff = '_product' if product else ''
-  runner_name = '%s_%s%s_runner' % (runner_type, mode, product_suff)
-  far_dir_name = '%s_far' % runner_name
   source_root = os.path.join(_out_dir, source)
-  far_base = os.path.join(source_root, far_dir_name)
-  CreateMetaPackage(far_base, runner_name)
-  pm_bin = GetPMBinPath()
-  key_path = os.path.join(_script_dir, 'development.key')
-
   destination = os.path.join(_bucket_directory, destination, mode)
-  CreateFarPackage(pm_bin, far_base, key_path, destination, api_level)
+
+  far_file = '%s_%s%s_runner-0.far' % (runner_type, mode, '_product' if product else '')
+  CopyPath('%s/%s' % (source_root, far_file), '%s/%s' % (destination, far_file))
+
   patched_sdk_dirname = '%s_runner_patched_sdk' % runner_type
   patched_sdk_dir = os.path.join(source_root, patched_sdk_dirname)
   dest_sdk_path = os.path.join(destination, patched_sdk_dirname)
@@ -178,12 +189,13 @@ def CopyToBucket(src, dst, product=False):
 
 
 def ReadTargetAPILevel():
-  filename = os.path.join(os.path.dirname(__file__), '../../build/config/fuchsia/gn_configs.gni')
+  filename = os.path.join(os.path.dirname(__file__), 'gn-sdk/src/gn_configs.gni')
   with open(filename) as f:
     for line in f:
+      line = line.strip()
       if line.startswith('fuchsia_target_api_level'):
         return line.split('=')[-1].strip()
-  assert False, 'No fuchsia_target_api_level found in //flutter/build/config/fuchsia/gn_configs.gni'
+  assert False, 'No fuchsia_target_api_level found in ' + filename
 
 
 def CopyVulkanDepsToBucket(src, dst, arch):
@@ -222,7 +234,7 @@ def CopyBuildToBucket(runtime_mode, arch, optimized, product):
   # are about to package.
   bucket_root = os.path.join(_bucket_directory, 'flutter')
   licenses_root = os.path.join(_src_root_dir, 'flutter/ci/licenses_golden')
-  license_files = ['licenses_flutter', 'licenses_fuchsia', 'licenses_skia', 'licenses_third_party']
+  license_files = ['licenses_flutter', 'licenses_fuchsia', 'licenses_skia']
   for license in license_files:
     src_path = os.path.join(licenses_root, license)
     dst_path = os.path.join(bucket_root, license)
@@ -258,7 +270,7 @@ def RunCIPDCommandWithRetries(command):
       subprocess.check_call(command, cwd=_bucket_directory)
       break
     except subprocess.CalledProcessError:
-      print('Failed %s times' % tries + 1)
+      print('Failed %s times' % str(tries + 1))
       if tries == num_tries - 1:
         raise
 
@@ -295,39 +307,6 @@ def ProcessCIPDPackage(upload, engine_version):
       '-tag',
       tag,
   ])
-
-
-def BuildTarget(
-    runtime_mode, arch, optimized, enable_lto, enable_legacy, asan, dart_version_git_info,
-    prebuilt_dart_sdk, build_targets
-):
-  unopt = "_unopt" if not optimized else ""
-  out_dir = 'fuchsia_%s%s_%s' % (runtime_mode, unopt, arch)
-  flags = [
-      '--fuchsia',
-      '--fuchsia-cpu',
-      arch,
-      '--runtime-mode',
-      runtime_mode,
-  ]
-
-  if not optimized:
-    flags.append('--unoptimized')
-  if not enable_lto:
-    flags.append('--no-lto')
-  if not enable_legacy:
-    flags.append('--no-fuchsia-legacy')
-  if asan:
-    flags.append('--asan')
-  if not dart_version_git_info:
-    flags.append('--no-dart-version-git-info')
-  if not prebuilt_dart_sdk:
-    flags.append('--no-prebuilt-dart-sdk')
-
-  RunGN(out_dir, flags)
-  BuildNinjaTargets(out_dir, build_targets)
-
-  return
 
 
 def main():
@@ -378,13 +357,6 @@ def main():
       action='store_true',
       default=False,
       help='If set, disables legacy code for the build.'
-  )
-
-  parser.add_argument(
-      '--skip-build',
-      action='store_true',
-      default=False,
-      help='If set, skips building and just creates packages.'
   )
 
   parser.add_argument(
@@ -446,12 +418,6 @@ def main():
       runtime_mode = runtime_modes[i]
       product = product_modes[i]
       if build_mode == 'all' or runtime_mode == build_mode:
-        if not args.skip_build:
-          BuildTarget(
-              runtime_mode, arch, optimized, enable_lto, enable_legacy, args.asan,
-              not args.no_dart_version_git_info, not args.no_prebuilt_dart_sdk,
-              args.targets.split(",") if args.targets else ['flutter']
-          )
         CopyBuildToBucket(runtime_mode, arch, optimized, product)
 
         # This is a hack. The recipe for building and uploading Fuchsia to CIPD

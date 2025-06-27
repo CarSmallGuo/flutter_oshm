@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:ui/ui.dart' as ui;
 
+import '../scene_painting.dart';
 import '../vector_math.dart';
 import 'canvaskit_api.dart';
 import 'native_memory.dart';
@@ -15,7 +16,7 @@ import 'path_metrics.dart';
 /// An implementation of [ui.Path] which is backed by an `SkPath`.
 ///
 /// The `SkPath` is required for `CkCanvas` methods which take a path.
-class CkPath implements ui.Path {
+class CkPath implements ScenePath {
   factory CkPath() {
     final SkPath skPath = SkPath();
     skPath.setFillType(toSkFillType(ui.PathFillType.nonZero));
@@ -58,11 +59,7 @@ class CkPath implements ui.Path {
   @override
   void addArc(ui.Rect oval, double startAngle, double sweepAngle) {
     const double toDegrees = 180.0 / math.pi;
-    skiaObject.addArc(
-      toSkRect(oval),
-      startAngle * toDegrees,
-      sweepAngle * toDegrees,
-    );
+    skiaObject.addArc(toSkRect(oval), startAngle * toDegrees, sweepAngle * toDegrees);
   }
 
   @override
@@ -75,7 +72,8 @@ class CkPath implements ui.Path {
     List<double> skMatrix;
     if (matrix4 == null) {
       skMatrix = toSkMatrixFromFloat32(
-          Matrix4.translationValues(offset.dx, offset.dy, 0.0).storage);
+        Matrix4.translationValues(offset.dx, offset.dy, 0.0).storage,
+      );
     } else {
       skMatrix = toSkMatrixFromFloat64(matrix4);
       skMatrix[2] += offset.dx;
@@ -106,10 +104,14 @@ class CkPath implements ui.Path {
 
   @override
   void addRRect(ui.RRect rrect) {
-    skiaObject.addRRect(
-      toSkRRect(rrect),
-      false,
-    );
+    skiaObject.addRRect(toSkRRect(rrect), false);
+  }
+
+  @override
+  void addRSuperellipse(ui.RSuperellipse rsuperellipse) {
+    // TODO(dkwingsmt): Properly implement RSuperellipse on Web instead of falling
+    // back to RRect.  https://github.com/flutter/flutter/issues/163718
+    addRRect(rsuperellipse.toApproximateRRect());
   }
 
   @override
@@ -118,8 +120,7 @@ class CkPath implements ui.Path {
   }
 
   @override
-  void arcTo(
-      ui.Rect rect, double startAngle, double sweepAngle, bool forceMoveTo) {
+  void arcTo(ui.Rect rect, double startAngle, double sweepAngle, bool forceMoveTo) {
     const double toDegrees = 180.0 / math.pi;
     skiaObject.arcToOval(
       toSkRect(rect),
@@ -130,11 +131,13 @@ class CkPath implements ui.Path {
   }
 
   @override
-  void arcToPoint(ui.Offset arcEnd,
-      {ui.Radius radius = ui.Radius.zero,
-      double rotation = 0.0,
-      bool largeArc = false,
-      bool clockwise = true}) {
+  void arcToPoint(
+    ui.Offset arcEnd, {
+    ui.Radius radius = ui.Radius.zero,
+    double rotation = 0.0,
+    bool largeArc = false,
+    bool clockwise = true,
+  }) {
     skiaObject.arcToRotated(
       radius.x,
       radius.y,
@@ -167,8 +170,7 @@ class CkPath implements ui.Path {
   }
 
   @override
-  void cubicTo(
-      double x1, double y1, double x2, double y2, double x3, double y3) {
+  void cubicTo(double x1, double y1, double x2, double y2, double x3, double y3) {
     skiaObject.cubicTo(x1, y1, x2, y2, x3, y3);
   }
 
@@ -177,7 +179,8 @@ class CkPath implements ui.Path {
     List<double> skMatrix;
     if (matrix4 == null) {
       skMatrix = toSkMatrixFromFloat32(
-          Matrix4.translationValues(offset.dx, offset.dy, 0.0).storage);
+        Matrix4.translationValues(offset.dx, offset.dy, 0.0).storage,
+      );
     } else {
       skMatrix = toSkMatrixFromFloat64(matrix4);
       skMatrix[2] += offset.dx;
@@ -218,11 +221,13 @@ class CkPath implements ui.Path {
   }
 
   @override
-  void relativeArcToPoint(ui.Offset arcEndDelta,
-      {ui.Radius radius = ui.Radius.zero,
-      double rotation = 0.0,
-      bool largeArc = false,
-      bool clockwise = true}) {
+  void relativeArcToPoint(
+    ui.Offset arcEndDelta, {
+    ui.Radius radius = ui.Radius.zero,
+    double rotation = 0.0,
+    bool largeArc = false,
+    bool clockwise = true,
+  }) {
     skiaObject.rArcTo(
       radius.x,
       radius.y,
@@ -240,8 +245,7 @@ class CkPath implements ui.Path {
   }
 
   @override
-  void relativeCubicTo(
-      double x1, double y1, double x2, double y2, double x3, double y3) {
+  void relativeCubicTo(double x1, double y1, double x2, double y2, double x3, double y3) {
     skiaObject.rCubicTo(x1, y1, x2, y2, x3, y3);
   }
 
@@ -273,19 +277,11 @@ class CkPath implements ui.Path {
     // `SkPath.transform` mutates the existing path, so create a copy and call
     // `transform` on the copy.
     final SkPath shiftedPath = skiaObject.copy();
-    shiftedPath.transform(
-      1.0, 0.0, offset.dx,
-      0.0, 1.0, offset.dy,
-      0.0, 0.0, 1.0,
-    );
+    shiftedPath.transform(1.0, 0.0, offset.dx, 0.0, 1.0, offset.dy, 0.0, 0.0, 1.0);
     return CkPath.fromSkPath(shiftedPath, _fillType);
   }
 
-  static CkPath combine(
-    ui.PathOperation operation,
-    ui.Path uiPath1,
-    ui.Path uiPath2,
-  ) {
+  static CkPath combine(ui.PathOperation operation, ui.Path uiPath1, ui.Path uiPath2) {
     final CkPath path1 = uiPath1 as CkPath;
     final CkPath path2 = uiPath2 as CkPath;
     final SkPath newPath = canvasKit.Path.MakeFromOp(
@@ -300,21 +296,12 @@ class CkPath implements ui.Path {
   ui.Path transform(Float64List matrix4) {
     final SkPath newPath = skiaObject.copy();
     final Float32List m = toSkMatrixFromFloat64(matrix4);
-    newPath.transform(
-      m[0],
-      m[1],
-      m[2],
-      m[3],
-      m[4],
-      m[5],
-      m[6],
-      m[7],
-      m[8],
-    );
+    newPath.transform(m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
     return CkPath.fromSkPath(newPath, _fillType);
   }
 
-  String? toSvgString() {
+  @override
+  String toSvgString() {
     return skiaObject.toSVGString();
   }
 

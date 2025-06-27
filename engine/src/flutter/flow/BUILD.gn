@@ -21,8 +21,6 @@ source_set("flow") {
     "embedded_views.h",
     "frame_timings.cc",
     "frame_timings.h",
-    "layer_snapshot_store.cc",
-    "layer_snapshot_store.h",
     "layers/backdrop_filter_layer.cc",
     "layers/backdrop_filter_layer.h",
     "layers/cacheable_layer.cc",
@@ -33,6 +31,8 @@ source_set("flow") {
     "layers/clip_rect_layer.h",
     "layers/clip_rrect_layer.cc",
     "layers/clip_rrect_layer.h",
+    "layers/clip_rsuperellipse_layer.cc",
+    "layers/clip_rsuperellipse_layer.h",
     "layers/clip_shape_layer.h",
     "layers/color_filter_layer.cc",
     "layers/color_filter_layer.h",
@@ -88,6 +88,8 @@ source_set("flow") {
     "surface.h",
     "surface_frame.cc",
     "surface_frame.h",
+    "view_slicer.cc",
+    "view_slicer.h",
   ]
 
   public_configs = [ "//flutter:config" ]
@@ -97,7 +99,7 @@ source_set("flow") {
     "//flutter/common/graphics",
     "//flutter/display_list",
     "//flutter/fml",
-    "//flutter/third_party/txt",
+    "//flutter/txt",
   ]
 
   deps = [ "//flutter/skia" ]
@@ -105,6 +107,8 @@ source_set("flow") {
   if (impeller_supports_rendering) {
     deps += [
       "//flutter/impeller",
+      "//flutter/impeller/display_list:display_list",
+      "//flutter/impeller/entity:entity",
       "//flutter/impeller/typographer/backends/skia:typographer_skia_backend",
     ]
   }
@@ -112,8 +116,7 @@ source_set("flow") {
 
 if (enable_unittests) {
   test_fixtures("flow_fixtures") {
-    fixtures =
-        [ "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf" ]
+    fixtures = [ "//flutter/txt/third_party/fonts/Roboto-Regular.ttf" ]
   }
 
   source_set("flow_testing") {
@@ -158,10 +161,10 @@ if (enable_unittests) {
       "frame_timings_recorder_unittests.cc",
       "gl_context_switch_unittests.cc",
       "layers/backdrop_filter_layer_unittests.cc",
-      "layers/checkerboard_layertree_unittests.cc",
       "layers/clip_path_layer_unittests.cc",
       "layers/clip_rect_layer_unittests.cc",
       "layers/clip_rrect_layer_unittests.cc",
+      "layers/clip_rsuperellipse_layer_unittests.cc",
       "layers/color_filter_layer_unittests.cc",
       "layers/container_layer_unittests.cc",
       "layers/display_list_layer_unittests.cc",
@@ -184,6 +187,7 @@ if (enable_unittests) {
       "testing/mock_layer_unittests.cc",
       "testing/mock_texture_unittests.cc",
       "texture_unittests.cc",
+      "view_slicer_unittests.cc",
     ]
 
     deps = [

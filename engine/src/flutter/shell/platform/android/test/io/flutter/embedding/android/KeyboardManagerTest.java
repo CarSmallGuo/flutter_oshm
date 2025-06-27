@@ -1,3 +1,7 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 package io.flutter.embedding.android;
 
 import static android.view.KeyEvent.*;
@@ -14,6 +18,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import android.view.InputDevice;
 import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import androidx.annotation.NonNull;
@@ -88,7 +93,7 @@ public class KeyboardManagerTest {
     /**
      * Construct an empty call record.
      *
-     * <p>Use the static functions to constuct specific types instead.
+     * <p>Use the static functions to construct specific types instead.
      */
     private CallRecord() {}
 
@@ -1664,6 +1669,68 @@ public class KeyboardManagerTest {
     calls.clear();
   }
 
+  // Regression test for https://github.com/flutter/flutter/issues/164626.
+  @Test
+  public void synchronizeModifiersForZeroedScanCodeOnRepeatEvent() {
+    // Test if ShiftLeft can be correctly synchronized during down events of
+    // ShiftLeft that have 0 for their metaState and 0 for their scanCode.
+    final KeyboardTester tester = new KeyboardTester();
+    final ArrayList<CallRecord> calls = new ArrayList<>();
+
+    tester.recordEmbedderCallsTo(calls);
+    tester.respondToTextInputWith(true); // Suppress redispatching
+
+    // Test: repeat event when the meta state is 0 and scanCode is 0.
+    final KeyEvent shiftLeftKeyEvent =
+        new FakeKeyEvent(ACTION_DOWN, 0, KEYCODE_SHIFT_LEFT, 1, '\0', 0);
+    // Compute physicalKey in the same way as KeyboardManager.getPhysicalKey.
+    final Long shiftLeftPhysicalKey = KEYCODE_SHIFT_LEFT | KeyboardMap.kAndroidPlane;
+
+    assertEquals(tester.keyboardManager.handleEvent(shiftLeftKeyEvent), true);
+    assertEquals(calls.size(), 2);
+    assertEmbedderEventEquals(
+        calls.get(0).keyData,
+        Type.kDown,
+        shiftLeftPhysicalKey,
+        LOGICAL_SHIFT_LEFT,
+        null,
+        false,
+        DeviceType.kKeyboard);
+    assertEmbedderEventEquals(
+        calls.get(1).keyData,
+        Type.kUp,
+        shiftLeftPhysicalKey,
+        LOGICAL_SHIFT_LEFT,
+        null,
+        true,
+        DeviceType.kKeyboard);
+    calls.clear();
+
+    // Similar check for AltLeft.
+    final KeyEvent altLeftKeyEvent = new FakeKeyEvent(ACTION_DOWN, 0, KEYCODE_ALT_LEFT, 1, '\0', 0);
+    final Long altLeftPhysicalKey = KEYCODE_ALT_LEFT | KeyboardMap.kAndroidPlane;
+
+    assertEquals(tester.keyboardManager.handleEvent(altLeftKeyEvent), true);
+    assertEquals(calls.size(), 2);
+    assertEmbedderEventEquals(
+        calls.get(0).keyData,
+        Type.kDown,
+        altLeftPhysicalKey,
+        LOGICAL_ALT_LEFT,
+        null,
+        false,
+        DeviceType.kKeyboard);
+    assertEmbedderEventEquals(
+        calls.get(1).keyData,
+        Type.kUp,
+        altLeftPhysicalKey,
+        LOGICAL_ALT_LEFT,
+        null,
+        true,
+        DeviceType.kKeyboard);
+    calls.clear();
+  }
+
   @Test
   public void normalCapsLockEvents() {
     final KeyboardTester tester = new KeyboardTester();
@@ -1920,5 +1987,89 @@ public class KeyboardManagerTest {
     tester.keyboardManager.handleEvent(
         new FakeKeyEvent(ACTION_UP, SCAN_KEY_A, KEYCODE_A, 0, 'a', 0));
     assertEquals(tester.keyboardManager.getKeyboardState(), Map.of());
+  }
+
+  @Test
+  public void deviceTypeFromInputDevice() {
+    final KeyboardTester tester = new KeyboardTester();
+    final ArrayList<CallRecord> calls = new ArrayList<>();
+
+    tester.recordEmbedderCallsTo(calls);
+    tester.respondToTextInputWith(true);
+
+    // Keyboard
+    final KeyEvent keyboardEvent =
+        new FakeKeyEvent(
+            ACTION_DOWN, SCAN_KEY_A, KEYCODE_A, 0, 'a', 0, InputDevice.SOURCE_KEYBOARD);
+    assertEquals(true, tester.keyboardManager.handleEvent(keyboardEvent));
+    verifyEmbedderEvents(
+        calls,
+        new KeyData[] {
+          buildKeyData(Type.kDown, PHYSICAL_KEY_A, LOGICAL_KEY_A, "a", false, DeviceType.kKeyboard),
+        });
+    calls.clear();
+
+    // Directional pad
+    final KeyEvent directionalPadEvent =
+        new FakeKeyEvent(
+            ACTION_DOWN, SCAN_ARROW_LEFT, KEYCODE_DPAD_LEFT, 0, '\0', 0, InputDevice.SOURCE_DPAD);
+    assertEquals(true, tester.keyboardManager.handleEvent(directionalPadEvent));
+    verifyEmbedderEvents(
+        calls,
+        new KeyData[] {
+          buildKeyData(
+              Type.kDown,
+              PHYSICAL_ARROW_LEFT,
+              LOGICAL_ARROW_LEFT,
+              null,
+              false,
+              DeviceType.kDirectionalPad),
+        });
+    calls.clear();
+
+    // Gamepad
+    final KeyEvent gamepadEvent =
+        new FakeKeyEvent(
+            ACTION_DOWN, SCAN_ARROW_LEFT, KEYCODE_BUTTON_A, 0, '\0', 0, InputDevice.SOURCE_GAMEPAD);
+    assertEquals(true, tester.keyboardManager.handleEvent(gamepadEvent));
+    verifyEmbedderEvents(
+        calls,
+        new KeyData[] {
+          buildKeyData(
+              Type.kUp, PHYSICAL_ARROW_LEFT, LOGICAL_ARROW_LEFT, null, true, DeviceType.kKeyboard),
+          buildKeyData(
+              Type.kDown,
+              PHYSICAL_ARROW_LEFT,
+              LOGICAL_GAME_BUTTON_A,
+              null,
+              false,
+              DeviceType.kGamepad),
+        });
+    calls.clear();
+
+    // HDMI
+    final KeyEvent hdmiEvent =
+        new FakeKeyEvent(
+            ACTION_DOWN, SCAN_ARROW_LEFT, KEYCODE_BUTTON_A, 0, '\0', 0, InputDevice.SOURCE_HDMI);
+    assertEquals(true, tester.keyboardManager.handleEvent(hdmiEvent));
+    verifyEmbedderEvents(
+        calls,
+        new KeyData[] {
+          buildKeyData(
+              Type.kUp,
+              PHYSICAL_ARROW_LEFT,
+              LOGICAL_GAME_BUTTON_A,
+              null,
+              true,
+              DeviceType.kKeyboard),
+          buildKeyData(
+              Type.kDown,
+              PHYSICAL_ARROW_LEFT,
+              LOGICAL_GAME_BUTTON_A,
+              null,
+              false,
+              DeviceType.kHdmi),
+        });
+    calls.clear();
   }
 }

@@ -96,6 +96,10 @@ void EmbedderTestContext::SetRootSurfaceTransformation(SkMatrix matrix) {
   root_surface_transformation_ = matrix;
 }
 
+FlutterRendererConfig& EmbedderTestContext::GetRendererConfig() {
+  return renderer_config_;
+}
+
 void EmbedderTestContext::AddIsolateCreateCallback(
     const fml::closure& closure) {
   if (closure) {
@@ -150,6 +154,11 @@ void EmbedderTestContext::SetPlatformMessageCallback(
 void EmbedderTestContext::SetChannelUpdateCallback(
     const ChannelUpdateCallback& callback) {
   channel_update_callback_ = callback;
+}
+
+void EmbedderTestContext::SetViewFocusChangeRequestCallback(
+    const ViewFocusChangeRequestCallback& callback) {
+  view_focus_change_request_callback_ = callback;
 }
 
 void EmbedderTestContext::PlatformMessageCallback(
@@ -247,6 +256,16 @@ EmbedderTestContext::GetChannelUpdateCallbackHook() {
     auto context = reinterpret_cast<EmbedderTestContext*>(user_data);
     if (context->channel_update_callback_) {
       context->channel_update_callback_(update);
+    }
+  };
+}
+
+FlutterViewFocusChangeRequestCallback
+EmbedderTestContext::GetViewFocusChangeRequestCallbackHook() {
+  return [](const FlutterViewFocusChangeRequest* request, void* user_data) {
+    auto context = reinterpret_cast<EmbedderTestContext*>(user_data);
+    if (context->view_focus_change_request_callback_) {
+      context->view_focus_change_request_callback_(request);
     }
   };
 }

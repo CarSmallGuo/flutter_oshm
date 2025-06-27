@@ -34,7 +34,8 @@ class Display {
   final double refreshRate;
 
   @override
-  String toString() => 'Display(id: $id, size: $size, devicePixelRatio: $devicePixelRatio, refreshRate: $refreshRate)';
+  String toString() =>
+      'Display(id: $id, size: $size, devicePixelRatio: $devicePixelRatio, refreshRate: $refreshRate)';
 }
 
 /// A view into which a Flutter [Scene] is drawn.
@@ -374,10 +375,17 @@ class FlutterView {
   /// * [RendererBinding], the Flutter framework class which manages layout and
   ///   painting.
   void render(Scene scene, {Size? size}) {
-    _render(viewId, scene as _NativeScene, size?.width ?? physicalSize.width, size?.height ?? physicalSize.height);
+    _render(
+      viewId,
+      scene as _NativeScene,
+      size?.width ?? physicalSize.width,
+      size?.height ?? physicalSize.height,
+    );
   }
 
-  @Native<Void Function(Int64, Pointer<Void>, Double, Double)>(symbol: 'PlatformConfigurationNativeApi::Render')
+  @Native<Void Function(Int64, Pointer<Void>, Double, Double)>(
+    symbol: 'PlatformConfigurationNativeApi::Render',
+  )
   external static void _render(int viewId, _NativeScene scene, double width, double height);
 
   /// Change the retained semantics data about this [FlutterView].
@@ -388,10 +396,13 @@ class FlutterView {
   ///
   /// This function disposes the given update, which means the semantics update
   /// cannot be used further.
-  void updateSemantics(SemanticsUpdate update) => _updateSemantics(update as _NativeSemanticsUpdate);
+  void updateSemantics(SemanticsUpdate update) =>
+      _updateSemantics(viewId, update as _NativeSemanticsUpdate);
 
-  @Native<Void Function(Pointer<Void>)>(symbol: 'PlatformConfigurationNativeApi::UpdateSemantics')
-  external static void _updateSemantics(_NativeSemanticsUpdate update);
+  @Native<Void Function(Int64, Pointer<Void>)>(
+    symbol: 'PlatformConfigurationNativeApi::UpdateSemantics',
+  )
+  external static void _updateSemantics(int viewId, _NativeSemanticsUpdate update);
 
   @override
   String toString() => 'FlutterView(id: $viewId)';
@@ -419,27 +430,29 @@ class FlutterView {
 @Deprecated(
   'Use FlutterView or PlatformDispatcher instead. '
   'Deprecated to prepare for the upcoming multi-window support. '
-  'This feature was deprecated after v3.7.0-32.0.pre.'
+  'This feature was deprecated after v3.7.0-32.0.pre.',
 )
 class SingletonFlutterWindow extends FlutterView {
   @Deprecated(
     'Use FlutterView or PlatformDispatcher instead. '
     'Deprecated to prepare for the upcoming multi-window support. '
-    'This feature was deprecated after v3.7.0-32.0.pre.'
+    'This feature was deprecated after v3.7.0-32.0.pre.',
   )
-  SingletonFlutterWindow._() : super._(
-    // TODO(dkwingsmt): This crashes if the implicit view is disabled. We need
-    // to resolve this by the time embedders are allowed to disable the implicit
-    // view.
-    // https://github.com/flutter/flutter/issues/131651
-    _implicitViewId!,
-    PlatformDispatcher.instance,
-    const _ViewConfiguration(),
-  );
+  SingletonFlutterWindow._()
+    : super._(
+        // TODO(dkwingsmt): This crashes if the implicit view is disabled. We need
+        // to resolve this by the time embedders are allowed to disable the implicit
+        // view.
+        // https://github.com/flutter/flutter/issues/131651
+        _implicitViewId!,
+        PlatformDispatcher.instance,
+        const _ViewConfiguration(),
+      );
 
   // Gets its configuration from the FlutterView with the same ID if it exists.
   @override
-  _ViewConfiguration get _viewConfiguration => platformDispatcher._views[viewId]?._viewConfiguration ?? super._viewConfiguration;
+  _ViewConfiguration get _viewConfiguration =>
+      platformDispatcher._views[viewId]?._viewConfiguration ?? super._viewConfiguration;
 
   /// A callback that is invoked whenever the [devicePixelRatio],
   /// [physicalSize], [padding], [viewInsets], [PlatformDispatcher.views], or
@@ -560,6 +573,13 @@ class SingletonFlutterWindow extends FlutterView {
   /// [SpellCheckConfiguration] when spell check is enabled, but no spell check
   /// service is specified.
   bool get nativeSpellCheckServiceDefined => platformDispatcher.nativeSpellCheckServiceDefined;
+
+  /// Whether the spell check service is supported on the current platform.
+  ///
+  /// This option is used by [EditableTextState] to define its
+  /// [SpellCheckConfiguration] when a default spell check service
+  /// is requested.
+  bool get supportsShowingSystemContextMenu => platformDispatcher.supportsShowingSystemContextMenu;
 
   /// Whether briefly displaying the characters as you type in obscured text
   /// fields is enabled in system settings.
@@ -828,7 +848,8 @@ class SingletonFlutterWindow extends FlutterView {
   ///
   /// The framework invokes this callback in the same zone in which the
   /// callback was set.
-  VoidCallback? get onAccessibilityFeaturesChanged => platformDispatcher.onAccessibilityFeaturesChanged;
+  VoidCallback? get onAccessibilityFeaturesChanged =>
+      platformDispatcher.onAccessibilityFeaturesChanged;
   set onAccessibilityFeaturesChanged(VoidCallback? callback) {
     platformDispatcher.onAccessibilityFeaturesChanged = callback;
   }
@@ -844,9 +865,7 @@ class SingletonFlutterWindow extends FlutterView {
   ///
   /// The framework invokes [callback] in the same zone in which this method
   /// was called.
-  void sendPlatformMessage(String name,
-      ByteData? data,
-      PlatformMessageResponseCallback? callback) {
+  void sendPlatformMessage(String name, ByteData? data, PlatformMessageResponseCallback? callback) {
     platformDispatcher.sendPlatformMessage(name, data, callback);
   }
 
@@ -981,8 +1000,7 @@ class AccessibilityFeatures {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is AccessibilityFeatures
-        && other._index == _index;
+    return other is AccessibilityFeatures && other._index == _index;
   }
 
   @override
@@ -1047,11 +1065,18 @@ enum Brightness {
 @Deprecated(
   'Look up the current FlutterView from the context via View.of(context) or consult the PlatformDispatcher directly instead. '
   'Deprecated to prepare for the upcoming multi-window support. '
-  'This feature was deprecated after v3.7.0-32.0.pre.'
+  'This feature was deprecated after v3.7.0-32.0.pre.',
 )
 final SingletonFlutterWindow window = SingletonFlutterWindow._();
 
 /// Additional data available on each flutter frame.
+///
+/// See also:
+///
+///  * [Window.frameData] and [PlatformDispatcher.frameData], which expose the
+///    frame data for the current frame.
+///  * [PlatformDispatcher.onFrameDataChanged], which notifies listeners when
+///    a window's frame data has changed.
 class FrameData {
   const FrameData._({this.frameNumber = -1});
 
@@ -1077,10 +1102,7 @@ class GestureSettings {
   ///
   /// Consider using [GestureSettings.copyWith] on an existing settings object
   /// to ensure that newly added fields are correctly set.
-  const GestureSettings({
-    this.physicalTouchSlop,
-    this.physicalDoubleTapSlop,
-  });
+  const GestureSettings({this.physicalTouchSlop, this.physicalDoubleTapSlop});
 
   /// The number of physical pixels a pointer is allowed to drift before it is
   /// considered an intentional movement.
@@ -1098,10 +1120,7 @@ class GestureSettings {
 
   /// Create a new [GestureSettings] object from an existing value, overwriting
   /// all of the provided fields.
-  GestureSettings copyWith({
-    double? physicalTouchSlop,
-    double? physicalDoubleTapSlop,
-  }) {
+  GestureSettings copyWith({double? physicalTouchSlop, double? physicalDoubleTapSlop}) {
     return GestureSettings(
       physicalTouchSlop: physicalTouchSlop ?? this.physicalTouchSlop,
       physicalDoubleTapSlop: physicalDoubleTapSlop ?? this.physicalDoubleTapSlop,
@@ -1114,13 +1133,14 @@ class GestureSettings {
       return false;
     }
     return other is GestureSettings &&
-      other.physicalTouchSlop == physicalTouchSlop &&
-      other.physicalDoubleTapSlop == physicalDoubleTapSlop;
+        other.physicalTouchSlop == physicalTouchSlop &&
+        other.physicalDoubleTapSlop == physicalDoubleTapSlop;
   }
 
   @override
   int get hashCode => Object.hash(physicalTouchSlop, physicalDoubleTapSlop);
 
   @override
-  String toString() => 'GestureSettings(physicalTouchSlop: $physicalTouchSlop, physicalDoubleTapSlop: $physicalDoubleTapSlop)';
+  String toString() =>
+      'GestureSettings(physicalTouchSlop: $physicalTouchSlop, physicalDoubleTapSlop: $physicalDoubleTapSlop)';
 }

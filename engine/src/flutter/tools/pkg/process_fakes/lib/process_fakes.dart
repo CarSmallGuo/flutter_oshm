@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io' as io;
 
@@ -13,19 +14,21 @@ final class FakeProcessManager implements ProcessManager {
   ///
   /// If either is not provided, it throws an [UnsupportedError] when called.
   FakeProcessManager({
-    io.ProcessResult Function(List<String> command) onRun = unhandledRun,
-    io.Process Function(List<String> command) onStart = unhandledStart,
+    io.ProcessResult Function(FakeCommandLogEntry entry) onRun = unhandledRun,
+    io.Process Function(FakeCommandLogEntry entry) onStart = unhandledStart,
     bool Function(Object?, {String? workingDirectory}) canRun = unhandledCanRun,
-  }) : _onRun = onRun, _onStart = onStart, _canRun = canRun;
+  }) : _onRun = onRun,
+       _onStart = onStart,
+       _canRun = canRun;
 
   /// A default implementation of [onRun] that throws an [UnsupportedError].
-  static io.ProcessResult unhandledRun(List<String> command) {
-    throw UnsupportedError('Unhandled run: ${command.join(' ')}');
+  static io.ProcessResult unhandledRun(FakeCommandLogEntry entry) {
+    throw UnsupportedError('Unhandled run: ${entry.command.join(' ')}');
   }
 
   /// A default implementation of [onStart] that throws an [UnsupportedError].
-  static io.Process unhandledStart(List<String> command) {
-    throw UnsupportedError('Unhandled start: ${command.join(' ')}');
+  static io.Process unhandledStart(FakeCommandLogEntry entry) {
+    throw UnsupportedError('Unhandled start: ${entry.command.join(' ')}');
   }
 
   /// A default implementation of [canRun] that returns `true`.
@@ -33,8 +36,8 @@ final class FakeProcessManager implements ProcessManager {
     return true;
   }
 
-  final io.ProcessResult Function(List<String> command) _onRun;
-  final io.Process Function(List<String> command) _onStart;
+  final io.ProcessResult Function(FakeCommandLogEntry entry) _onRun;
+  final io.Process Function(FakeCommandLogEntry entry) _onStart;
   final bool Function(Object?, {String? workingDirectory}) _canRun;
 
   @override
@@ -76,7 +79,17 @@ final class FakeProcessManager implements ProcessManager {
     Encoding stdoutEncoding = io.systemEncoding,
     Encoding stderrEncoding = io.systemEncoding,
   }) {
-    return _onRun(command.map((Object o) => '$o').toList());
+    return _onRun(
+      FakeCommandLogEntry(
+        command,
+        workingDirectory: workingDirectory,
+        environment: environment,
+        includeParentEnvironment: includeParentEnvironment,
+        runInShell: runInShell,
+        stdoutEncoding: stdoutEncoding,
+        stderrEncoding: stderrEncoding,
+      ),
+    );
   }
 
   @override
@@ -88,24 +101,70 @@ final class FakeProcessManager implements ProcessManager {
     bool runInShell = false,
     io.ProcessStartMode mode = io.ProcessStartMode.normal,
   }) async {
-    return _onStart(command.map((Object o) => '$o').toList());
+    return _onStart(
+      FakeCommandLogEntry(
+        command,
+        workingDirectory: workingDirectory,
+        environment: environment,
+        includeParentEnvironment: includeParentEnvironment,
+        runInShell: runInShell,
+        stdoutEncoding: null,
+        stderrEncoding: null,
+      ),
+    );
   }
+}
+
+/// Contains information about [ProcessManager.start] and [ProcessManager.run]
+/// invocations.
+final class FakeCommandLogEntry {
+  /// Creates a log entry for a single process invocation.
+  FakeCommandLogEntry(
+    List<Object> command, {
+    required this.workingDirectory,
+    required this.environment,
+    required this.includeParentEnvironment,
+    required this.runInShell,
+    required this.stdoutEncoding,
+    required this.stderrEncoding,
+  }) : command = command.map((o) => '$o').toList();
+
+  /// The command passed to the [ProcessManager].
+  final List<String> command;
+
+  /// The working directory passed to the [ProcessManager].
+  final String? workingDirectory;
+
+  /// The environment variables at the time [ProcessManager] was called.
+  final Map<String, String>? environment;
+
+  /// Whether the parent environment variables were included when spawning the
+  /// child process.
+  final bool includeParentEnvironment;
+
+  /// When the child was spawned in a shell environment.
+  final bool runInShell;
+
+  /// The encoding used by `stdout`.
+  final Encoding? stdoutEncoding;
+
+  /// The encoding used by `stderr`.
+  final Encoding? stderrEncoding;
 }
 
 /// An incomplete fake of [io.Process] that allows control for testing.
 final class FakeProcess implements io.Process {
   /// Creates a fake process that returns the given [exitCode] and out/err.
-  FakeProcess({
-    int exitCode = 0,
-    String stdout = '',
-    String stderr = '',
-  })  : _exitCode = exitCode,
-        _stdout = stdout,
-        _stderr = stderr;
+  FakeProcess({int exitCode = 0, String stdout = '', String stderr = ''})
+    : _exitCode = exitCode,
+      _stdout = stdout,
+      _stderr = stderr,
+      _stdin = io.IOSink(StreamController<List<int>>.broadcast().sink);
 
   final int _exitCode;
   final String _stdout;
   final String _stderr;
+  final io.IOSink _stdin;
 
   @override
   Future<int> get exitCode async => _exitCode;
@@ -122,7 +181,7 @@ final class FakeProcess implements io.Process {
   }
 
   @override
-  io.IOSink get stdin => throw UnimplementedError();
+  io.IOSink get stdin => _stdin;
 
   @override
   Stream<List<int>> get stdout {

@@ -8,6 +8,7 @@
 #include <functional>
 #include <map>
 
+#include "flutter/fml/unique_fd.h"
 #include "flutter/fml/unique_object.h"
 #include "impeller/geometry/color.h"
 #include "impeller/toolkit/android/proc_table.h"
@@ -16,6 +17,25 @@ namespace impeller::android {
 
 class SurfaceControl;
 class HardwareBuffer;
+
+/// @brief A wrapper class that indicates whether a SurfaceTransaction was
+/// created by the flutter engine or was borrowed from Java for platform
+/// interop.
+struct WrappedSurfaceTransaction {
+  ASurfaceTransaction* tx = nullptr;
+
+  /// Whether this SurfaceTransaction was created by the engine or imported from
+  /// Java.
+  bool owned = true;
+
+  constexpr bool operator==(const WrappedSurfaceTransaction& other) const {
+    return other.tx == tx;
+  }
+
+  constexpr bool operator!=(const WrappedSurfaceTransaction& other) const {
+    return !(*this == other);
+  }
+};
 
 //------------------------------------------------------------------------------
 /// @brief      A wrapper for ASurfaceTransaction.
@@ -47,6 +67,8 @@ class SurfaceTransaction {
 
   SurfaceTransaction& operator=(const SurfaceTransaction&) = delete;
 
+  explicit SurfaceTransaction(ASurfaceTransaction* transaction);
+
   bool IsValid() const;
 
   //----------------------------------------------------------------------------
@@ -56,13 +78,16 @@ class SurfaceTransaction {
   ///
   /// @see        `SurfaceTransaction::Apply`.
   ///
-  /// @param[in]  control  The control
-  /// @param[in]  buffer   The hardware buffer
+  /// @param[in]  control         The control.
+  /// @param[in]  buffer          The hardware buffer.
+  /// @param[in]  acquire_fence   The fence to wait on before setting the
+  ///                             contents.
   ///
   /// @return     If the update was encoded in the transaction.
   ///
   [[nodiscard]] bool SetContents(const SurfaceControl* control,
-                                 const HardwareBuffer* buffer);
+                                 const HardwareBuffer* buffer,
+                                 fml::UniqueFD acquire_fence = {});
 
   //----------------------------------------------------------------------------
   /// @brief      Encodes the updated background color of the surface control.
@@ -80,7 +105,7 @@ class SurfaceTransaction {
   [[nodiscard]] bool SetBackgroundColor(const SurfaceControl& control,
                                         const Color& color);
 
-  using OnCompleteCallback = std::function<void(void)>;
+  using OnCompleteCallback = std::function<void(ASurfaceTransactionStats*)>;
 
   //----------------------------------------------------------------------------
   /// @brief      Applies the updated encoded in the transaction and invokes the
@@ -115,18 +140,20 @@ class SurfaceTransaction {
 
  private:
   struct UniqueASurfaceTransactionTraits {
-    static ASurfaceTransaction* InvalidValue() { return nullptr; }
+    static WrappedSurfaceTransaction InvalidValue() { return {}; }
 
-    static bool IsValid(ASurfaceTransaction* value) {
-      return value != InvalidValue();
+    static bool IsValid(const WrappedSurfaceTransaction& value) {
+      return value.tx != nullptr;
     }
 
-    static void Free(ASurfaceTransaction* value) {
-      GetProcTable().ASurfaceTransaction_delete(value);
+    static void Free(const WrappedSurfaceTransaction& value) {
+      if (value.owned && value.tx) {
+        GetProcTable().ASurfaceTransaction_delete(value.tx);
+      }
     }
   };
 
-  fml::UniqueObject<ASurfaceTransaction*, UniqueASurfaceTransactionTraits>
+  fml::UniqueObject<WrappedSurfaceTransaction, UniqueASurfaceTransactionTraits>
       transaction_;
 };
 

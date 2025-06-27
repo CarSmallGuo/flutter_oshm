@@ -1,3 +1,7 @@
+// Copyright 2013 The Flutter Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
 package io.flutter.embedding.android;
 
 import static android.content.ComponentCallbacks2.*;
@@ -45,11 +49,13 @@ import io.flutter.embedding.engine.systemchannels.LifecycleChannel;
 import io.flutter.embedding.engine.systemchannels.LocalizationChannel;
 import io.flutter.embedding.engine.systemchannels.MouseCursorChannel;
 import io.flutter.embedding.engine.systemchannels.NavigationChannel;
+import io.flutter.embedding.engine.systemchannels.ScribeChannel;
 import io.flutter.embedding.engine.systemchannels.SettingsChannel;
 import io.flutter.embedding.engine.systemchannels.SystemChannel;
 import io.flutter.embedding.engine.systemchannels.TextInputChannel;
 import io.flutter.plugin.localization.LocalizationPlugin;
 import io.flutter.plugin.platform.PlatformViewsController;
+import io.flutter.plugin.platform.PlatformViewsController2;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -1048,6 +1054,9 @@ public class FlutterActivityAndFragmentDelegateTest {
   }
 
   @Test
+  @SuppressWarnings("deprecation")
+  // TRIM_MEMORY_COMPLETE, TRIM_MEMORY_MODERATE, TRIM_MEMORY_RUNNING_LOW,
+  // TRIM_MEMORY_RUNNING_MODERATE, TRIM_MEMORY_RUNNING_CRITICAL
   public void itNotifiesDartExecutorAndSendsMessageOverSystemChannelWhenToldToTrimMemory() {
     // Create the real object that we're testing.
     FlutterActivityAndFragmentDelegate delegate = new FlutterActivityAndFragmentDelegate(mockHost);
@@ -1467,6 +1476,7 @@ public class FlutterActivityAndFragmentDelegateTest {
     when(engine.getNavigationChannel()).thenReturn(mock(NavigationChannel.class));
     when(engine.getBackGestureChannel()).thenReturn(mock(BackGestureChannel.class));
     when(engine.getPlatformViewsController()).thenReturn(mock(PlatformViewsController.class));
+    when(engine.getPlatformViewsController2()).thenReturn(mock(PlatformViewsController2.class));
 
     FlutterRenderer renderer = mock(FlutterRenderer.class);
     when(engine.getRenderer()).thenReturn(renderer);
@@ -1474,6 +1484,7 @@ public class FlutterActivityAndFragmentDelegateTest {
     when(engine.getSettingsChannel()).thenReturn(fakeSettingsChannel);
     when(engine.getSystemChannel()).thenReturn(mock(SystemChannel.class));
     when(engine.getTextInputChannel()).thenReturn(mock(TextInputChannel.class));
+    when(engine.getScribeChannel()).thenReturn(mock(ScribeChannel.class));
 
     return engine;
   }

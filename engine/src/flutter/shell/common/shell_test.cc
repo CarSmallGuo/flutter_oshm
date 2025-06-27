@@ -65,6 +65,15 @@ void ShellTest::SendPlatformMessage(Shell* shell,
   shell->OnPlatformViewDispatchPlatformMessage(std::move(message));
 }
 
+void ShellTest::SendSemanticsAction(Shell* shell,
+                                    int64_t view_id,
+                                    int32_t node_id,
+                                    SemanticsAction action,
+                                    fml::MallocMapping args) {
+  shell->OnPlatformViewDispatchSemanticsAction(view_id, node_id, action,
+                                               std::move(args));
+}
+
 void ShellTest::SendEnginePlatformMessage(
     Shell* shell,
     std::unique_ptr<PlatformMessage> message) {
@@ -237,13 +246,11 @@ void ShellTest::PumpOneFrame(Shell* shell, FrameContent frame_content) {
         // causing flaky assertion errors.
 
         for (auto& [view_id, view_content] : frame_content) {
-          SkMatrix identity;
-          identity.setIdentity();
-          auto root_layer = std::make_shared<TransformLayer>(identity);
+          auto root_layer = std::make_shared<TransformLayer>(DlMatrix());
           auto layer_tree = std::make_unique<LayerTree>(
-              LayerTree::Config{.root_layer = root_layer},
-              SkISize::Make(view_content.viewport_metrics.physical_width,
-                            view_content.viewport_metrics.physical_height));
+              root_layer,
+              DlISize(view_content.viewport_metrics.physical_width,
+                      view_content.viewport_metrics.physical_height));
           float device_pixel_ratio = static_cast<float>(
               view_content.viewport_metrics.device_pixel_ratio);
           if (view_content.builder) {
@@ -258,8 +265,12 @@ void ShellTest::PumpOneFrame(Shell* shell, FrameContent frame_content) {
   latch.Wait();
 }
 
-void ShellTest::DispatchFakePointerData(Shell* shell) {
+void ShellTest::DispatchFakePointerData(Shell* shell, double x) {
   auto packet = std::make_unique<PointerDataPacket>(1);
+  packet->SetPointerData(0, PointerData{
+                                .change = PointerData::Change::kHover,
+                                .physical_x = x,
+                            });
   DispatchPointerData(shell, std::move(packet));
 }
 
@@ -300,27 +311,24 @@ void ShellTest::OnServiceProtocol(
     const ServiceProtocol::Handler::ServiceProtocolMap& params,
     rapidjson::Document* response) {
   std::promise<bool> finished;
-  fml::TaskRunner::RunNowOrPostTask(task_runner, [shell, some_protocol, params,
-                                                  response, &finished]() {
-    switch (some_protocol) {
-      case ServiceProtocolEnum::kGetSkSLs:
-        shell->OnServiceProtocolGetSkSLs(params, response);
-        break;
-      case ServiceProtocolEnum::kEstimateRasterCacheMemory:
-        shell->OnServiceProtocolEstimateRasterCacheMemory(params, response);
-        break;
-      case ServiceProtocolEnum::kSetAssetBundlePath:
-        shell->OnServiceProtocolSetAssetBundlePath(params, response);
-        break;
-      case ServiceProtocolEnum::kRunInView:
-        shell->OnServiceProtocolRunInView(params, response);
-        break;
-      case ServiceProtocolEnum::kRenderFrameWithRasterStats:
-        shell->OnServiceProtocolRenderFrameWithRasterStats(params, response);
-        break;
-    }
-    finished.set_value(true);
-  });
+  fml::TaskRunner::RunNowOrPostTask(
+      task_runner, [shell, some_protocol, params, response, &finished]() {
+        switch (some_protocol) {
+          case ServiceProtocolEnum::kGetSkSLs:
+            shell->OnServiceProtocolGetSkSLs(params, response);
+            break;
+          case ServiceProtocolEnum::kEstimateRasterCacheMemory:
+            shell->OnServiceProtocolEstimateRasterCacheMemory(params, response);
+            break;
+          case ServiceProtocolEnum::kSetAssetBundlePath:
+            shell->OnServiceProtocolSetAssetBundlePath(params, response);
+            break;
+          case ServiceProtocolEnum::kRunInView:
+            shell->OnServiceProtocolRunInView(params, response);
+            break;
+        }
+        finished.set_value(true);
+      });
   finished.get_future().wait();
 }
 
@@ -406,15 +414,6 @@ void ShellTest::DestroyShell(std::unique_ptr<Shell> shell,
                                       latch.Signal();
                                     });
   latch.Wait();
-}
-
-size_t ShellTest::GetLiveTrackedPathCount(
-    const std::shared_ptr<VolatilePathTracker>& tracker) {
-  return std::count_if(
-      tracker->paths_.begin(), tracker->paths_.end(),
-      [](const std::weak_ptr<VolatilePathTracker::TrackedPath>& path) {
-        return path.lock();
-      });
 }
 
 void ShellTest::TurnOffGPU(Shell* shell, bool value) {

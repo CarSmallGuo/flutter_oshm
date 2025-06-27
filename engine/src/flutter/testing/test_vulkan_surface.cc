@@ -11,13 +11,12 @@
 #include "third_party/skia/include/core/SkColorType.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/core/SkSurfaceProps.h"
-#include "third_party/skia/include/gpu/GrBackendSurface.h"
+#include "third_party/skia/include/gpu/ganesh/GrBackendSurface.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 #include "third_party/skia/include/gpu/ganesh/vk/GrVkBackendSurface.h"
-#include "third_party/skia/include/gpu/vk/GrVkTypes.h"
+#include "third_party/skia/include/gpu/ganesh/vk/GrVkTypes.h"
 
-namespace flutter {
-namespace testing {
+namespace flutter::testing {
 
 TestVulkanSurface::TestVulkanSurface(TestVulkanImage&& image)
     : image_(std::move(image)){};
@@ -49,6 +48,7 @@ std::unique_ptr<TestVulkanSurface> TestVulkanSurface::Create(
 
   SkSurfaceProps surface_properties(0, kUnknown_SkPixelGeometry);
 
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
   auto result = std::unique_ptr<TestVulkanSurface>(
       new TestVulkanSurface(std::move(image_result.value())));
   result->surface_ = SkSurfaces::WrapBackendTexture(
@@ -110,5 +110,4 @@ VkImage TestVulkanSurface::GetImage() {
   return image_.GetImage();
 }
 
-}  // namespace testing
-}  // namespace flutter
+}  // namespace flutter::testing

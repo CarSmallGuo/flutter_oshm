@@ -108,9 +108,6 @@ class CompositorOpenGLTest : public WindowsTest {
       ViewModifier modifier{view_.get()};
       modifier.SetSurface(std::move(surface));
     }
-
-    EngineModifier modifier{engine_.get()};
-    modifier.SetImplicitView(view_.get());
   }
 
  private:
@@ -128,7 +125,22 @@ class CompositorOpenGLTest : public WindowsTest {
 TEST_F(CompositorOpenGLTest, CreateBackingStore) {
   UseHeadlessEngine();
 
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/false};
+
+  FlutterBackingStoreConfig config = {};
+  FlutterBackingStore backing_store = {};
+
+  EXPECT_CALL(*render_context(), MakeCurrent).WillOnce(Return(true));
+  ASSERT_TRUE(compositor.CreateBackingStore(config, &backing_store));
+  ASSERT_TRUE(compositor.CollectBackingStore(&backing_store));
+}
+
+TEST_F(CompositorOpenGLTest, CreateBackingStoreImpeller) {
+  UseHeadlessEngine();
+
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/true};
 
   FlutterBackingStoreConfig config = {};
   FlutterBackingStore backing_store = {};
@@ -141,7 +153,8 @@ TEST_F(CompositorOpenGLTest, CreateBackingStore) {
 TEST_F(CompositorOpenGLTest, InitializationFailure) {
   UseHeadlessEngine();
 
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/false};
 
   FlutterBackingStoreConfig config = {};
   FlutterBackingStore backing_store = {};
@@ -153,7 +166,8 @@ TEST_F(CompositorOpenGLTest, InitializationFailure) {
 TEST_F(CompositorOpenGLTest, Present) {
   UseEngineWithView();
 
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/false};
 
   FlutterBackingStoreConfig config = {};
   FlutterBackingStore backing_store = {};
@@ -169,7 +183,7 @@ TEST_F(CompositorOpenGLTest, Present) {
   EXPECT_CALL(*surface(), IsValid).WillRepeatedly(Return(true));
   EXPECT_CALL(*surface(), MakeCurrent).WillOnce(Return(true));
   EXPECT_CALL(*surface(), SwapBuffers).WillOnce(Return(true));
-  EXPECT_TRUE(compositor.Present(view()->view_id(), &layer_ptr, 1));
+  EXPECT_TRUE(compositor.Present(view(), &layer_ptr, 1));
 
   ASSERT_TRUE(compositor.CollectBackingStore(&backing_store));
 }
@@ -177,7 +191,8 @@ TEST_F(CompositorOpenGLTest, Present) {
 TEST_F(CompositorOpenGLTest, PresentEmpty) {
   UseEngineWithView();
 
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/false};
 
   // The context will be bound twice: first to initialize the compositor, second
   // to clear the surface.
@@ -185,59 +200,14 @@ TEST_F(CompositorOpenGLTest, PresentEmpty) {
   EXPECT_CALL(*surface(), IsValid).WillRepeatedly(Return(true));
   EXPECT_CALL(*surface(), MakeCurrent).WillOnce(Return(true));
   EXPECT_CALL(*surface(), SwapBuffers).WillOnce(Return(true));
-  EXPECT_TRUE(compositor.Present(view()->view_id(), nullptr, 0));
-}
-
-TEST_F(CompositorOpenGLTest, HeadlessPresentIgnored) {
-  UseHeadlessEngine();
-
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
-
-  FlutterBackingStoreConfig config = {};
-  FlutterBackingStore backing_store = {};
-
-  EXPECT_CALL(*render_context(), MakeCurrent).WillOnce(Return(true));
-  ASSERT_TRUE(compositor.CreateBackingStore(config, &backing_store));
-
-  FlutterLayer layer = {};
-  layer.type = kFlutterLayerContentTypeBackingStore;
-  layer.backing_store = &backing_store;
-  const FlutterLayer* layer_ptr = &layer;
-
-  EXPECT_FALSE(compositor.Present(kImplicitViewId, &layer_ptr, 1));
-
-  ASSERT_TRUE(compositor.CollectBackingStore(&backing_store));
-}
-
-TEST_F(CompositorOpenGLTest, UnknownViewIgnored) {
-  UseEngineWithView();
-
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
-
-  FlutterBackingStoreConfig config = {};
-  FlutterBackingStore backing_store = {};
-
-  EXPECT_CALL(*render_context(), MakeCurrent).WillOnce(Return(true));
-  ASSERT_TRUE(compositor.CreateBackingStore(config, &backing_store));
-
-  FlutterLayer layer = {};
-  layer.type = kFlutterLayerContentTypeBackingStore;
-  layer.backing_store = &backing_store;
-  const FlutterLayer* layer_ptr = &layer;
-
-  FlutterViewId unknown_view_id = 123;
-  ASSERT_NE(view()->view_id(), unknown_view_id);
-  ASSERT_EQ(engine()->view(unknown_view_id), nullptr);
-
-  EXPECT_FALSE(compositor.Present(unknown_view_id, &layer_ptr, 1));
-
-  ASSERT_TRUE(compositor.CollectBackingStore(&backing_store));
+  EXPECT_TRUE(compositor.Present(view(), nullptr, 0));
 }
 
 TEST_F(CompositorOpenGLTest, NoSurfaceIgnored) {
   UseEngineWithView(/*add_surface = */ false);
 
-  auto compositor = CompositorOpenGL{engine(), kMockResolver};
+  auto compositor =
+      CompositorOpenGL{engine(), kMockResolver, /*enable_impeller=*/false};
 
   FlutterBackingStoreConfig config = {};
   FlutterBackingStore backing_store = {};
@@ -250,7 +220,7 @@ TEST_F(CompositorOpenGLTest, NoSurfaceIgnored) {
   layer.backing_store = &backing_store;
   const FlutterLayer* layer_ptr = &layer;
 
-  EXPECT_FALSE(compositor.Present(view()->view_id(), &layer_ptr, 1));
+  EXPECT_FALSE(compositor.Present(view(), &layer_ptr, 1));
 
   ASSERT_TRUE(compositor.CollectBackingStore(&backing_store));
 }

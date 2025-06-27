@@ -4,7 +4,7 @@
 
 import("//build/toolchain/wasm.gni")
 
-# This toolchain is only to be used by the canvaskit target below.
+# This toolchain is only to be used by canvaskit_group below.
 wasm_toolchain("canvaskit") {
   extra_toolchain_args = {
     # Include ICU data.
@@ -88,7 +88,7 @@ wasm_toolchain("skwasm") {
     skia_use_libpng_encode = false
 
     # skwasm is multithreaded
-    wasm_use_pthreads = true
+    wasm_use_workers = true
     wasm_prioritize_size = true
   }
 }
@@ -101,7 +101,6 @@ copy("skwasm_group") {
     "$root_out_dir/skwasm/skwasm.js",
     "$root_out_dir/skwasm/skwasm.js.symbols",
     "$root_out_dir/skwasm/skwasm.wasm",
-    "$root_out_dir/skwasm/skwasm.worker.js",
   ]
   if (is_debug) {
     if (!wasm_use_dwarf) {

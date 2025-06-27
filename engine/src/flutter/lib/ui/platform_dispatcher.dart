@@ -7,6 +7,14 @@ part of dart.ui;
 typedef VoidCallback = void Function();
 
 /// Signature for [PlatformDispatcher.onBeginFrame].
+///
+/// The `duration` argument is the point at which the current frame interval
+/// began, expressed as a duration since some epoch. The epoch in all
+/// frames will be the same, but it may not match [DateTime]'s epoch.
+///
+/// For any two frames `a` and `b` such that the frame number of `a` is less
+/// than the frame number of `b`, the duration argument for `a` will be less
+/// than or equal to the duration argument for `b`.
 typedef FrameCallback = void Function(Duration duration);
 
 /// Signature for [PlatformDispatcher.onReportTimings].
@@ -48,7 +56,8 @@ typedef PlatformMessageResponseCallback = void Function(ByteData? data);
   'Migrate to ChannelBuffers.setListener instead. '
   'This feature was deprecated after v3.11.0-20.0.pre.',
 )
-typedef PlatformMessageCallback = void Function(String name, ByteData? data, PlatformMessageResponseCallback? callback);
+typedef PlatformMessageCallback =
+    void Function(String name, ByteData? data, PlatformMessageResponseCallback? callback);
 
 // Signature for _setNeedsReportTimings.
 typedef _SetNeedsReportTimingsFunc = void Function(bool value);
@@ -72,8 +81,7 @@ const double _kUnsetGestureSetting = -1.0;
 const String _kFlutterKeyDataChannel = 'flutter/keydata';
 
 @pragma('vm:entry-point')
-ByteData? _wrapUnmodifiableByteData(ByteData? byteData) =>
-    byteData?.asUnmodifiableView();
+ByteData? _wrapUnmodifiableByteData(ByteData? byteData) => byteData?.asUnmodifiableView();
 
 /// A token that represents a root isolate.
 class RootIsolateToken {
@@ -166,9 +174,9 @@ class PlatformDispatcher {
   ///
   /// Presently, on Android and Web this collection will only contain the
   /// display that the current window is on. On iOS, it will only contains the
-  /// main display on the phone or tablet. On Desktop, it will contain only
-  /// a main display with a valid refresh rate but invalid size and device
-  /// pixel ratio values.
+  /// main display on the phone or tablet. On Desktops other than Linux, it will
+  /// contain only a main display with a valid refresh rate but invalid size and
+  /// device pixel ratio values.
   // TODO(dnfield): Update these docs when https://github.com/flutter/flutter/issues/125939
   // and https://github.com/flutter/flutter/issues/125938 are resolved.
   Iterable<Display> get displays => _displays.values;
@@ -213,16 +221,20 @@ class PlatformDispatcher {
   FlutterView? get implicitView {
     final FlutterView? result = _views[_implicitViewId];
     // Make sure [implicitView] agrees with `_implicitViewId`.
-    assert((result != null) == (_implicitViewId != null),
-      (_implicitViewId != null) ?
-        'The implicit view ID is $_implicitViewId, but the implicit view does not exist.' :
-        'The implicit view ID is null, but the implicit view exists.');
+    assert(
+      (result != null) == (_implicitViewId != null),
+      (_implicitViewId != null)
+          ? 'The implicit view ID is $_implicitViewId, but the implicit view does not exist.'
+          : 'The implicit view ID is null, but the implicit view exists.',
+    );
     // Make sure [implicitView] never chages.
     assert(() {
       if (_debugRecordedLastImplicitView) {
-        assert(identical(_debugLastImplicitView, result),
+        assert(
+          identical(_debugLastImplicitView, result),
           'The implicitView has changed:\n'
-          'Last: $_debugLastImplicitView\nCurrent: $result');
+          'Last: $_debugLastImplicitView\nCurrent: $result',
+        );
       } else {
         _debugLastImplicitView = result;
         _debugRecordedLastImplicitView = true;
@@ -287,6 +299,17 @@ class PlatformDispatcher {
     _views.remove(id);
     _invoke(onMetricsChanged, _onMetricsChangedZone);
   }
+
+  void _sendViewFocusEvent(ViewFocusEvent event) {
+    _invoke1<ViewFocusEvent>(onViewFocusChange, _onViewFocusChangeZone, event);
+  }
+
+  /// Opaque engine identifier for the engine running current isolate. Can be used
+  /// in native code to retrieve the engine instance.
+  /// The identifier is valid while the isolate is running.
+  int? get engineId => _engineId;
+
+  int? _engineId;
 
   // Called from the engine, via hooks.dart.
   //
@@ -371,8 +394,13 @@ class PlatformDispatcher {
     required ViewFocusState state,
     required ViewFocusDirection direction,
   }) {
-    // TODO(tugorez): implement this method. At the moment will be a no op call.
+    _requestViewFocusChange(viewId, state.index, direction.index);
   }
+
+  @Native<Void Function(Int64, Int64, Int64)>(
+    symbol: 'PlatformConfigurationNativeApi::RequestViewFocusChange',
+  )
+  external static void _requestViewFocusChange(int viewId, int state, int direction);
 
   /// A callback invoked when any view begins a frame.
   ///
@@ -394,11 +422,7 @@ class PlatformDispatcher {
 
   // Called from the engine, via hooks.dart
   void _beginFrame(int microseconds) {
-    _invoke1<Duration>(
-      onBeginFrame,
-      _onBeginFrameZone,
-      Duration(microseconds: microseconds),
-    );
+    _invoke1<Duration>(onBeginFrame, _onBeginFrameZone, Duration(microseconds: microseconds));
   }
 
   /// A callback that is invoked for each frame after [onBeginFrame] has
@@ -416,7 +440,6 @@ class PlatformDispatcher {
 
   // Called from the engine, via hooks.dart
   void _drawFrame() {
-    // print("platform_dispatcher::drawFrame..${_onDrawFrame}") ;
     _invoke(onDrawFrame, _onDrawFrameZone);
   }
 
@@ -460,63 +483,68 @@ class PlatformDispatcher {
     final List<PointerData> data = <PointerData>[];
     for (int i = 0; i < length; ++i) {
       int offset = i * _kPointerDataFieldCount;
-      data.add(PointerData(
-        // The unpacking code must match the struct in pointer_data.h.
-        embedderId: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-        timeStamp: Duration(microseconds: packet.getInt64(kStride * offset++, _kFakeHostEndian)),
-        change: PointerChange.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
-        kind: PointerDeviceKind.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
-        signalKind: PointerSignalKind.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
-        device: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-        pointerIdentifier: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-        physicalX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        physicalY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        physicalDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        physicalDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        buttons: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-        obscured: packet.getInt64(kStride * offset++, _kFakeHostEndian) != 0,
-        synthesized: packet.getInt64(kStride * offset++, _kFakeHostEndian) != 0,
-        pressure: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        pressureMin: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        pressureMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        distance: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        distanceMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        size: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        radiusMajor: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        radiusMinor: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        radiusMin: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        radiusMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        orientation: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        tilt: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        platformData: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-        scrollDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        scrollDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        panX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        panY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        panDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        panDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        scale: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        rotation: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
-        viewId: packet.getInt64(kStride * offset++, _kFakeHostEndian),
-      ));
+      data.add(
+        PointerData(
+          // The unpacking code must match the struct in pointer_data.h.
+          embedderId: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+          timeStamp: Duration(microseconds: packet.getInt64(kStride * offset++, _kFakeHostEndian)),
+          change: PointerChange.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
+          kind: PointerDeviceKind.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
+          signalKind:
+              PointerSignalKind.values[packet.getInt64(kStride * offset++, _kFakeHostEndian)],
+          device: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+          pointerIdentifier: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+          physicalX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          physicalY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          physicalDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          physicalDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          buttons: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+          obscured: packet.getInt64(kStride * offset++, _kFakeHostEndian) != 0,
+          synthesized: packet.getInt64(kStride * offset++, _kFakeHostEndian) != 0,
+          pressure: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          pressureMin: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          pressureMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          distance: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          distanceMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          size: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          radiusMajor: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          radiusMinor: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          radiusMin: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          radiusMax: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          orientation: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          tilt: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          platformData: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+          scrollDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          scrollDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          panX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          panY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          panDeltaX: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          panDeltaY: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          scale: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          rotation: packet.getFloat64(kStride * offset++, _kFakeHostEndian),
+          viewId: packet.getInt64(kStride * offset++, _kFakeHostEndian),
+        ),
+      );
       assert(offset == (i + 1) * _kPointerDataFieldCount);
     }
     return PointerDataPacket(data: data);
   }
 
-  static ChannelCallback _keyDataListener(KeyDataCallback onKeyData, Zone zone) =>
-    (ByteData? packet, PlatformMessageResponseCallback callback) {
-      _invoke1<KeyData>(
-        (KeyData keyData) {
-          final bool handled = onKeyData(keyData);
-          final Uint8List response = Uint8List(1);
-          response[0] = handled ? 1 : 0;
-          callback(response.buffer.asByteData());
-        },
-        zone,
-        _unpackKeyData(packet!),
-      );
-    };
+  static ChannelCallback _keyDataListener(KeyDataCallback onKeyData, Zone zone) => (
+    ByteData? packet,
+    PlatformMessageResponseCallback callback,
+  ) {
+    _invoke1<KeyData>(
+      (KeyData keyData) {
+        final bool handled = onKeyData(keyData);
+        final Uint8List response = Uint8List(1);
+        response[0] = handled ? 1 : 0;
+        callback(response.buffer.asByteData());
+      },
+      zone,
+      _unpackKeyData(packet!),
+    );
+  };
 
   /// A callback that is invoked when key data is available.
   ///
@@ -548,8 +576,12 @@ class PlatformDispatcher {
 
     int offset = 0;
     final int charDataSize = packet.getUint64(kStride * offset++, _kFakeHostEndian);
-    final String? character = charDataSize == 0 ? null : utf8.decoder.convert(
-          packet.buffer.asUint8List(kStride * (offset + _kKeyDataFieldCount), charDataSize));
+    final String? character =
+        charDataSize == 0
+            ? null
+            : utf8.decoder.convert(
+              packet.buffer.asUint8List(kStride * (offset + _kKeyDataFieldCount), charDataSize),
+            );
 
     final KeyData keyData = KeyData(
       timeStamp: Duration(microseconds: packet.getUint64(kStride * offset++, _kFakeHostEndian)),
@@ -622,18 +654,30 @@ class PlatformDispatcher {
   /// The framework invokes [callback] in the same zone in which this method was
   /// called.
   void sendPlatformMessage(String name, ByteData? data, PlatformMessageResponseCallback? callback) {
-    final String? error =
-        _sendPlatformMessage(name, _zonedPlatformMessageResponseCallback(callback), data);
+    final String? error = _sendPlatformMessage(
+      name,
+      _zonedPlatformMessageResponseCallback(callback),
+      data,
+    );
     if (error != null) {
       throw Exception(error);
     }
   }
 
-  String? _sendPlatformMessage(String name, PlatformMessageResponseCallback? callback, ByteData? data) =>
-      __sendPlatformMessage(name, callback, data);
+  String? _sendPlatformMessage(
+    String name,
+    PlatformMessageResponseCallback? callback,
+    ByteData? data,
+  ) => __sendPlatformMessage(name, callback, data);
 
-  @Native<Handle Function(Handle, Handle, Handle)>(symbol: 'PlatformConfigurationNativeApi::SendPlatformMessage')
-  external static String? __sendPlatformMessage(String name, PlatformMessageResponseCallback? callback, ByteData? data);
+  @Native<Handle Function(Handle, Handle, Handle)>(
+    symbol: 'PlatformConfigurationNativeApi::SendPlatformMessage',
+  )
+  external static String? __sendPlatformMessage(
+    String name,
+    PlatformMessageResponseCallback? callback,
+    ByteData? data,
+  );
 
   /// Sends a message to a platform-specific plugin via a [SendPort].
   ///
@@ -643,13 +687,8 @@ class PlatformDispatcher {
   /// of the channel communication will happen on. The [data] parameter is the
   /// payload of the message. The [identifier] parameter is a unique integer
   /// assigned to the message.
-  void sendPortPlatformMessage(
-    String name,
-    ByteData? data,
-    int identifier,
-    SendPort port) {
-    final String? error =
-        _sendPortPlatformMessage(name, identifier, port.nativePort, data);
+  void sendPortPlatformMessage(String name, ByteData? data, int identifier, SendPort port) {
+    final String? error = _sendPortPlatformMessage(name, identifier, port.nativePort, data);
     if (error != null) {
       throw Exception(error);
     }
@@ -658,8 +697,15 @@ class PlatformDispatcher {
   String? _sendPortPlatformMessage(String name, int identifier, int port, ByteData? data) =>
       __sendPortPlatformMessage(name, identifier, port, data);
 
-  @Native<Handle Function(Handle, Handle, Handle, Handle)>(symbol: 'PlatformConfigurationNativeApi::SendPortPlatformMessage')
-  external static String? __sendPortPlatformMessage(String name, int identifier, int port, ByteData? data);
+  @Native<Handle Function(Handle, Handle, Handle, Handle)>(
+    symbol: 'PlatformConfigurationNativeApi::SendPortPlatformMessage',
+  )
+  external static String? __sendPortPlatformMessage(
+    String name,
+    int identifier,
+    int port,
+    ByteData? data,
+  );
 
   /// Registers the current isolate with the isolate identified with by the
   /// [token]. This is required if platform channels are to be used on a
@@ -703,9 +749,12 @@ class PlatformDispatcher {
   }
 
   /// Called by [_dispatchPlatformMessage].
-  void _respondToPlatformMessage(int responseId, ByteData? data) => __respondToPlatformMessage(responseId, data);
+  void _respondToPlatformMessage(int responseId, ByteData? data) =>
+      __respondToPlatformMessage(responseId, data);
 
-  @Native<Void Function(IntPtr, Handle)>(symbol: 'PlatformConfigurationNativeApi::RespondToPlatformMessage')
+  @Native<Void Function(IntPtr, Handle)>(
+    symbol: 'PlatformConfigurationNativeApi::RespondToPlatformMessage',
+  )
   external static void __respondToPlatformMessage(int responseId, ByteData? data);
 
   /// Wraps the given [callback] in another callback that ensures that the
@@ -866,11 +915,9 @@ class PlatformDispatcher {
     if (newFeatures == previousConfiguration.accessibilityFeatures) {
       return;
     }
-    _configuration = previousConfiguration.copyWith(
-      accessibilityFeatures: newFeatures,
-    );
-    _invoke(onPlatformConfigurationChanged, _onPlatformConfigurationChangedZone,);
-    _invoke(onAccessibilityFeaturesChanged, _onAccessibilityFeaturesChangedZone,);
+    _configuration = previousConfiguration.copyWith(accessibilityFeatures: newFeatures);
+    _invoke(onPlatformConfigurationChanged, _onPlatformConfigurationChangedZone);
+    _invoke(onAccessibilityFeaturesChanged, _onAccessibilityFeaturesChangedZone);
   }
 
   /// Change the retained semantics data about this platform dispatcher.
@@ -889,10 +936,13 @@ class PlatformDispatcher {
     semantics, use PlatformDispatcher.instance.views to get a [FlutterView] and
     call `updateSemantics`.
   ''')
-  void updateSemantics(SemanticsUpdate update) => _updateSemantics(update as _NativeSemanticsUpdate);
+  void updateSemantics(SemanticsUpdate update) =>
+      _updateSemantics(_implicitViewId!, update as _NativeSemanticsUpdate);
 
-  @Native<Void Function(Pointer<Void>)>(symbol: 'PlatformConfigurationNativeApi::UpdateSemantics')
-  external static void _updateSemantics(_NativeSemanticsUpdate update);
+  @Native<Void Function(Int64, Pointer<Void>)>(
+    symbol: 'PlatformConfigurationNativeApi::UpdateSemantics',
+  )
+  external static void _updateSemantics(int viewId, _NativeSemanticsUpdate update);
 
   /// The system-reported default locale of the device.
   ///
@@ -946,14 +996,18 @@ class PlatformDispatcher {
       return Locale.fromSubtags(
         languageCode: result[0],
         countryCode: result[1] == '' ? null : result[1],
-        scriptCode: result[2] == '' ? null : result[2]);
+        scriptCode: result[2] == '' ? null : result[2],
+      );
     }
     return null;
   }
 
-  List<String> _computePlatformResolvedLocale(List<String?> supportedLocalesData) => __computePlatformResolvedLocale(supportedLocalesData);
+  List<String> _computePlatformResolvedLocale(List<String?> supportedLocalesData) =>
+      __computePlatformResolvedLocale(supportedLocalesData);
 
-  @Native<Handle Function(Handle)>(symbol: 'PlatformConfigurationNativeApi::ComputePlatformResolvedLocale')
+  @Native<Handle Function(Handle)>(
+    symbol: 'PlatformConfigurationNativeApi::ComputePlatformResolvedLocale',
+  )
   external static List<String> __computePlatformResolvedLocale(List<String?> supportedLocalesData);
 
   /// A callback that is invoked whenever [locale] changes value.
@@ -984,11 +1038,13 @@ class PlatformDispatcher {
       final String countryCode = locales[localeIndex * stringsPerLocale + 1];
       final String scriptCode = locales[localeIndex * stringsPerLocale + 2];
 
-      newLocales.add(Locale.fromSubtags(
-        languageCode: locales[localeIndex * stringsPerLocale],
-        countryCode: countryCode.isEmpty ? null : countryCode,
-        scriptCode: scriptCode.isEmpty ? null : scriptCode,
-      ));
+      newLocales.add(
+        Locale.fromSubtags(
+          languageCode: locales[localeIndex * stringsPerLocale],
+          countryCode: countryCode.isEmpty ? null : countryCode,
+          scriptCode: scriptCode.isEmpty ? null : scriptCode,
+        ),
+      );
       if (!localesDiffer && newLocales[localeIndex] != previousConfiguration.locales[localeIndex]) {
         localesDiffer = true;
       }
@@ -1076,6 +1132,14 @@ class PlatformDispatcher {
   bool get nativeSpellCheckServiceDefined => _nativeSpellCheckServiceDefined;
   bool _nativeSpellCheckServiceDefined = false;
 
+  /// Whether showing system context menu is supported on the current platform.
+  ///
+  /// This option is used by [AdaptiveTextSelectionToolbar] to decide whether
+  /// to show system context menu, or to fallback to the default Flutter context
+  /// menu.
+  bool get supportsShowingSystemContextMenu => _supportsShowingSystemContextMenu;
+  bool _supportsShowingSystemContextMenu = false;
+
   /// Whether briefly displaying the characters as you type in obscured text
   /// fields is enabled in system settings.
   ///
@@ -1143,24 +1207,39 @@ class PlatformDispatcher {
     } else {
       _nativeSpellCheckServiceDefined = false;
     }
+
+    final bool? supportsShowingSystemContextMenu =
+        data['supportsShowingSystemContextMenu'] as bool?;
+    if (supportsShowingSystemContextMenu != null) {
+      _supportsShowingSystemContextMenu = supportsShowingSystemContextMenu;
+    } else {
+      _supportsShowingSystemContextMenu = false;
+    }
+
     // This field is optional.
     final bool? brieflyShowPassword = data['brieflyShowPassword'] as bool?;
     if (brieflyShowPassword != null) {
       _brieflyShowPassword = brieflyShowPassword;
     }
     final Brightness platformBrightness = switch (data['platformBrightness']) {
-      'dark'              => Brightness.dark,
-      'light'             => Brightness.light,
+      'dark' => Brightness.dark,
+      'light' => Brightness.light,
       final Object? value => throw StateError('$value is not a valid platformBrightness.'),
     };
     final String? systemFontFamily = data['systemFontFamily'] as String?;
     final int? configurationId = data['configurationId'] as int?;
     final _PlatformConfiguration previousConfiguration = _configuration;
-    final bool platformBrightnessChanged = previousConfiguration.platformBrightness != platformBrightness;
+    final bool platformBrightnessChanged =
+        previousConfiguration.platformBrightness != platformBrightness;
     final bool textScaleFactorChanged = previousConfiguration.textScaleFactor != textScaleFactor;
-    final bool alwaysUse24HourFormatChanged = previousConfiguration.alwaysUse24HourFormat != alwaysUse24HourFormat;
+    final bool alwaysUse24HourFormatChanged =
+        previousConfiguration.alwaysUse24HourFormat != alwaysUse24HourFormat;
     final bool systemFontFamilyChanged = previousConfiguration.systemFontFamily != systemFontFamily;
-    if (!platformBrightnessChanged && !textScaleFactorChanged && !alwaysUse24HourFormatChanged && !systemFontFamilyChanged && configurationId == null) {
+    if (!platformBrightnessChanged &&
+        !textScaleFactorChanged &&
+        !alwaysUse24HourFormatChanged &&
+        !systemFontFamilyChanged &&
+        configurationId == null) {
       return;
     }
     _configuration = previousConfiguration.copyWith(
@@ -1208,9 +1287,7 @@ class PlatformDispatcher {
     if (previousConfiguration.semanticsEnabled == enabled) {
       return;
     }
-    _configuration = previousConfiguration.copyWith(
-      semanticsEnabled: enabled,
-    );
+    _configuration = previousConfiguration.copyWith(semanticsEnabled: enabled);
     _invoke(onPlatformConfigurationChanged, _onPlatformConfigurationChangedZone);
     _invoke(onSemanticsEnabledChanged, _onSemanticsEnabledChangedZone);
   }
@@ -1255,14 +1332,14 @@ class PlatformDispatcher {
   }
 
   // Called from the engine, via hooks.dart
-  void _dispatchSemanticsAction(int nodeId, int action, ByteData? args) {
+  void _dispatchSemanticsAction(int viewId, int nodeId, int action, ByteData? args) {
     _invoke1<SemanticsActionEvent>(
       onSemanticsActionEvent,
       _onSemanticsActionEventZone,
       SemanticsActionEvent(
         type: SemanticsAction.fromIndex(action)!,
         nodeId: nodeId,
-        viewId: 0, // TODO(goderbauer): Wire up the real view ID.
+        viewId: viewId,
         arguments: args,
       ),
     );
@@ -1377,11 +1454,15 @@ class PlatformDispatcher {
       // No need to interpolate if the input value is an integer.
       return _scaleAndMemoize(unscaledFloor) ?? unscaledFontSize * textScaleFactor;
     }
-    assert(unscaledCeil - unscaledFloor == 1, 'Unexpected interpolation range: $unscaledFloor - $unscaledCeil.');
+    assert(
+      unscaledCeil - unscaledFloor == 1,
+      'Unexpected interpolation range: $unscaledFloor - $unscaledCeil.',
+    );
 
     return switch ((_scaleAndMemoize(unscaledFloor), _scaleAndMemoize(unscaledCeil))) {
-      (null, _) || (_, null)                   => unscaledFontSize * textScaleFactor,
-      (final double lower, final double upper) => lower + (upper - lower) * (unscaledFontSize - unscaledFloor),
+      (null, _) || (_, null) => unscaledFontSize * textScaleFactor,
+      (final double lower, final double upper) =>
+        lower + (upper - lower) * (unscaledFontSize - unscaledFloor),
     };
   }
 
@@ -1402,7 +1483,10 @@ class PlatformDispatcher {
     }
 
     final double unscaledFontSizeDouble = unscaledFontSize.toDouble();
-    final double fontSize = PlatformDispatcher._getScaledFontSize(unscaledFontSizeDouble, configurationId);
+    final double fontSize = PlatformDispatcher._getScaledFontSize(
+      unscaledFontSizeDouble,
+      configurationId,
+    );
     if (fontSize >= 0) {
       return (_cachedFontSizes ??= <int, double>{})[unscaledFontSize] = fontSize;
     }
@@ -1438,6 +1522,251 @@ class PlatformDispatcher {
   // configurationId does not match any configuration.
   @Native<Double Function(Double, Int)>(symbol: 'PlatformConfigurationNativeApi::GetScaledFontSize')
   external static double _getScaledFontSize(double unscaledFontSize, int configurationId);
+}
+
+/// A color specified in the operating system UI color palette.
+///
+/// As of the current release, system colors are supported on web only. To check
+/// if the current platform supports system colors, use the static
+/// [platformProvidesSystemColors] field. If the field is `false`, other
+/// functions in this class will throw [UnsupportedError].
+///
+/// This class is typically used in conjunction with
+/// [AccessibilityFeatures.highContrast]. In particular, on Windows, when a user
+/// enables high-contrast mode, they may also pick specific colors that should
+/// be used by application user interfaces. While it is common for applications
+/// to use custom color themes and design languages, in high-contrast mode it is
+/// recommended that widgets use system-specified colors to make content more
+/// legible for users.
+///
+/// The "light" system colors are available through [SystemColor.light], and the "dark" system
+/// colors are available through [SystemColor.dark].
+///
+/// Example:
+///
+/// ```dart
+/// import 'dart:ui';
+///
+/// Color getSystemAccentColor() {
+///   Color? systemAccentColor;
+///   if (SystemColor.platformProvidesSystemColors) {
+///     if (PlatformDispatcher.instance.platformBrightness == Brightness.light) {
+///       systemAccentColor = SystemColor.light.accentColor.value;
+///     } else {
+///       systemAccentColor = SystemColor.dark.accentColor.value;
+///     }
+///   }
+///
+///   return systemAccentColor ?? const Color(0xFF007AFF);
+/// }
+/// ```
+///
+/// See also:
+///
+///   * https://drafts.csswg.org/css-color/#css-system-colors
+///   * https://developer.mozilla.org/en-US/docs/Web/CSS/system-color
+///   * https://developer.mozilla.org/en-US/docs/Web/CSS/@media/forced-colors
+final class SystemColor {
+  /// Creates an instance of a system color.
+  ///
+  /// [name] is the name of the color. System colors provided by [SystemColorPalette], such as
+  /// [SystemColorPalette.accentColor] and [SystemColorPalette.buttonText], use standard names
+  /// defined by the [W3C CSS specification](https://drafts.csswg.org/css-color/#css-system-colors).
+  ///
+  /// [value] is the color value, if this color name is supported, and null if
+  /// it's unsupported.
+  const SystemColor({required this.name, this.value});
+
+  /// Standard system color name, as defined by W3C CSS specification.
+  ///
+  /// System color names in Flutter are case-sensitive. This is so that color
+  /// names can be easily used as [Map] keys. This is in contrast to CSS, where
+  /// system color names are not case-sensitive. That is, specifying
+  /// `background-color: aCcEnTcOlOr` is equivalent to specifying
+  /// `background-color: AccentColor`.
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  final String name;
+
+  /// The color value used for the color named [name], if supported.
+  ///
+  /// If [isSupported] is false, the [value] is null. If [isSupported] is true,
+  /// the [value] is not null.
+  final Color? value;
+
+  /// Returns true if the current platform provides the system color with the
+  /// given [name].
+  ///
+  /// See also:
+  ///
+  ///   * [platformProvidesSystemColors], which returns whether the current
+  ///     platform provides system colors.
+  bool get isSupported => value != null;
+
+  /// Returns true if the current platform provides system colors.
+  ///
+  /// As of the current release, system colors are supported on web only.
+  ///
+  /// See also:
+  ///
+  ///   * [isSupported], which returns whether a specific color is supported.
+  static bool get platformProvidesSystemColors => false;
+
+  /// A palette of system colors for light mode.
+  static final SystemColorPalette light = SystemColorPalette._(Brightness.light);
+
+  /// A palette of system colors for dark mode.
+  static final SystemColorPalette dark = SystemColorPalette._(Brightness.dark);
+}
+
+/// A palette of system colors specified in the operating system for a given [brightness].
+///
+/// The getters in this class, such as [accentColor] and [buttonText], provide standard system
+/// colors defined by the [W3C CSS specification](https://drafts.csswg.org/css-color/#css-system-colors).
+final class SystemColorPalette {
+  SystemColorPalette._(this.brightness);
+
+  /// The brightness mode for which this palette is defined.
+  final Brightness brightness;
+
+  static UnsupportedError _systemColorUnsupportedError() {
+    return UnsupportedError('SystemColor not supported on the current platform.');
+  }
+
+  /// Returns system color named "AccentColor".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get accentColor => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "AccentColorText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get accentColorText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "ActiveText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get activeText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "ButtonBorder".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get buttonBorder => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "ButtonFace".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get buttonFace => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "ButtonText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get buttonText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "Canvas".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get canvas => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "CanvasText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get canvasText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "Field".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get field => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "FieldText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get fieldText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "GrayText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get grayText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "Highlight".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get highlight => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "HighlightText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get highlightText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "LinkText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get linkText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "Mark".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get mark => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "MarkText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get markText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "SelectedItem".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get selectedItem => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "SelectedItemText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get selectedItemText => throw _systemColorUnsupportedError();
+
+  /// Returns system color named "VisitedText".
+  ///
+  /// See also:
+  ///
+  ///   * https://drafts.csswg.org/css-color/#css-system-colors
+  SystemColor get visitedText => throw _systemColorUnsupportedError();
 }
 
 /// Configuration of the platform.
@@ -1758,17 +2087,20 @@ class FrameTiming {
   /// {@template dart.ui.FrameTiming.fps_milliseconds}
   /// That's about 16ms for 60fps, and 8ms for 120fps.
   /// {@endtemplate}
-  Duration get buildDuration => _rawDuration(FramePhase.buildFinish) - _rawDuration(FramePhase.buildStart);
+  Duration get buildDuration =>
+      _rawDuration(FramePhase.buildFinish) - _rawDuration(FramePhase.buildStart);
 
   /// The duration to rasterize the frame on the raster thread.
   ///
   /// {@macro dart.ui.FrameTiming.fps_smoothness_milliseconds}
   /// {@macro dart.ui.FrameTiming.fps_milliseconds}
-  Duration get rasterDuration => _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.rasterStart);
+  Duration get rasterDuration =>
+      _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.rasterStart);
 
   /// The duration between receiving the vsync signal and starting building the
   /// frame.
-  Duration get vsyncOverhead => _rawDuration(FramePhase.buildStart) - _rawDuration(FramePhase.vsyncStart);
+  Duration get vsyncOverhead =>
+      _rawDuration(FramePhase.buildStart) - _rawDuration(FramePhase.vsyncStart);
 
   /// The timespan between vsync start and raster finish.
   ///
@@ -1777,7 +2109,8 @@ class FrameTiming {
   /// {@macro dart.ui.FrameTiming.fps_milliseconds}
   ///
   /// See also [vsyncOverhead], [buildDuration] and [rasterDuration].
-  Duration get totalSpan => _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.vsyncStart);
+  Duration get totalSpan =>
+      _rawDuration(FramePhase.rasterFinish) - _rawDuration(FramePhase.vsyncStart);
 
   /// The number of layers stored in the raster cache during the frame.
   ///
@@ -1868,7 +2201,7 @@ class FrameTiming {
 ///   provides state transition callbacks.
 /// * [WidgetsBindingObserver], for a mechanism to observe the lifecycle state
 ///   from the widgets layer.
-/// * iOS's [IOKit activity
+/// * iOS's [UIKit activity
 ///   lifecycle](https://developer.apple.com/documentation/uikit/app_and_environment/managing_your_app_s_life_cycle?language=objc)
 ///   documentation.
 /// * Android's [activity
@@ -2017,7 +2350,12 @@ enum AppExitType {
 ///  * [Scaffold], which automatically applies the padding in material design
 ///    applications.
 class ViewPadding {
-  const ViewPadding._({ required this.left, required this.top, required this.right, required this.bottom });
+  const ViewPadding._({
+    required this.left,
+    required this.top,
+    required this.right,
+    required this.bottom,
+  });
 
   /// The distance from the left edge to the first unpadded pixel, in physical pixels.
   final double left;
@@ -2100,15 +2438,17 @@ class ViewConstraints {
 
   /// Whether the given size satisfies the constraints.
   bool isSatisfiedBy(Size size) {
-    return (minWidth <= size.width) && (size.width <= maxWidth) &&
-           (minHeight <= size.height) && (size.height <= maxHeight);
+    return (minWidth <= size.width) &&
+        (size.width <= maxWidth) &&
+        (minHeight <= size.height) &&
+        (size.height <= maxHeight);
   }
 
   /// Whether there is exactly one size that satisfies the constraints.
   bool get isTight => minWidth >= maxWidth && minHeight >= maxHeight;
 
   /// Scales each constraint parameter by the inverse of the given factor.
-  ViewConstraints operator/(double factor) {
+  ViewConstraints operator /(double factor) {
     return ViewConstraints(
       minWidth: minWidth / factor,
       maxWidth: maxWidth / factor,
@@ -2125,11 +2465,11 @@ class ViewConstraints {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is ViewConstraints
-        && other.minWidth == minWidth
-        && other.maxWidth == maxWidth
-        && other.minHeight == minHeight
-        && other.maxHeight == maxHeight;
+    return other is ViewConstraints &&
+        other.minWidth == minWidth &&
+        other.maxWidth == maxWidth &&
+        other.minHeight == minHeight &&
+        other.maxHeight == maxHeight;
   }
 
   @override
@@ -2140,8 +2480,10 @@ class ViewConstraints {
     if (minWidth == double.infinity && minHeight == double.infinity) {
       return 'ViewConstraints(biggest)';
     }
-    if (minWidth == 0 && maxWidth == double.infinity &&
-        minHeight == 0 && maxHeight == double.infinity) {
+    if (minWidth == 0 &&
+        maxWidth == double.infinity &&
+        minHeight == 0 &&
+        maxHeight == double.infinity) {
       return 'ViewConstraints(unconstrained)';
     }
     String describe(double min, double max, String dim) {
@@ -2180,11 +2522,13 @@ class ViewConstraints {
 /// [DisplayFeatureState.postureHalfOpened]. For [DisplayFeatureType.cutout],
 /// the state is not used and has the [DisplayFeatureState.unknown] value.
 class DisplayFeature {
-  const DisplayFeature({
-    required this.bounds,
-    required this.type,
-    required this.state,
-  }) : assert(!identical(type, DisplayFeatureType.cutout) || identical(state, DisplayFeatureState.unknown));
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
+  const DisplayFeature({required this.bounds, required this.type, required this.state})
+    : assert(
+        !identical(type, DisplayFeatureType.cutout) ||
+            identical(state, DisplayFeatureState.unknown),
+      );
 
   /// The area of the flutter view occupied by this display feature, measured in logical pixels.
   ///
@@ -2215,10 +2559,10 @@ class DisplayFeature {
     if (other.runtimeType != runtimeType) {
       return false;
     }
-    return other is DisplayFeature
-        && bounds == other.bounds
-        && type == other.type
-        && state == other.state;
+    return other is DisplayFeature &&
+        bounds == other.bounds &&
+        type == other.type &&
+        state == other.state;
   }
 
   @override
@@ -2255,8 +2599,10 @@ enum DisplayFeatureType {
   ///
   /// The bounds for this display feature type indicate where the display makes a crease.
   fold,
+
   /// A physical separation with a hinge that allows two display panels to fold.
   hinge,
+
   /// A non-displaying area of the screen, usually housing cameras or sensors.
   cutout,
 }
@@ -2337,11 +2683,9 @@ class Locale {
   ///
   ///  * [Locale.fromSubtags], which also allows a [scriptCode] to be
   ///    specified.
-  const Locale(
-    this._languageCode, [
-    this._countryCode,
-  ]) : assert(_languageCode != ''),
-       scriptCode = null;
+  const Locale(this._languageCode, [this._countryCode])
+    : assert(_languageCode != ''),
+      scriptCode = null;
 
   /// Creates a new Locale object.
   ///
@@ -2363,15 +2707,12 @@ class Locale {
   ///
   /// Validity is not checked by default, but some methods may throw away
   /// invalid data.
-  const Locale.fromSubtags({
-    String languageCode = 'und',
-    this.scriptCode,
-    String? countryCode,
-  }) : assert(languageCode != ''),
-       _languageCode = languageCode,
-       assert(scriptCode != ''),
-       assert(countryCode != ''),
-       _countryCode = countryCode;
+  const Locale.fromSubtags({String languageCode = 'und', this.scriptCode, String? countryCode})
+    : assert(languageCode != ''),
+      _languageCode = languageCode,
+      assert(scriptCode != ''),
+      assert(countryCode != ''),
+      _countryCode = countryCode;
 
   /// The primary language subtag for the locale.
   ///
@@ -2539,11 +2880,15 @@ class Locale {
     }
     final String? thisCountryCode = countryCode;
     final String? otherCountryCode = other.countryCode;
-    return other.languageCode == languageCode
-        && other.scriptCode == scriptCode // scriptCode cannot be ''
-        && (other.countryCode == thisCountryCode // Treat '' as equal to null.
-            || otherCountryCode != null && otherCountryCode.isEmpty && thisCountryCode == null
-            || thisCountryCode != null && thisCountryCode.isEmpty && other.countryCode == null);
+    return other.languageCode == languageCode &&
+        other.scriptCode ==
+            scriptCode // scriptCode cannot be ''
+            &&
+        (other.countryCode ==
+                thisCountryCode // Treat '' as equal to null.
+                ||
+            otherCountryCode != null && otherCountryCode.isEmpty && thisCountryCode == null ||
+            thisCountryCode != null && thisCountryCode.isEmpty && other.countryCode == null);
   }
 
   @override
@@ -2665,11 +3010,7 @@ typedef ViewFocusChangeCallback = void Function(ViewFocusEvent viewFocusEvent);
 /// callback.
 final class ViewFocusEvent {
   /// Creates a [ViewFocusChange].
-  const ViewFocusEvent({
-    required this.viewId,
-    required this.state,
-    required this.direction,
-  });
+  const ViewFocusEvent({required this.viewId, required this.state, required this.direction});
 
   /// The ID of the [FlutterView] that experienced a focus change.
   final int viewId;

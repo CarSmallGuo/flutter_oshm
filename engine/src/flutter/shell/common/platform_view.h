@@ -20,12 +20,11 @@
 #include "flutter/lib/ui/window/key_data_packet.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/lib/ui/window/pointer_data_packet.h"
-#include "flutter/lib/ui/window/pointer_data_packet_converter.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
 #include "flutter/shell/common/platform_message_handler.h"
 #include "flutter/shell/common/pointer_data_dispatcher.h"
 #include "flutter/shell/common/vsync_waiter.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace impeller {
 
@@ -51,6 +50,8 @@ namespace flutter {
 ///
 class PlatformView {
  public:
+  using AddViewCallback = std::function<void(bool added)>;
+  using RemoveViewCallback = std::function<void(bool removed)>;
   //----------------------------------------------------------------------------
   /// @brief      Used to forward events from the platform view to interested
   ///             subsystems. This forwarding is done by the shell which sets
@@ -58,6 +59,8 @@ class PlatformView {
   ///
   class Delegate {
    public:
+    using AddViewCallback = PlatformView::AddViewCallback;
+    using RemoveViewCallback = PlatformView::RemoveViewCallback;
     using KeyDataResponse = std::function<void(bool)>;
     //--------------------------------------------------------------------------
     /// @brief      Notifies the delegate that the platform view was created
@@ -83,6 +86,46 @@ class PlatformView {
     ///             frame to regenerate the layer tree and redraw the surface.
     ///
     virtual void OnPlatformViewScheduleFrame() = 0;
+
+    /// @brief  Allocate resources for a new non-implicit view and inform
+    ///         Dart about the view, and on success, schedules a new frame.
+    ///
+    ///         After the operation, |callback| should be invoked with whether
+    ///         the operation is successful.
+    ///
+    ///         Adding |kFlutterImplicitViewId| or an existing view ID should
+    ///         result in failure.
+    ///
+    /// @param[in]  view_id           The view ID of the new view.
+    /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
+    /// @param[in]  callback          The callback that's invoked once the shell
+    ///                               has attempted to add the view.
+    ///
+    virtual void OnPlatformViewAddView(int64_t view_id,
+                                       const ViewportMetrics& viewport_metrics,
+                                       AddViewCallback callback) = 0;
+
+    /// @brief  Deallocate resources for a removed view and inform
+    ///         Dart about the removal.
+    ///
+    ///         After the operation, |callback| should be invoked with whether
+    ///         the operation is successful.
+    ///
+    ///         Removing |kFlutterImplicitViewId| or an non-existent view ID
+    ///         should result in failure.
+    ///
+    /// @param[in]  view_id     The view ID of the view to be removed.
+    /// @param[in]  callback    The callback that's invoked once the shell has
+    ///                         attempted to remove the view.
+    ///
+    virtual void OnPlatformViewRemoveView(int64_t view_id,
+                                          RemoveViewCallback callback) = 0;
+
+    /// @brief Notify the delegate that platform view focus state has changed.
+    ///
+    /// @param[in]  event  The focus event describing the change.
+    virtual void OnPlatformViewSendViewFocusEvent(
+        const ViewFocusEvent& event) = 0;
 
     //--------------------------------------------------------------------------
     /// @brief      Notifies the delegate that the specified callback needs to
@@ -145,6 +188,7 @@ class PlatformView {
     ///             event must be forwarded to the running root isolate hosted
     ///             by the engine on the UI thread.
     ///
+    /// @param[in]  view_id The identifier of the view that contains this node.
     /// @param[in]  node_id The identifier of the accessibility node.
     /// @param[in]  action  The accessibility related action performed on the
     ///                     node of the specified ID.
@@ -152,6 +196,7 @@ class PlatformView {
     ///                     specified action.
     ///
     virtual void OnPlatformViewDispatchSemanticsAction(
+        int64_t view_id,
         int32_t node_id,
         SemanticsAction action,
         fml::MallocMapping args) = 0;
@@ -407,12 +452,14 @@ class PlatformView {
   /// @brief      Used by embedders to dispatch an accessibility action to a
   ///             running isolate hosted by the engine.
   ///
+  /// @param[in]  view_id The identifier of the view.
   /// @param[in]  node_id The identifier of the accessibility node on which to
   ///                     perform the action.
   /// @param[in]  action  The action
   /// @param[in]  args    The arguments
   ///
-  void DispatchSemanticsAction(int32_t node_id,
+  void DispatchSemanticsAction(int64_t view_id,
+                               int32_t node_id,
                                SemanticsAction action,
                                fml::MallocMapping args);
 
@@ -457,12 +504,14 @@ class PlatformView {
   /// @see        SemanticsNode, SemticsNodeUpdates,
   ///             CustomAccessibilityActionUpdates
   ///
+  /// @param[in]  view_id  The ID of the view that this update is for
   /// @param[in]  updates  A map with the stable semantics node identifier as
   ///                      key and the node properties as the value.
   /// @param[in]  actions  A map with the stable semantics node identifier as
   ///                      key and the custom node action as the value.
   ///
-  virtual void UpdateSemantics(SemanticsNodeUpdates updates,
+  virtual void UpdateSemantics(int64_t view_id,
+                               SemanticsNodeUpdates updates,
                                CustomAccessibilityActionUpdates actions);
 
   //----------------------------------------------------------------------------
@@ -516,6 +565,59 @@ class PlatformView {
   ///             call, the framework may need to start generating a new frame.
   ///
   void ScheduleFrame();
+
+  /// @brief  Used by embedders to notify the shell of a new non-implicit view.
+  ///
+  ///         This method notifies the shell to allocate resources and inform
+  ///         Dart about the view, and on success, schedules a new frame.
+  ///         Finally, it invokes |callback| with whether the operation is
+  ///         successful.
+  ///
+  ///         This operation is asynchronous; avoid using the view until
+  ///         |callback| returns true. Callers should prepare resources for the
+  ///         view (if any) in advance but be ready to clean up on failure.
+  ///
+  ///         The callback is called on a different thread.
+  ///
+  ///         Do not use for implicit views, which are added internally during
+  ///         shell initialization. Adding |kFlutterImplicitViewId| or an
+  ///         existing view ID will fail, indicated by |callback| returning
+  ///         false.
+  ///
+  /// @param[in]  view_id           The view ID of the new view.
+  /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
+  /// @param[in]  callback          The callback that's invoked once the shell
+  ///                               has attempted to add the view.
+  ///
+  void AddView(int64_t view_id,
+               const ViewportMetrics& viewport_metrics,
+               AddViewCallback callback);
+
+  /// @brief  Used by embedders to notify the shell of a removed non-implicit
+  ///         view.
+  ///
+  ///         This method notifies the shell to deallocate resources and inform
+  ///         Dart about the removal. Finally, it invokes |callback| with
+  ///         whether the operation is successful.
+  ///
+  ///         This operation is asynchronous. The embedder should not deallocate
+  ///         resources until the |callback| is invoked.
+  ///
+  ///         The callback is called on a different thread.
+  ///
+  ///         Do not use for implicit views, which are never removed throughout
+  ///         the lifetime of the app.
+  ///         Removing |kFlutterImplicitViewId| or an
+  ///         non-existent view ID will fail, indicated by |callback| returning
+  ///         false.
+  ///
+  /// @param[in]  view_id     The view ID of the view to be removed.
+  /// @param[in]  callback    The callback that's invoked once the shell has
+  ///                         attempted to remove the view.
+  ///
+  void RemoveView(int64_t view_id, RemoveViewCallback callback);
+
+  void SendViewFocusEvent(const ViewFocusEvent& event);
 
   //----------------------------------------------------------------------------
   /// @brief      Used by the shell to obtain a Skia GPU context that is capable
@@ -866,13 +968,21 @@ class PlatformView {
   virtual double GetScaledFontSize(double unscaled_font_size,
                                    int configuration_id) const;
 
+  //--------------------------------------------------------------------------
+  /// @brief      Notifies the client that the Flutter view focus state has
+  ///             changed and the platform view should be updated.
+  ///
+  ///             Called on platform thread.
+  ///
+  /// @param[in]  request  The request to change the focus state of the view.
+  virtual void RequestViewFocusChange(const ViewFocusChangeRequest& request);
+
  protected:
   // This is the only method called on the raster task runner.
   virtual std::unique_ptr<Surface> CreateRenderingSurface();
 
   PlatformView::Delegate& delegate_;
   const TaskRunners task_runners_;
-  PointerDataPacketConverter pointer_data_packet_converter_;
   fml::WeakPtrFactory<PlatformView> weak_factory_;  // Must be the last member.
 
  private:

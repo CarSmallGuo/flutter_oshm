@@ -8,6 +8,7 @@ import { FlutterServiceWorkerLoader } from './service_worker_loader.js';
 import { FlutterTrustedTypesPolicy } from './trusted_types.js';
 import { loadCanvasKit } from './canvaskit_loader.js';
 import { loadSkwasm } from './skwasm_loader.js';
+import { getCanvaskitBaseUrl } from './utils.js';
 
 /**
  * The public interface of _flutter.loader. Exposes two methods:
@@ -54,7 +55,7 @@ export class FlutterLoader {
    *   Settings for the service worker to be loaded. Can pass `undefined` or
    *   `null` to not launch a service worker at all.
    * @param {import("/.types".OnEntryPointLoadedCallback)} options.onEntrypointLoaded
-   *   An optional callback to invoke 
+   *   An optional callback to invoke
    * @param {string} options.nonce
    *   A nonce to be applied to the main JS script when loading it, which may
    *   be required by the sites Content-Security-Policy.
@@ -78,8 +79,7 @@ export class FlutterLoader {
     const rendererIsCompatible = (renderer) => {
       switch (renderer) {
         case "skwasm":
-          return browserEnvironment.crossOriginIsolated
-            && browserEnvironment.hasChromiumBreakIterators
+          return browserEnvironment.hasChromiumBreakIterators
             && browserEnvironment.hasImageCodecs
             && browserEnvironment.supportsWasmGC;
         default:
@@ -87,11 +87,19 @@ export class FlutterLoader {
       }
     }
 
+    /**
+     * @param {import("./types").ApplicationBuild} build
+     * @param {import("./types").WebRenderer} renderer
+     **/
+    const buildContainsRenderer = (build, renderer) => {
+      return build.renderer == renderer;
+    }
+
     const buildIsCompatible = (build) => {
       if (build.compileTarget === "dart2wasm" && !browserEnvironment.supportsWasmGC) {
         return false;
       }
-      if (config.renderer && config.renderer != build.renderer) {
+      if (config.renderer && !buildContainsRenderer(build, config.renderer)) {
         return false;
       }
       return rendererIsCompatible(build.renderer);
@@ -112,10 +120,11 @@ export class FlutterLoader {
       });
     }
 
+    const canvasKitBaseUrl = getCanvaskitBaseUrl(config, buildConfig);
     if (build.renderer === "canvaskit") {
-      deps.canvasKit = loadCanvasKit(deps, config, browserEnvironment, buildConfig.engineRevision);
+      deps.canvasKit = loadCanvasKit(deps, config, browserEnvironment, canvasKitBaseUrl);
     } else if (build.renderer === "skwasm") {
-      deps.skwasm = loadSkwasm(deps, config, browserEnvironment, buildConfig.engineRevision);
+      deps.skwasm = loadSkwasm(deps, config, browserEnvironment, canvasKitBaseUrl);
     }
 
     // The FlutterEntrypointLoader instance could be injected as a dependency

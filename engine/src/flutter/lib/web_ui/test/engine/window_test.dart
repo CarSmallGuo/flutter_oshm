@@ -13,28 +13,20 @@ import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
 import '../common/matchers.dart';
+import '../common/test_initialization.dart';
 
 const int kPhysicalKeyA = 0x00070004;
 const int kLogicalKeyA = 0x00000000061;
+
+EnginePlatformDispatcher get dispatcher => EnginePlatformDispatcher.instance;
+EngineFlutterWindow get myWindow => dispatcher.implicitView!;
 
 void main() {
   internalBootstrapBrowserTest(() => testMain);
 }
 
 Future<void> testMain() async {
-  late EngineFlutterWindow myWindow;
-  final EnginePlatformDispatcher dispatcher = EnginePlatformDispatcher.instance;
-
-  setUp(() {
-    myWindow = EngineFlutterView.implicit(dispatcher, createDomHTMLDivElement());
-    dispatcher.viewManager.registerView(myWindow);
-  });
-
-  tearDown(() async {
-    dispatcher.viewManager.unregisterView(myWindow.viewId);
-    await myWindow.resetHistory();
-    myWindow.dispose();
-  });
+  setUpImplicitView();
 
   test('onTextScaleFactorChanged preserves the zone', () {
     final Zone innerZone = Zone.current.fork();
@@ -165,7 +157,7 @@ Future<void> testMain() async {
   });
 
   test('invokeOnKeyData returns normally when onKeyData is null', () {
-    const  ui.KeyData keyData = ui.KeyData(
+    const ui.KeyData keyData = ui.KeyData(
       timeStamp: Duration(milliseconds: 1),
       type: ui.KeyEventType.repeat,
       physical: kPhysicalKeyA,
@@ -195,7 +187,7 @@ Future<void> testMain() async {
       expect(myWindow.onKeyData, same(onKeyData));
     });
 
-    const  ui.KeyData keyData = ui.KeyData(
+    const ui.KeyData keyData = ui.KeyData(
       timeStamp: Duration(milliseconds: 1),
       type: ui.KeyEventType.repeat,
       physical: kPhysicalKeyA,
@@ -239,7 +231,79 @@ Future<void> testMain() async {
       expect(ui.PlatformDispatcher.instance.onSemanticsActionEvent, same(callback));
     });
 
-    EnginePlatformDispatcher.instance.invokeOnSemanticsAction(0, ui.SemanticsAction.tap, null);
+    EnginePlatformDispatcher.instance.invokeOnSemanticsAction(
+      myWindow.viewId,
+      0,
+      ui.SemanticsAction.tap,
+      null,
+    );
+  });
+
+  test('onSemanticsActionEvent delays action until after frame', () async {
+    final eventLog = <ui.SemanticsAction>[];
+
+    void callback(ui.SemanticsActionEvent event) {
+      eventLog.add(event.type);
+    }
+
+    ui.PlatformDispatcher.instance.onSemanticsActionEvent = callback;
+
+    // Outside frame: action must be sent immediately
+    EnginePlatformDispatcher.instance.invokeOnSemanticsAction(
+      myWindow.viewId,
+      0,
+      ui.SemanticsAction.focus,
+      null,
+    );
+
+    expect(eventLog, [ui.SemanticsAction.focus]);
+    eventLog.clear();
+
+    bool tapCalled = false;
+    EnginePlatformDispatcher.instance.onBeginFrame = (_) {
+      // Inside onBeginFrame: should be delayed
+      EnginePlatformDispatcher.instance.invokeOnSemanticsAction(
+        myWindow.viewId,
+        0,
+        ui.SemanticsAction.tap,
+        null,
+      );
+      tapCalled = true;
+    };
+
+    bool increaseCalled = false;
+    EnginePlatformDispatcher.instance.onDrawFrame = () {
+      // Inside onDrawFrame: should be delayed
+      EnginePlatformDispatcher.instance.invokeOnSemanticsAction(
+        myWindow.viewId,
+        0,
+        ui.SemanticsAction.increase,
+        null,
+      );
+      increaseCalled = true;
+    };
+
+    final frameCompleter = Completer<void>();
+    FrameService.instance.onFinishedRenderingFrame = () {
+      frameCompleter.complete();
+    };
+
+    FrameService.instance.scheduleFrame();
+    await frameCompleter.future;
+
+    // Even though invokeOnSemanticsAction was called for tap and increase
+    // actions the actions have not yet been delivered to the framework, because
+    // the actions happened inside onBeginFrame and onDrawFrame. The events are
+    // queues in zero-length timers.
+    expect(tapCalled, isTrue);
+    expect(increaseCalled, isTrue);
+    expect(eventLog, isEmpty);
+
+    // Flush the timers after the frame.
+    await Future<void>.delayed(Duration.zero);
+
+    // Now the events should be delivered.
+    expect(eventLog, [ui.SemanticsAction.tap, ui.SemanticsAction.increase]);
   });
 
   test('onAccessibilityFeaturesChanged preserves the zone', () {
@@ -262,9 +326,10 @@ Future<void> testMain() async {
     final Zone innerZone = Zone.current.fork();
 
     innerZone.runGuarded(() {
-      void callback(String _, ByteData? __, void Function(ByteData?)? ___) {
+      void callback(String _, ByteData? _, void Function(ByteData?)? _) {
         expect(Zone.current, innerZone);
       }
+
       myWindow.onPlatformMessage = callback;
 
       // Test that the getter returns the exact same callback, e.g. it doesn't wrap it.
@@ -283,14 +348,10 @@ Future<void> testMain() async {
     innerZone.runGuarded(() {
       final ByteData inputData = ByteData(4);
       inputData.setUint32(0, 42);
-      myWindow.sendPlatformMessage(
-        'flutter/debug-echo',
-        inputData,
-        (ByteData? outputData) {
-          expect(Zone.current, innerZone);
-          completer.complete();
-        },
-      );
+      myWindow.sendPlatformMessage('flutter/debug-echo', inputData, (ByteData? outputData) {
+        expect(Zone.current, innerZone);
+        completer.complete();
+      });
     });
 
     await completer.future;
@@ -301,14 +362,10 @@ Future<void> testMain() async {
 
     final ByteData inputData = ByteData(4);
     inputData.setUint32(0, 42);
-    myWindow.sendPlatformMessage(
-      'flutter/__unknown__channel__',
-      null,
-      (ByteData? outputData) {
-        responded = true;
-        expect(outputData, isNull);
-      },
-    );
+    myWindow.sendPlatformMessage('flutter/__unknown__channel__', null, (ByteData? outputData) {
+      responded = true;
+      expect(outputData, isNull);
+    });
 
     await Future<void>.delayed(const Duration(milliseconds: 1));
     expect(responded, isTrue);
@@ -317,19 +374,14 @@ Future<void> testMain() async {
   // Emulates the framework sending a request for screen orientation lock.
   Future<bool> sendSetPreferredOrientations(List<dynamic> orientations) {
     final Completer<bool> completer = Completer<bool>();
-    final ByteData? inputData = const JSONMethodCodec().encodeMethodCall(MethodCall(
-      'SystemChrome.setPreferredOrientations',
-      orientations,
-    ));
-
-    myWindow.sendPlatformMessage(
-      'flutter/platform',
-      inputData,
-      (ByteData? outputData) {
-        const MethodCodec codec = JSONMethodCodec();
-        completer.complete(codec.decodeEnvelope(outputData!) as bool);
-      },
+    final ByteData? inputData = const JSONMethodCodec().encodeMethodCall(
+      MethodCall('SystemChrome.setPreferredOrientations', orientations),
     );
+
+    myWindow.sendPlatformMessage('flutter/platform', inputData, (ByteData? outputData) {
+      const MethodCodec codec = JSONMethodCodec();
+      completer.complete(codec.decodeEnvelope(outputData!) as bool);
+    });
 
     return completer.future;
   }
@@ -343,22 +395,26 @@ Future<void> testMain() async {
     bool simulateError = false;
 
     // The `orientation` property cannot be overridden, so this test overrides the entire `screen`.
-    js_util.setProperty(domWindow, 'screen', js_util.jsify(<Object?, Object?>{
-      'orientation': <Object?, Object?>{
-        'lock': (String lockType) {
-          lockCalls.add(lockType);
-          return futureToPromise(() async {
-            if (simulateError) {
-              throw Error();
-            }
-            return 0.toJS;
-          }());
-        }.toJS,
-        'unlock': () {
-          unlockCount += 1;
-        }.toJS,
-      },
-    }));
+    js_util.setProperty(
+      domWindow,
+      'screen',
+      js_util.jsify(<Object?, Object?>{
+        'orientation': <Object?, Object?>{
+          'lock':
+              (String lockType) {
+                lockCalls.add(lockType);
+                if (simulateError) {
+                  throw Error();
+                }
+                return Future<JSNumber>.value(0.toJS).toJS;
+              }.toJS,
+          'unlock':
+              () {
+                unlockCount += 1;
+              }.toJS,
+        },
+      }),
+    );
 
     // Sanity-check the test setup.
     expect(lockCalls, <String>[]);
@@ -382,13 +438,19 @@ Future<void> testMain() async {
     lockCalls.clear();
     unlockCount = 0;
 
-    expect(await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.landscapeLeft']), isTrue);
+    expect(
+      await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.landscapeLeft']),
+      isTrue,
+    );
     expect(lockCalls, <String>[ScreenOrientation.lockTypeLandscapePrimary]);
     expect(unlockCount, 0);
     lockCalls.clear();
     unlockCount = 0;
 
-    expect(await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.landscapeRight']), isTrue);
+    expect(
+      await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.landscapeRight']),
+      isTrue,
+    );
     expect(lockCalls, <String>[ScreenOrientation.lockTypeLandscapeSecondary]);
     expect(unlockCount, 0);
     lockCalls.clear();
@@ -401,7 +463,10 @@ Future<void> testMain() async {
     unlockCount = 0;
 
     simulateError = true;
-    expect(await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.portraitDown']), isFalse);
+    expect(
+      await sendSetPreferredOrientations(<dynamic>['DeviceOrientation.portraitDown']),
+      isFalse,
+    );
     expect(lockCalls, <String>[ScreenOrientation.lockTypePortraitSecondary]);
     expect(unlockCount, 0);
 
@@ -413,50 +478,57 @@ Future<void> testMain() async {
     final DomScreen? original = domWindow.screen;
 
     // The `orientation` property cannot be overridden, so this test overrides the entire `screen`.
-    js_util.setProperty(domWindow, 'screen', js_util.jsify(<Object?, Object?>{
-      'orientation': null,
-    }));
+    js_util.setProperty(
+      domWindow,
+      'screen',
+      js_util.jsify(<Object?, Object?>{'orientation': null}),
+    );
     expect(domWindow.screen!.orientation, isNull);
     expect(await sendSetPreferredOrientations(<dynamic>[]), isFalse);
     js_util.setProperty(domWindow, 'screen', original);
   });
 
-  test('SingletonFlutterWindow implements locale, locales, and locale change notifications', () async {
-    // This will count how many times we notified about locale changes.
-    int localeChangedCount = 0;
-    myWindow.onLocaleChanged = () {
-      localeChangedCount += 1;
-    };
+  test(
+    'SingletonFlutterWindow implements locale, locales, and locale change notifications',
+    () async {
+      // This will count how many times we notified about locale changes.
+      int localeChangedCount = 0;
+      myWindow.onLocaleChanged = () {
+        localeChangedCount += 1;
+      };
 
-    // We populate the initial list of locales automatically (only test that we
-    // got some locales; some contributors may be in different locales, so we
-    // can't test the exact contents).
-    expect(myWindow.locale, isA<ui.Locale>());
-    expect(myWindow.locales, isNotEmpty);
+      // We populate the initial list of locales automatically (only test that we
+      // got some locales; some contributors may be in different locales, so we
+      // can't test the exact contents).
+      expect(myWindow.locale, isA<ui.Locale>());
+      expect(myWindow.locales, isNotEmpty);
 
-    // Trigger a change notification (reset locales because the notification
-    // doesn't actually change the list of languages; the test only observes
-    // that the list is populated again).
-    EnginePlatformDispatcher.instance.debugResetLocales();
-    expect(myWindow.locales, isEmpty);
-    expect(myWindow.locale, equals(const ui.Locale.fromSubtags()));
-    expect(localeChangedCount, 0);
-    domWindow.dispatchEvent(createDomEvent('Event', 'languagechange'));
-    expect(myWindow.locales, isNotEmpty);
-    expect(localeChangedCount, 1);
-  });
+      // Trigger a change notification (reset locales because the notification
+      // doesn't actually change the list of languages; the test only observes
+      // that the list is populated again).
+      EnginePlatformDispatcher.instance.debugResetLocales();
+      expect(myWindow.locales, isEmpty);
+      expect(myWindow.locale, equals(const ui.Locale.fromSubtags()));
+      expect(localeChangedCount, 0);
+      domWindow.dispatchEvent(createDomEvent('Event', 'languagechange'));
+      expect(myWindow.locales, isNotEmpty);
+      expect(localeChangedCount, 1);
+    },
+  );
 
   test('dispatches browser event on flutter/service_worker channel', () async {
     final Completer<void> completer = Completer<void>();
-    domWindow.addEventListener('flutter-first-frame',
-        createDomEventListener((DomEvent e) => completer.complete()));
+    domWindow.addEventListener(
+      'flutter-first-frame',
+      createDomEventListener((DomEvent e) => completer.complete()),
+    );
     final Zone innerZone = Zone.current.fork();
 
     innerZone.runGuarded(() {
       myWindow.sendPlatformMessage(
         'flutter/service_worker',
         ByteData(0),
-        (ByteData? outputData) { },
+        (ByteData? outputData) {},
       );
     });
 
@@ -467,16 +539,17 @@ Future<void> testMain() async {
     final DomElement host = createDomHTMLDivElement();
     final EngineFlutterView view = EngineFlutterView(dispatcher, host);
 
-    expect(host.getAttribute('flt-renderer'), 'html (requested explicitly)');
+    expect(host.getAttribute('flt-renderer'), 'canvaskit');
     expect(host.getAttribute('flt-build-mode'), 'debug');
 
     view.dispose();
   });
 
   test('in full-page mode, Flutter window replaces viewport meta tags', () {
-    final DomHTMLMetaElement existingMeta = createDomHTMLMetaElement()
-      ..name = 'viewport'
-      ..content = 'foo=bar';
+    final DomHTMLMetaElement existingMeta =
+        createDomHTMLMetaElement()
+          ..name = 'viewport'
+          ..content = 'foo=bar';
     domDocument.head!.append(existingMeta);
     expect(existingMeta.isConnected, isTrue);
 
@@ -484,7 +557,8 @@ Future<void> testMain() async {
     // The existing viewport meta tag should've been removed.
     expect(existingMeta.isConnected, isFalse);
     // And a new one should've been added.
-    final DomHTMLMetaElement? newMeta = domDocument.head!.querySelector('meta[name="viewport"]') as DomHTMLMetaElement?;
+    final DomHTMLMetaElement? newMeta =
+        domDocument.head!.querySelector('meta[name="viewport"]') as DomHTMLMetaElement?;
     expect(newMeta, isNotNull);
     newMeta!;
     expect(newMeta.getAttribute('flt-viewport'), isNotNull);
@@ -543,8 +617,7 @@ Future<void> testMain() async {
 
   test('dispose', () {
     final DomHTMLDivElement host = createDomHTMLDivElement();
-    final EngineFlutterView view =
-        EngineFlutterView(EnginePlatformDispatcher.instance, host);
+    final EngineFlutterView view = EngineFlutterView(EnginePlatformDispatcher.instance, host);
 
     // First, let's make sure the view's root element was inserted into the
     // host, and the dimensions provider is active.
@@ -558,16 +631,10 @@ Future<void> testMain() async {
     expect(view.dimensionsProvider.isClosed, isTrue);
 
     // Can't render into a disposed view.
-    expect(
-      () => view.render(ui.SceneBuilder().build()),
-      throwsAssertionError,
-    );
+    expect(() => view.render(ui.SceneBuilder().build()), throwsAssertionError);
 
     // Can't update semantics on a disposed view.
-    expect(
-      () => view.updateSemantics(ui.SemanticsUpdateBuilder().build()),
-      throwsAssertionError,
-    );
+    expect(() => view.updateSemantics(ui.SemanticsUpdateBuilder().build()), throwsAssertionError);
   });
 
   group('resizing', () {
@@ -664,9 +731,10 @@ Future<void> testMain() async {
 
     setUp(() async {
       EngineFlutterDisplay.instance.debugOverrideDevicePixelRatio(dpr);
-      host = createDomHTMLDivElement()
-        ..style.width = '640px'
-        ..style.height = '480px';
+      host =
+          createDomHTMLDivElement()
+            ..style.width = '640px'
+            ..style.height = '480px';
       domDocument.body!.append(host);
     });
 
@@ -679,22 +747,24 @@ Future<void> testMain() async {
       view = EngineFlutterView(
         EnginePlatformDispatcher.instance,
         host,
-        viewConstraints: JsViewConstraints(
-          minHeight: 320,
-          maxHeight: double.infinity,
-        ));
+        viewConstraints: JsViewConstraints(minHeight: 320, maxHeight: double.infinity),
+      );
 
       // All the metrics until now have been expressed in logical pixels, because
       // they're coming from CSS/the browser, which works in logical pixels.
-      expect(view.physicalConstraints, const ViewConstraints(
-        minHeight: 320,
-        // ignore: avoid_redundant_argument_values
-        maxHeight: double.infinity,
-        minWidth: 640,
-        maxWidth: 640,
-      // However the framework expects physical pixels, so we multiply our expectations
-      // by the current DPR (2.5)
-      ) * dpr);
+      expect(
+        view.physicalConstraints,
+        const ViewConstraints(
+              minHeight: 320,
+              // ignore: avoid_redundant_argument_values
+              maxHeight: double.infinity,
+              minWidth: 640,
+              maxWidth: 640,
+              // However the framework expects physical pixels, so we multiply our expectations
+              // by the current DPR (2.5)
+            ) *
+            dpr,
+      );
     });
   });
 }

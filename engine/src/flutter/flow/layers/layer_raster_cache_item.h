@@ -5,6 +5,8 @@
 #ifndef FLUTTER_FLOW_LAYERS_LAYER_RASTER_CACHE_ITEM_H_
 #define FLUTTER_FLOW_LAYERS_LAYER_RASTER_CACHE_ITEM_H_
 
+#if !SLIMPELLER
+
 #include <memory>
 #include <optional>
 
@@ -31,10 +33,10 @@ class LayerRasterCacheItem : public RasterCacheItem {
 
   std::optional<RasterCacheKeyID> GetId() const override;
 
-  void PrerollSetup(PrerollContext* context, const SkMatrix& matrix) override;
+  void PrerollSetup(PrerollContext* context, const DlMatrix& matrix) override;
 
   void PrerollFinalize(PrerollContext* context,
-                       const SkMatrix& matrix) override;
+                       const DlMatrix& matrix) override;
 
   bool Draw(const PaintContext& context, const DlPaint* paint) const override;
 
@@ -68,5 +70,7 @@ class LayerRasterCacheItem : public RasterCacheItem {
 };
 
 }  // namespace flutter
+
+#endif  //  !SLIMPELLER
 
 #endif  // FLUTTER_FLOW_LAYERS_LAYER_RASTER_CACHE_ITEM_H_

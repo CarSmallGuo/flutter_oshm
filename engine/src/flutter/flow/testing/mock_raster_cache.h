@@ -10,9 +10,7 @@
 #include "flutter/flow/raster_cache.h"
 #include "flutter/flow/raster_cache_item.h"
 #include "flutter/flow/testing/mock_layer.h"
-#include "flutter/testing/mock_canvas.h"
 #include "third_party/skia/include/core/SkColorSpace.h"
-#include "third_party/skia/include/core/SkRefCnt.h"
 #include "third_party/skia/include/core/SkSize.h"
 
 namespace flutter {
@@ -62,8 +60,8 @@ class MockRasterCache : public RasterCache {
           RasterCacheUtil::kDefaultPictureAndDisplayListCacheLimitPerFrame)
       : RasterCache(access_threshold,
                     picture_and_display_list_cache_limit_per_frame) {
-    preroll_state_stack_.set_preroll_delegate(SkMatrix::I());
-    paint_state_stack_.set_delegate(&mock_canvas_);
+    preroll_state_stack_.set_preroll_delegate(DlMatrix());
+    paint_state_stack_.set_delegate(&builder_);
   }
 
   void AddMockLayer(int width, int height);
@@ -72,7 +70,7 @@ class MockRasterCache : public RasterCache {
  private:
   LayerStateStack preroll_state_stack_;
   LayerStateStack paint_state_stack_;
-  MockCanvas mock_canvas_;
+  DisplayListBuilder builder_;
   sk_sp<SkColorSpace> color_space_ = SkColorSpace::MakeSRGB();
   MutatorsStack mutators_stack_;
   FixedRefreshRateStopwatch raster_time_;
@@ -136,11 +134,11 @@ bool RasterCacheItemPrerollAndTryToRasterCache(
     DisplayListRasterCacheItem& display_list_item,
     PrerollContext& context,
     PaintContext& paint_context,
-    const SkMatrix& matrix);
+    const DlMatrix& matrix);
 
 void RasterCacheItemPreroll(DisplayListRasterCacheItem& display_list_item,
                             PrerollContext& context,
-                            const SkMatrix& matrix);
+                            const DlMatrix& matrix);
 
 bool RasterCacheItemTryToRasterCache(
     DisplayListRasterCacheItem& display_list_item,

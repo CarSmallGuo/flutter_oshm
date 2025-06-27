@@ -5,13 +5,15 @@
 import 'dart:io' as io;
 
 import 'package:build_bucket_golden_scraper/build_bucket_golden_scraper.dart';
-import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
 
-int main(List<String> args) {
+void main() {
   test('parses command-line arguments', () {
     // Create a fake engine directory.
-    final io.Directory buildRoot = io.Directory.systemTemp.createTempSync('build_bucket_golden_scraper_test_engine');
+    final io.Directory buildRoot = io.Directory.systemTemp.createTempSync(
+      'build_bucket_golden_scraper_test_engine',
+    );
     final io.Directory srcDir = io.Directory(p.join(buildRoot.path, 'src'))..createSync();
     io.Directory(p.join(srcDir.path, 'flutter')).createSync();
 
@@ -26,7 +28,10 @@ int main(List<String> args) {
 
       expect(scraper.dryRun, isTrue);
       expect(scraper.engine.srcDir.path, srcDir.path);
-      expect(scraper.pathOrUrl, 'https://ci.chromium.org/raw/buildbucket/v1/builders/flutter/flutter-linux/builder:linux_bare');
+      expect(
+        scraper.pathOrUrl,
+        'https://ci.chromium.org/raw/buildbucket/v1/builders/flutter/flutter-linux/builder:linux_bare',
+      );
     } finally {
       buildRoot.deleteSync(recursive: true);
     }
@@ -34,12 +39,15 @@ int main(List<String> args) {
 
   test('finds diffs', () async {
     // Create a fake engine directory.
-    final io.Directory buildRoot = io.Directory.systemTemp.createTempSync('build_bucket_golden_scraper_test_engine');
+    final io.Directory buildRoot = io.Directory.systemTemp.createTempSync(
+      'build_bucket_golden_scraper_test_engine',
+    );
     final io.Directory srcDir = io.Directory(p.join(buildRoot.path, 'src'))..createSync();
     io.Directory(p.join(srcDir.path, 'flutter', 'docs')).createSync(recursive: true);
 
     // Create an empty logo in docs/flutter_logo.png.
-    final io.File logo = io.File(p.join(srcDir.path, 'flutter', 'docs', 'flutter_logo.png'))..createSync();
+    final io.File logo = io.File(p.join(srcDir.path, 'flutter', 'docs', 'flutter_logo.png'))
+      ..createSync();
 
     // Create a fake log file.
     try {
@@ -69,6 +77,4 @@ iVBORw0KGgoAAAANSUhEUgAAADcAAAA3CAYAAACo29JGAAAAAXNSR0IArs4c6QAAAAlwSFlzAAALEwAA
       buildRoot.deleteSync(recursive: true);
     }
   });
-
-  return 0;
 }

@@ -41,7 +41,9 @@ RunConfiguration::RunConfiguration(
     std::unique_ptr<IsolateConfiguration> configuration)
     : RunConfiguration(std::move(configuration),
                        std::make_shared<AssetManager>()) {
+#if !SLIMPELLER
   PersistentCache::SetAssetManager(asset_manager_);
+#endif  //  !SLIMPELLER
 }
 
 RunConfiguration::RunConfiguration(
@@ -49,7 +51,9 @@ RunConfiguration::RunConfiguration(
     std::shared_ptr<AssetManager> asset_manager)
     : isolate_configuration_(std::move(configuration)),
       asset_manager_(std::move(asset_manager)) {
+#if !SLIMPELLER
   PersistentCache::SetAssetManager(asset_manager_);
+#endif  //  !SLIMPELLER
 }
 
 RunConfiguration::RunConfiguration(RunConfiguration&&) = default;
@@ -99,6 +103,15 @@ const std::string& RunConfiguration::GetEntrypointLibrary() const {
 
 const std::vector<std::string>& RunConfiguration::GetEntrypointArgs() const {
   return entrypoint_args_;
+}
+
+void RunConfiguration::SetEngineId(int64_t engine_id) {
+  engine_id_ = engine_id;
+}
+
+// Engine identifier to be passed to the platform dispatcher.
+std::optional<int64_t> RunConfiguration::GetEngineId() const {
+  return engine_id_;
 }
 
 std::unique_ptr<IsolateConfiguration>

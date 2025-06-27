@@ -19,9 +19,7 @@ inline SkBlendMode ToSk(DlBlendMode mode) {
 }
 
 inline SkColor ToSk(DlColor color) {
-  // This is safe because both SkColor and DlColor are backed by ARGB uint32_t.
-  // See dl_sk_conversions_unittests.cc.
-  return reinterpret_cast<SkColor&>(color);
+  return color.argb();
 }
 
 inline SkPaint::Style ToSk(DlDrawStyle style) {
@@ -65,16 +63,15 @@ inline SkSamplingOptions ToSk(DlImageSampling sampling) {
   }
 }
 
-inline SkCanvas::SrcRectConstraint ToSk(
-    DlCanvas::SrcRectConstraint constraint) {
+inline SkCanvas::SrcRectConstraint ToSk(DlSrcRectConstraint constraint) {
   return static_cast<SkCanvas::SrcRectConstraint>(constraint);
 }
 
-inline SkClipOp ToSk(DlCanvas::ClipOp op) {
+inline SkClipOp ToSk(DlClipOp op) {
   return static_cast<SkClipOp>(op);
 }
 
-inline SkCanvas::PointMode ToSk(DlCanvas::PointMode mode) {
+inline SkCanvas::PointMode ToSk(DlPointMode mode) {
   return static_cast<SkCanvas::PointMode>(mode);
 }
 
@@ -88,8 +85,7 @@ inline sk_sp<SkShader> ToSk(const DlColorSource& source) {
 }
 
 extern sk_sp<SkImageFilter> ToSk(const DlImageFilter* filter);
-inline sk_sp<SkImageFilter> ToSk(
-    const std::shared_ptr<const DlImageFilter>& filter) {
+inline sk_sp<SkImageFilter> ToSk(const std::shared_ptr<DlImageFilter>& filter) {
   return ToSk(filter.get());
 }
 inline sk_sp<SkImageFilter> ToSk(const DlImageFilter& filter) {
@@ -114,22 +110,17 @@ inline sk_sp<SkMaskFilter> ToSk(const DlMaskFilter& filter) {
   return ToSk(&filter);
 }
 
-extern sk_sp<SkPathEffect> ToSk(const DlPathEffect* effect);
-inline sk_sp<SkPathEffect> ToSk(
-    const std::shared_ptr<const DlPathEffect>& effect) {
-  return ToSk(effect.get());
-}
-inline sk_sp<SkPathEffect> ToSk(const DlPathEffect& effect) {
-  return ToSk(&effect);
+inline SkMatrix* ToSk(const DlMatrix* matrix, SkMatrix& scratch) {
+  return matrix ? &scratch.setAll(matrix->m[0], matrix->m[4], matrix->m[12],  //
+                                  matrix->m[1], matrix->m[5], matrix->m[13],  //
+                                  matrix->m[3], matrix->m[7], matrix->m[15])
+                : nullptr;
 }
 
-extern sk_sp<SkVertices> ToSk(const DlVertices* vertices);
-inline sk_sp<SkVertices> ToSk(
-    const std::shared_ptr<const DlVertices>& vertices) {
-  return ToSk(vertices.get());
-}
-inline sk_sp<SkVertices> ToSk(const DlVertices& vertices) {
-  return ToSk(&vertices);
+extern sk_sp<SkVertices> ToSk(const std::shared_ptr<DlVertices>& vertices);
+
+inline const SkRSXform* ToSk(const DlRSTransform* transforms) {
+  return reinterpret_cast<const SkRSXform*>(transforms);
 }
 
 }  // namespace flutter

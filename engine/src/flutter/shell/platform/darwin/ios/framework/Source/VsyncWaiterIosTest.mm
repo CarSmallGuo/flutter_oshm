@@ -53,7 +53,7 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(const std::string& name) {
   auto thread_task_runner = CreateNewThread("VsyncWaiterIosTest");
   auto callback = [](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {};
   id bundleMock = OCMPartialMock([NSBundle mainBundle]);
-  OCMStub([bundleMock objectForInfoDictionaryKey:@"CADisableMinimumFrameDurationOnPhone"])
+  OCMStub([bundleMock objectForInfoDictionaryKey:kCADisableMinimumFrameDurationOnPhoneKey])
       .andReturn(@YES);
   id mockDisplayLinkManager = [OCMockObject mockForClass:[DisplayLinkManager class]];
   double maxFrameRate = 120;
@@ -75,7 +75,7 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(const std::string& name) {
   auto thread_task_runner = CreateNewThread("VsyncWaiterIosTest");
   auto callback = [](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {};
   id bundleMock = OCMPartialMock([NSBundle mainBundle]);
-  OCMStub([bundleMock objectForInfoDictionaryKey:@"CADisableMinimumFrameDurationOnPhone"])
+  OCMStub([bundleMock objectForInfoDictionaryKey:kCADisableMinimumFrameDurationOnPhoneKey])
       .andReturn(@NO);
   id mockDisplayLinkManager = [OCMockObject mockForClass:[DisplayLinkManager class]];
   double maxFrameRate = 120;
@@ -125,6 +125,22 @@ fml::RefPtr<fml::TaskRunner> CreateNewThread(const std::string& name) {
 
   [vsyncClient pause];
   XCTAssertTrue(link.isPaused);
+}
+
+- (void)testReleasesLinkOnInvalidation {
+  __weak CADisplayLink* weakLink;
+  @autoreleasepool {
+    auto thread_task_runner = CreateNewThread("VsyncWaiterIosTest");
+    VSyncClient* vsyncClient = [[VSyncClient alloc]
+        initWithTaskRunner:thread_task_runner
+                  callback:[](std::unique_ptr<flutter::FrameTimingsRecorder> recorder) {}];
+
+    weakLink = [vsyncClient getDisplayLink];
+    XCTAssertNotNil(weakLink);
+    [vsyncClient invalidate];
+  }
+  // VSyncClient has released the CADisplayLink.
+  XCTAssertNil(weakLink);
 }
 
 @end

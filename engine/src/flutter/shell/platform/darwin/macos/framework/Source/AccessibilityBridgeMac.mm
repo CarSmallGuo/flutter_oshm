@@ -165,11 +165,11 @@ AccessibilityBridgeMac::MacOSEventsFromAXEvent(ui::AXEventGenerator::Event event
         // If it is a text field, the value change notifications are handled by
         // the FlutterTextField directly. Only need to make sure it is the
         // first responder.
-        FlutterTextField* native_text_field =
-            (FlutterTextField*)mac_platform_node_delegate->GetNativeViewAccessible();
+        id native_text_field = mac_platform_node_delegate->GetNativeViewAccessible();
+        FML_DCHECK([native_text_field isKindOfClass:FlutterTextField.class]);
         id focused = mac_platform_node_delegate->GetFocus();
         if (!focused || native_text_field == focused) {
-          [native_text_field startEditing];
+          [(FlutterTextField*)native_text_field startEditing];
         }
         break;
       }
@@ -332,6 +332,8 @@ AccessibilityBridgeMac::MacOSEventsFromAXEvent(ui::AXEventGenerator::Event event
 void AccessibilityBridgeMac::DispatchAccessibilityAction(ui::AXNode::AXID target,
                                                          FlutterSemanticsAction action,
                                                          fml::MallocMapping data) {
+  // TODO(mattkae): Remove implicit view assumption.
+  // https://github.com/flutter/flutter/issues/142845
   NSCAssert(flutter_engine_, @"Flutter engine should not be deallocated");
   NSCAssert(view_controller_.viewLoaded && view_controller_.view.window,
             @"The accessibility bridge should not receive accessibility actions if the flutter view"

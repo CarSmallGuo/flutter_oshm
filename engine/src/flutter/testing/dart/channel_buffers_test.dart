@@ -9,7 +9,7 @@ import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 
 ByteData _makeByteData(String str) {
   final Uint8List list = utf8.encode(str);
@@ -22,12 +22,6 @@ void _resize(ui.ChannelBuffers buffers, String name, int newSize) {
 }
 
 void main() {
-  bool assertsEnabled = false;
-  assert(() {
-    assertsEnabled = true;
-    return true;
-  }());
-
   test('push drain', () async {
     const String channel = 'foo';
     final ByteData data = _makeByteData('bar');
@@ -36,11 +30,12 @@ void main() {
     void callback(ByteData? responseData) {
       called = true;
     }
+
     buffers.push(channel, data, callback);
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    await buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    await buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       expect(drainedData, equals(data));
       expect(called, isFalse);
       drainedCallback(drainedData);
@@ -56,15 +51,15 @@ void main() {
     buffers.push(channel, data, callback);
     final List<String> log = <String>[];
     final Completer<void> completer = Completer<void>();
-    scheduleMicrotask(() { log.add('before drain, microtask'); });
+    scheduleMicrotask(() {
+      log.add('before drain, microtask');
+    });
     log.add('before drain');
 
-    // Ignoring the returned future because the completion of the drain is
-    // communicated using the `completer`.
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       log.add('callback');
       completer.complete();
     });
@@ -76,23 +71,22 @@ void main() {
       'callback',
       'after drain, before await',
       'before drain, microtask',
-      'after await'
+      'after await',
     ]);
   });
 
   test('push drain zero', () async {
     const String channel = 'foo';
     final ByteData data = _makeByteData('bar');
-    final
-    ui.ChannelBuffers buffers = ui.ChannelBuffers();
+    final ui.ChannelBuffers buffers = ui.ChannelBuffers();
     void callback(ByteData? responseData) {}
     _resize(buffers, channel, 0);
     buffers.push(channel, data, callback);
     bool didCall = false;
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    await buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    await buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       didCall = true;
     });
     expect(didCall, equals(false));
@@ -102,10 +96,10 @@ void main() {
     const String channel = 'foo';
     final ui.ChannelBuffers buffers = ui.ChannelBuffers();
     bool didCall = false;
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    await buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    await buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       didCall = true;
     });
     expect(didCall, equals(false));
@@ -125,10 +119,10 @@ void main() {
     buffers.push(channel, three, callback);
     buffers.push(channel, four, callback);
     int counter = 0;
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    await buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    await buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       switch (counter) {
         case 0:
           expect(drainedData, equals(two));
@@ -153,10 +147,10 @@ void main() {
     buffers.push(channel, two, callback);
     _resize(buffers, channel, 1);
     int counter = 0;
-    // Ignoring the deprecated member use because we're specifically testing
-    // deprecated API.
-    // ignore: deprecated_member_use
-    await buffers.drain(channel, (ByteData? drainedData, ui.PlatformMessageResponseCallback drainedCallback) async {
+    await buffers.drain(channel, (
+      ByteData? drainedData,
+      ui.PlatformMessageResponseCallback drainedCallback,
+    ) async {
       switch (counter) {
         case 0:
           expect(drainedData, equals(two));
@@ -176,9 +170,11 @@ void main() {
       expect(responseData, isNull);
       didCallCallback = true;
     }
+
     void twoCallback(ByteData? responseData) {
       fail('wrong callback called');
     }
+
     _resize(buffers, channel, 100);
     buffers.push(channel, one, oneCallback);
     buffers.push(channel, two, twoCallback);
@@ -197,9 +193,11 @@ void main() {
       expect(responseData, isNull);
       didCallCallback = true;
     }
+
     void twoCallback(ByteData? responseData) {
       fail('wrong callback called');
     }
+
     _resize(buffers, channel, 1);
     buffers.push(channel, one, oneCallback);
     buffers.push(channel, two, twoCallback);
@@ -208,14 +206,12 @@ void main() {
 
   test('handle garbage', () async {
     final ui.ChannelBuffers buffers = ui.ChannelBuffers();
-    expect(() => buffers.handleMessage(_makeByteData('asdfasdf')),
-           throwsException);
+    expect(() => buffers.handleMessage(_makeByteData('asdfasdf')), throwsException);
   });
 
   test('handle resize garbage', () async {
     final ui.ChannelBuffers buffers = ui.ChannelBuffers();
-    expect(() => buffers.handleMessage(_makeByteData('resize\rfoo\rbar')),
-           throwsException);
+    expect(() => buffers.handleMessage(_makeByteData('resize\rfoo\rbar')), throwsException);
   });
 
   test('ChannelBuffers.setListener', () async {
@@ -228,9 +224,9 @@ void main() {
     final ByteData five = _makeByteData('five');
     final ByteData six = _makeByteData('six');
     final ByteData seven = _makeByteData('seven');
-    buffers.push('a', one, (ByteData? data) { });
-    buffers.push('b', two, (ByteData? data) { });
-    buffers.push('a', three, (ByteData? data) { });
+    buffers.push('a', one, (ByteData? data) {});
+    buffers.push('b', two, (ByteData? data) {});
+    buffers.push('a', three, (ByteData? data) {});
     log.add('top');
     buffers.setListener('a', (ByteData? data, ui.PlatformMessageResponseCallback callback) {
       expect(data, isNotNull);
@@ -254,14 +250,14 @@ void main() {
     await null; // first microtask after setting listener drains the first message
     await null; // second microtask ends the draining.
     log.add('-6');
-    buffers.push('b', four, (ByteData? data) { });
-    buffers.push('a', five, (ByteData? data) { });
+    buffers.push('b', four, (ByteData? data) {});
+    buffers.push('a', five, (ByteData? data) {});
     log.add('-7');
     await null;
     log.add('-8');
     buffers.clearListener('a');
-    buffers.push('a', six, (ByteData? data) { });
-    buffers.push('b', seven, (ByteData? data) { });
+    buffers.push('a', six, (ByteData? data) {});
+    buffers.push('b', seven, (ByteData? data) {});
     await null;
     log.add('-9');
     expect(log, <String>[
@@ -291,9 +287,9 @@ void main() {
     final ByteData three = _makeByteData('three');
     final ByteData four = _makeByteData('four');
     buffers.handleMessage(_makeByteData('resize\ra\r10'));
-    buffers.push('a', one, (ByteData? data) { });
-    buffers.push('a', two, (ByteData? data) { });
-    buffers.push('a', three, (ByteData? data) { });
+    buffers.push('a', one, (ByteData? data) {});
+    buffers.push('a', two, (ByteData? data) {});
+    buffers.push('a', three, (ByteData? data) {});
     log.add('-1');
     buffers.setListener('a', (ByteData? data, ui.PlatformMessageResponseCallback callback) {
       expect(data, isNotNull);
@@ -310,7 +306,7 @@ void main() {
     });
     log.add('-4');
     await null;
-    buffers.push('a', four, (ByteData? data) { });
+    buffers.push('a', four, (ByteData? data) {});
     log.add('-5');
     await null;
     log.add('-6');
@@ -338,7 +334,52 @@ void main() {
     // Created as follows:
     //   print(StandardMethodCodec().encodeMethodCall(MethodCall('resize', ['abcdef', 12345])).buffer.asUint8List());
     // ...with three 0xFF bytes on either side to ensure the method works with an offset on the underlying buffer.
-    buffers.handleMessage(ByteData.sublistView(Uint8List.fromList(<int>[255, 255, 255, 7, 6, 114, 101, 115, 105, 122, 101, 12, 2, 7, 6, 97, 98, 99, 100, 101, 102, 3, 57, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255]), 3, 27));
+    buffers.handleMessage(
+      ByteData.sublistView(
+        Uint8List.fromList(<int>[
+          255,
+          255,
+          255,
+          7,
+          6,
+          114,
+          101,
+          115,
+          105,
+          122,
+          101,
+          12,
+          2,
+          7,
+          6,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          3,
+          57,
+          48,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          255,
+          255,
+          255,
+        ]),
+        3,
+        27,
+      ),
+    );
     expect(log, const <String>['resize abcdef 12345']);
   });
 
@@ -348,7 +389,52 @@ void main() {
     // Created as follows:
     //   print(StandardMethodCodec().encodeMethodCall(MethodCall('overflow', ['abcdef', false])).buffer.asUint8List());
     // ...with three 0xFF bytes on either side to ensure the method works with an offset on the underlying buffer.
-    buffers.handleMessage(ByteData.sublistView(Uint8List.fromList(<int>[255, 255, 255, 7, 8, 111, 118, 101, 114, 102, 108, 111, 119, 12, 2, 7, 6, 97, 98, 99, 100, 101, 102, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 255, 255, 255]), 3, 24));
+    buffers.handleMessage(
+      ByteData.sublistView(
+        Uint8List.fromList(<int>[
+          255,
+          255,
+          255,
+          7,
+          8,
+          111,
+          118,
+          101,
+          114,
+          102,
+          108,
+          111,
+          119,
+          12,
+          2,
+          7,
+          6,
+          97,
+          98,
+          99,
+          100,
+          101,
+          102,
+          2,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          0,
+          255,
+          255,
+          255,
+        ]),
+        3,
+        24,
+      ),
+    );
     expect(log, const <String>['allowOverflow abcdef false']);
   });
 
@@ -383,19 +469,32 @@ void main() {
     const String channel = 'foo\u0000bar';
     final ByteData blabla = _makeByteData('blabla');
     final ui.ChannelBuffers buffers = ui.ChannelBuffers();
-    try {
-      buffers.push(channel, blabla, (ByteData? data) { });
-      fail('did not throw as expected');
-    } on AssertionError catch (e) {
-      expect(e.toString(), contains('U+0000 NULL'));
-    }
-    try {
-      buffers.setListener(channel, (ByteData? data, ui.PlatformMessageResponseCallback callback) { });
-      fail('did not throw as expected');
-    } on AssertionError catch (e) {
-      expect(e.toString(), contains('U+0000 NULL'));
-    }
-  }, skip: !assertsEnabled);
+
+    expect(
+      () => buffers.push(channel, blabla, (ByteData? data) {}),
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.toString(),
+          'toString',
+          contains('U+0000 NULL'),
+        ),
+      ),
+    );
+
+    expect(
+      () => buffers.setListener(
+        channel,
+        (ByteData? data, ui.PlatformMessageResponseCallback callback) {},
+      ),
+      throwsA(
+        isA<AssertionError>().having(
+          (AssertionError e) => e.toString(),
+          'toString',
+          contains('U+0000 NULL'),
+        ),
+      ),
+    );
+  });
 }
 
 class _TestChannelBuffers extends ui.ChannelBuffers {

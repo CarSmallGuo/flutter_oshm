@@ -5,8 +5,162 @@
 #include "path_component.h"
 
 #include <cmath>
+#include <utility>
+
+#include "flutter/fml/logging.h"
+#include "flutter/impeller/geometry/scalar.h"
+#include "flutter/impeller/geometry/wangs_formula.h"
 
 namespace impeller {
+
+/////////// FanVertexWriter ///////////
+
+FanVertexWriter::FanVertexWriter(Point* point_buffer, uint16_t* index_buffer)
+    : point_buffer_(point_buffer), index_buffer_(index_buffer) {}
+
+FanVertexWriter::~FanVertexWriter() = default;
+
+size_t FanVertexWriter::GetIndexCount() const {
+  return index_count_;
+}
+
+void FanVertexWriter::EndContour() {
+  if (count_ == 0) {
+    return;
+  }
+  index_buffer_[index_count_++] = 0xFFFF;
+}
+
+void FanVertexWriter::Write(Point point) {
+  index_buffer_[index_count_++] = count_;
+  point_buffer_[count_++] = point;
+}
+
+/////////// StripVertexWriter ///////////
+
+StripVertexWriter::StripVertexWriter(Point* point_buffer,
+                                     uint16_t* index_buffer)
+    : point_buffer_(point_buffer), index_buffer_(index_buffer) {}
+
+StripVertexWriter::~StripVertexWriter() = default;
+
+size_t StripVertexWriter::GetIndexCount() const {
+  return index_count_;
+}
+
+void StripVertexWriter::EndContour() {
+  if (count_ == 0u || contour_start_ == count_ - 1) {
+    // Empty or first contour.
+    return;
+  }
+
+  size_t start = contour_start_;
+  size_t end = count_ - 1;
+
+  index_buffer_[index_count_++] = start;
+
+  size_t a = start + 1;
+  size_t b = end;
+  while (a < b) {
+    index_buffer_[index_count_++] = a;
+    index_buffer_[index_count_++] = b;
+    a++;
+    b--;
+  }
+  if (a == b) {
+    index_buffer_[index_count_++] = a;
+  }
+
+  contour_start_ = count_;
+  index_buffer_[index_count_++] = 0xFFFF;
+}
+
+void StripVertexWriter::Write(Point point) {
+  point_buffer_[count_++] = point;
+}
+
+/////////// LineStripVertexWriter ////////
+
+LineStripVertexWriter::LineStripVertexWriter(std::vector<Point>& points)
+    : points_(points) {}
+
+void LineStripVertexWriter::EndContour() {}
+
+void LineStripVertexWriter::Write(Point point) {
+  if (offset_ >= points_.size()) {
+    overflow_.push_back(point);
+  } else {
+    points_[offset_++] = point;
+  }
+}
+
+const std::vector<Point>& LineStripVertexWriter::GetOversizedBuffer() const {
+  return overflow_;
+}
+
+std::pair<size_t, size_t> LineStripVertexWriter::GetVertexCount() const {
+  return std::make_pair(offset_, overflow_.size());
+}
+
+/////////// GLESVertexWriter ///////////
+
+GLESVertexWriter::GLESVertexWriter(std::vector<Point>& points,
+                                   std::vector<uint16_t>& indices)
+    : points_(points), indices_(indices) {}
+
+void GLESVertexWriter::EndContour() {
+  if (points_.size() == 0u || contour_start_ == points_.size() - 1) {
+    // Empty or first contour.
+    return;
+  }
+
+  auto start = contour_start_;
+  auto end = points_.size() - 1;
+  // All filled paths are drawn as if they are closed, but if
+  // there is an explicit close then a lineTo to the origin
+  // is inserted. This point isn't strictly necesary to
+  // correctly render the shape and can be dropped.
+  if (points_[end] == points_[start]) {
+    end--;
+  }
+
+  // Triangle strip break for subsequent contours
+  if (contour_start_ != 0) {
+    auto back = indices_.back();
+    indices_.push_back(back);
+    indices_.push_back(start);
+    indices_.push_back(start);
+
+    // If the contour has an odd number of points, insert an extra point when
+    // bridging to the next contour to preserve the correct triangle winding
+    // order.
+    if (previous_contour_odd_points_) {
+      indices_.push_back(start);
+    }
+  } else {
+    indices_.push_back(start);
+  }
+
+  size_t a = start + 1;
+  size_t b = end;
+  while (a < b) {
+    indices_.push_back(a);
+    indices_.push_back(b);
+    a++;
+    b--;
+  }
+  if (a == b) {
+    indices_.push_back(a);
+    previous_contour_odd_points_ = false;
+  } else {
+    previous_contour_odd_points_ = true;
+  }
+  contour_start_ = points_.size();
+}
+
+void GLESVertexWriter::Write(Point point) {
+  points_.push_back(point);
+}
 
 /*
  *  Based on: https://en.wikipedia.org/wiki/B%C3%A9zier_curve#Specific_cases
@@ -28,6 +182,20 @@ static inline Scalar QuadraticSolveDerivative(Scalar t,
                                               Scalar p2) {
   return 2 * (1 - t) * (p1 - p0) +  //
          2 * t * (p2 - p1);
+}
+
+static inline Scalar ConicSolve(Scalar t,
+                                Scalar p0,
+                                Scalar p1,
+                                Scalar p2,
+                                Scalar w) {
+  auto u = (1 - t);
+  auto coefficient_p0 = u * u;
+  auto coefficient_p1 = 2 * t * u * w;
+  auto coefficient_p2 = t * t;
+
+  return ((p0 * coefficient_p0 + p1 * coefficient_p1 + p2 * coefficient_p2) /
+          (coefficient_p0 + coefficient_p1 + coefficient_p2));
 }
 
 static inline Scalar CubicSolve(Scalar t,
@@ -98,9 +266,14 @@ Point QuadraticPathComponent::SolveDerivative(Scalar time) const {
   };
 }
 
-static Scalar ApproximateParabolaIntegral(Scalar x) {
-  constexpr Scalar d = 0.67;
-  return x / (1.0 - d + sqrt(sqrt(pow(d, 4) + 0.25 * x * x)));
+void QuadraticPathComponent::ToLinearPathComponents(
+    Scalar scale,
+    VertexWriter& writer) const {
+  Scalar line_count = std::ceilf(ComputeQuadradicSubdivisions(scale, *this));
+  for (size_t i = 1; i < line_count; i += 1) {
+    writer.Write(Solve(i / line_count));
+  }
+  writer.Write(p2);
 }
 
 void QuadraticPathComponent::AppendPolylinePoints(
@@ -114,44 +287,16 @@ void QuadraticPathComponent::AppendPolylinePoints(
 void QuadraticPathComponent::ToLinearPathComponents(
     Scalar scale_factor,
     const PointProc& proc) const {
-  auto tolerance = kDefaultCurveTolerance / scale_factor;
-  auto sqrt_tolerance = sqrt(tolerance);
-
-  auto d01 = cp - p1;
-  auto d12 = p2 - cp;
-  auto dd = d01 - d12;
-  auto cross = (p2 - p1).Cross(dd);
-  auto x0 = d01.Dot(dd) * 1 / cross;
-  auto x2 = d12.Dot(dd) * 1 / cross;
-  auto scale = std::abs(cross / (hypot(dd.x, dd.y) * (x2 - x0)));
-
-  auto a0 = ApproximateParabolaIntegral(x0);
-  auto a2 = ApproximateParabolaIntegral(x2);
-  Scalar val = 0.f;
-  if (std::isfinite(scale)) {
-    auto da = std::abs(a2 - a0);
-    auto sqrt_scale = sqrt(scale);
-    if ((x0 < 0 && x2 < 0) || (x0 >= 0 && x2 >= 0)) {
-      val = da * sqrt_scale;
-    } else {
-      // cusp case
-      auto xmin = sqrt_tolerance / sqrt_scale;
-      val = sqrt_tolerance * da / ApproximateParabolaIntegral(xmin);
-    }
-  }
-  auto u0 = ApproximateParabolaIntegral(a0);
-  auto u2 = ApproximateParabolaIntegral(a2);
-  auto uscale = 1 / (u2 - u0);
-
-  auto line_count = std::max(1., ceil(0.5 * val / sqrt_tolerance));
-  auto step = 1 / line_count;
+  Scalar line_count =
+      std::ceilf(ComputeQuadradicSubdivisions(scale_factor, *this));
   for (size_t i = 1; i < line_count; i += 1) {
-    auto u = i * step;
-    auto a = a0 + (a2 - a0) * u;
-    auto t = (ApproximateParabolaIntegral(a) - u0) * uscale;
-    proc(Solve(t));
+    proc(Solve(i / line_count));
   }
   proc(p2);
+}
+
+size_t QuadraticPathComponent::CountLinearPathComponents(Scalar scale) const {
+  return std::ceilf(ComputeQuadradicSubdivisions(scale, *this)) + 2;
 }
 
 std::vector<Point> QuadraticPathComponent::Extrema() const {
@@ -179,6 +324,124 @@ std::optional<Vector2> QuadraticPathComponent::GetEndDirection() const {
   return std::nullopt;
 }
 
+Point ConicPathComponent::Solve(Scalar time) const {
+  return {
+      ConicSolve(time, p1.x, cp.x, p2.x, weight.x),  // x
+      ConicSolve(time, p1.y, cp.y, p2.y, weight.y),  // y
+  };
+}
+
+void ConicPathComponent::ToLinearPathComponents(Scalar scale_factor,
+                                                const PointProc& proc) const {
+  Scalar line_count = std::ceilf(ComputeConicSubdivisions(scale_factor, *this));
+  for (size_t i = 1; i < line_count; i += 1) {
+    proc(Solve(i / line_count));
+  }
+  proc(p2);
+}
+
+void ConicPathComponent::AppendPolylinePoints(
+    Scalar scale_factor,
+    std::vector<Point>& points) const {
+  ToLinearPathComponents(scale_factor, [&points](const Point& point) {
+    if (point != points.back()) {
+      points.emplace_back(point);
+    }
+  });
+}
+
+void ConicPathComponent::ToLinearPathComponents(Scalar scale,
+                                                VertexWriter& writer) const {
+  Scalar line_count = std::ceilf(ComputeConicSubdivisions(scale, *this));
+  for (size_t i = 1; i < line_count; i += 1) {
+    writer.Write(Solve(i / line_count));
+  }
+  writer.Write(p2);
+}
+
+size_t ConicPathComponent::CountLinearPathComponents(Scalar scale) const {
+  return std::ceilf(ComputeConicSubdivisions(scale, *this)) + 2;
+}
+
+std::vector<Point> ConicPathComponent::Extrema() const {
+  std::vector<Point> points;
+  for (auto quad : ToQuadraticPathComponents()) {
+    auto quad_extrema = quad.Extrema();
+    points.insert(points.end(), quad_extrema.begin(), quad_extrema.end());
+  }
+  return points;
+}
+
+std::optional<Vector2> ConicPathComponent::GetStartDirection() const {
+  if (p1 != cp) {
+    return (p1 - cp).Normalize();
+  }
+  if (p1 != p2) {
+    return (p1 - p2).Normalize();
+  }
+  return std::nullopt;
+}
+
+std::optional<Vector2> ConicPathComponent::GetEndDirection() const {
+  if (p2 != cp) {
+    return (p2 - cp).Normalize();
+  }
+  if (p2 != p1) {
+    return (p2 - p1).Normalize();
+  }
+  return std::nullopt;
+}
+
+void ConicPathComponent::SubdivideToQuadraticPoints(
+    std::array<Point, 5>& points) const {
+  FML_DCHECK(weight.IsFinite() && weight.x > 0 && weight.y > 0);
+
+  // Observe that scale will always be smaller than 1 because weight > 0.
+  const Scalar scale = 1.0f / (1.0f + weight.x);
+
+  // The subdivided control points below are the sums of the following three
+  // terms. Because the terms are multiplied by something <1, and the resulting
+  // control points lie within the control points of the original then the
+  // terms and the sums below will not overflow. Note that weight * scale
+  // approaches 1 as weight becomes very large.
+  Point tp1 = p1 * scale;
+  Point tcp = cp * (weight.x * scale);
+  Point tp2 = p2 * scale;
+
+  // Calculate the subdivided control points
+  Point sub_cp1 = tp1 + tcp;
+  Point sub_cp2 = tcp + tp2;
+
+  // The middle point shared by the 2 sub-divisions, the interpolation of
+  // the original curve at its halfway point.
+  Point sub_mid = (tp1 + tcp + tcp + tp2) * 0.5f;
+
+  FML_DCHECK(sub_cp1.IsFinite() && sub_mid.IsFinite() && sub_cp2.IsFinite());
+
+  points[0] = p1;
+  points[1] = sub_cp1;
+  points[2] = sub_mid;
+  points[3] = sub_cp2;
+  points[4] = p2;
+
+  // Update w.
+  // Currently this method only subdivides a single time directly to 2
+  // quadratics, but if we eventually want to keep the weights for further
+  // subdivision, this was the code that did it in Skia:
+  // sub_w1 = sub_w2 = SkScalarSqrt(SK_ScalarHalf + w * SK_ScalarHalf)
+}
+
+std::array<QuadraticPathComponent, 2>
+ConicPathComponent::ToQuadraticPathComponents() const {
+  std::array<Point, 5> points;
+  SubdivideToQuadraticPoints(points);
+
+  return {
+      QuadraticPathComponent(points[0], points[1], points[2]),
+      QuadraticPathComponent(points[2], points[3], points[4]),
+  };
+}
+
 Point CubicPathComponent::Solve(Scalar time) const {
   return {
       CubicSolve(time, p1.x, cp1.x, cp2.x, p2.x),  // x
@@ -200,6 +463,19 @@ void CubicPathComponent::AppendPolylinePoints(
       scale, [&points](const Point& point) { points.emplace_back(point); });
 }
 
+void CubicPathComponent::ToLinearPathComponents(Scalar scale,
+                                                VertexWriter& writer) const {
+  Scalar line_count = std::ceilf(ComputeCubicSubdivisions(scale, *this));
+  for (size_t i = 1; i < line_count; i++) {
+    writer.Write(Solve(i / line_count));
+  }
+  writer.Write(p2);
+}
+
+size_t CubicPathComponent::CountLinearPathComponents(Scalar scale) const {
+  return std::ceilf(ComputeCubicSubdivisions(scale, *this)) + 2;
+}
+
 inline QuadraticPathComponent CubicPathComponent::Lower() const {
   return QuadraticPathComponent(3.0 * (cp1 - p1), 3.0 * (cp2 - cp1),
                                 3.0 * (p2 - cp2));
@@ -217,33 +493,11 @@ CubicPathComponent CubicPathComponent::Subsegment(Scalar t0, Scalar t1) const {
 
 void CubicPathComponent::ToLinearPathComponents(Scalar scale,
                                                 const PointProc& proc) const {
-  constexpr Scalar accuracy = 0.1;
-  // The maximum error, as a vector from the cubic to the best approximating
-  // quadratic, is proportional to the third derivative, which is constant
-  // across the segment. Thus, the error scales down as the third power of
-  // the number of subdivisions. Our strategy then is to subdivide `t` evenly.
-  //
-  // This is an overestimate of the error because only the component
-  // perpendicular to the first derivative is important. But the simplicity is
-  // appealing.
-
-  // This magic number is the square of 36 / sqrt(3).
-  // See: http://caffeineowl.com/graphics/2d/vectorial/cubic2quad01.html
-  auto max_hypot2 = 432.0 * accuracy * accuracy;
-  auto p1x2 = 3.0 * cp1 - p1;
-  auto p2x2 = 3.0 * cp2 - p2;
-  auto p = p2x2 - p1x2;
-  auto err = p.Dot(p);
-  auto quad_count = std::max(1., ceil(pow(err / max_hypot2, 1. / 6.0)));
-  for (size_t i = 0; i < quad_count; i++) {
-    auto t0 = i / quad_count;
-    auto t1 = (i + 1) / quad_count;
-    auto seg = Subsegment(t0, t1);
-    auto p1x2 = 3.0 * seg.cp1 - seg.p1;
-    auto p2x2 = 3.0 * seg.cp2 - seg.p2;
-    QuadraticPathComponent(seg.p1, ((p1x2 + p2x2) / 4.0), seg.p2)
-        .ToLinearPathComponents(scale, proc);
+  Scalar line_count = std::ceilf(ComputeCubicSubdivisions(scale, *this));
+  for (size_t i = 1; i < line_count; i++) {
+    proc(Solve(i / line_count));
   }
+  proc(p2);
 }
 
 static inline bool NearEqual(Scalar a, Scalar b, Scalar epsilon) {
@@ -351,54 +605,6 @@ std::optional<Vector2> CubicPathComponent::GetEndDirection() const {
     return (p2 - p1).Normalize();
   }
   return std::nullopt;
-}
-
-std::optional<Vector2> PathComponentStartDirectionVisitor::operator()(
-    const LinearPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetStartDirection();
-}
-
-std::optional<Vector2> PathComponentStartDirectionVisitor::operator()(
-    const QuadraticPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetStartDirection();
-}
-
-std::optional<Vector2> PathComponentStartDirectionVisitor::operator()(
-    const CubicPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetStartDirection();
-}
-
-std::optional<Vector2> PathComponentEndDirectionVisitor::operator()(
-    const LinearPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetEndDirection();
-}
-
-std::optional<Vector2> PathComponentEndDirectionVisitor::operator()(
-    const QuadraticPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetEndDirection();
-}
-
-std::optional<Vector2> PathComponentEndDirectionVisitor::operator()(
-    const CubicPathComponent* component) {
-  if (!component) {
-    return std::nullopt;
-  }
-  return component->GetEndDirection();
 }
 
 }  // namespace impeller

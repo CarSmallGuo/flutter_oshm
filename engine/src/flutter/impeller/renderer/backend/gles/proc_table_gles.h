@@ -14,6 +14,9 @@
 #include "impeller/renderer/backend/gles/description_gles.h"
 #include "impeller/renderer/backend/gles/gles.h"
 
+/// Enable to allow GLES to push/pop labels for usage in GPU traces
+#define IP_ENABLE_GLES_LABELING false
+
 namespace impeller {
 
 const char* GLErrorToString(GLenum value);
@@ -22,8 +25,7 @@ bool GLErrorIsFatal(GLenum value);
 struct AutoErrorCheck {
   const PFNGLGETERRORPROC error_fn;
 
-  // TODO(matanlurey) Change to string_view.
-  // https://github.com/flutter/flutter/issues/135922
+  // TODO(135922) Change to string_view.
   const char* name;
 
   AutoErrorCheck(PFNGLGETERRORPROC error, const char* name)
@@ -46,16 +48,39 @@ struct AutoErrorCheck {
   }
 };
 
+template <class Type>
+void BuildGLArgumentsStream(std::stringstream& stream, Type arg) {
+  stream << arg;
+}
+
+constexpr void BuildGLArgumentsStream(std::stringstream& stream) {}
+
+template <class Type, class... Rest>
+void BuildGLArgumentsStream(std::stringstream& stream,
+                            Type arg,
+                            Rest... other_args) {
+  BuildGLArgumentsStream(stream, arg);
+  stream << ", ";
+  BuildGLArgumentsStream(stream, other_args...);
+}
+
+template <class... Type>
+[[nodiscard]] std::string BuildGLArguments(Type... args) {
+  std::stringstream stream;
+  stream << "(";
+  BuildGLArgumentsStream(stream, args...);
+  stream << ")";
+  return stream.str();
+}
+
 template <class T>
 struct GLProc {
   using GLFunctionType = T;
 
-  // TODO(matanlurey) Change to string_view.
-  // https://github.com/flutter/flutter/issues/135922
-
   //----------------------------------------------------------------------------
   /// The name of the GL function.
   ///
+  // TODO(135922) Change to string_view.
   const char* name = nullptr;
 
   //----------------------------------------------------------------------------
@@ -70,6 +95,14 @@ struct GLProc {
   PFNGLGETERRORPROC error_fn = nullptr;
 
   //----------------------------------------------------------------------------
+  /// Whether the OpenGL call and its arguments should be logged.
+  ///
+  /// Only works in IMPELLER_DEBUG and for environments where traditional
+  /// tracing is hard. Expect log spam and only use during development.
+  ///
+  bool log_calls = false;
+
+  //----------------------------------------------------------------------------
   /// @brief      Call the GL function with the appropriate parameters. Lookup
   ///             the documentation for the GL function being called to
   ///             understand the arguments and return types. The arguments
@@ -77,17 +110,18 @@ struct GLProc {
   ///
   template <class... Args>
   auto operator()(Args&&... args) const {
-#ifdef IMPELLER_DEBUG
+#if defined(IMPELLER_DEBUG) && !defined(NDEBUG)
     AutoErrorCheck error(error_fn, name);
     // We check for the existence of extensions, and reset the function pointer
     // but it's still called unconditionally below, and will segfault. This
     // validation log will at least give us a hint as to what's going on.
     FML_CHECK(IsAvailable()) << "GL function " << name << " is not available. "
                              << "This is likely due to a missing extension.";
-#endif  // IMPELLER_DEBUG
-#ifdef IMPELLER_TRACE_ALL_GL_CALLS
-    TRACE_EVENT0("impeller", name);
-#endif  // IMPELLER_TRACE_ALL_GL_CALLS
+    if (log_calls) {
+      FML_LOG(IMPORTANT) << name
+                         << BuildGLArguments(std::forward<Args>(args)...);
+    }
+#endif  // defined(IMPELLER_DEBUG) && !defined(NDEBUG)
     return function(std::forward<Args>(args)...);
   }
 
@@ -107,9 +141,11 @@ struct GLProc {
   PROC(BindFramebuffer);                     \
   PROC(BindRenderbuffer);                    \
   PROC(BindTexture);                         \
+  PROC(BindVertexArray);                     \
   PROC(BlendEquationSeparate);               \
   PROC(BlendFuncSeparate);                   \
   PROC(BufferData);                          \
+  PROC(BufferSubData);                       \
   PROC(CheckFramebufferStatus);              \
   PROC(Clear);                               \
   PROC(ClearColor);                          \
@@ -125,6 +161,7 @@ struct GLProc {
   PROC(DeleteRenderbuffers);                 \
   PROC(DeleteShader);                        \
   PROC(DeleteTextures);                      \
+  PROC(DeleteVertexArrays);                  \
   PROC(DepthFunc);                           \
   PROC(DepthMask);                           \
   PROC(DetachShader);                        \
@@ -134,6 +171,7 @@ struct GLProc {
   PROC(DrawElements);                        \
   PROC(Enable);                              \
   PROC(EnableVertexAttribArray);             \
+  PROC(Finish);                              \
   PROC(Flush);                               \
   PROC(FramebufferRenderbuffer);             \
   PROC(FramebufferTexture2D);                \
@@ -143,6 +181,7 @@ struct GLProc {
   PROC(GenFramebuffers);                     \
   PROC(GenRenderbuffers);                    \
   PROC(GenTextures);                         \
+  PROC(GenVertexArrays);                     \
   PROC(GetActiveUniform);                    \
   PROC(GetBooleanv);                         \
   PROC(GetFloatv);                           \
@@ -162,6 +201,7 @@ struct GLProc {
   PROC(IsShader);                            \
   PROC(IsTexture);                           \
   PROC(LinkProgram);                         \
+  PROC(PixelStorei);                         \
   PROC(RenderbufferStorage);                 \
   PROC(Scissor);                             \
   PROC(ShaderBinary);                        \
@@ -170,6 +210,7 @@ struct GLProc {
   PROC(StencilMaskSeparate);                 \
   PROC(StencilOpSeparate);                   \
   PROC(TexImage2D);                          \
+  PROC(TexSubImage2D);                       \
   PROC(TexParameteri);                       \
   PROC(TexParameterfv);                      \
   PROC(Uniform1fv);                          \
@@ -200,7 +241,17 @@ void(glDepthRange)(GLdouble n, GLdouble f);
   PROC(ClearDepth);                               \
   PROC(DepthRange);
 
-#define FOR_EACH_IMPELLER_GLES3_PROC(PROC) PROC(BlitFramebuffer);
+#define FOR_EACH_IMPELLER_GLES3_PROC(PROC) \
+  PROC(FenceSync);                         \
+  PROC(DeleteSync);                        \
+  PROC(GetActiveUniformBlockiv);           \
+  PROC(GetActiveUniformBlockName);         \
+  PROC(GetUniformBlockIndex);              \
+  PROC(UniformBlockBinding);               \
+  PROC(BindBufferRange);                   \
+  PROC(WaitSync);                          \
+  PROC(RenderbufferStorageMultisample)     \
+  PROC(BlitFramebuffer);
 
 #define FOR_EACH_IMPELLER_EXT_PROC(PROC)    \
   PROC(DebugMessageControlKHR);             \
@@ -224,6 +275,7 @@ enum class DebugResourceType {
   kShader,
   kRenderBuffer,
   kFrameBuffer,
+  kFence,
 };
 
 class ProcTableGLES {
@@ -266,9 +318,11 @@ class ProcTableGLES {
 
   bool IsCurrentFramebufferComplete() const;
 
+  bool SupportsDebugLabels() const;
+
   bool SetDebugLabel(DebugResourceType type,
                      GLint name,
-                     const std::string& label) const;
+                     std::string_view label) const;
 
   void PushDebugGroup(const std::string& string) const;
 

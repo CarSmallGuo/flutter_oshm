@@ -3,7 +3,6 @@
 // found in the LICENSE file.
 
 import 'dart:async';
-import 'dart:js_interop';
 
 import 'package:meta/meta.dart';
 import 'package:ui/src/engine/display.dart';
@@ -18,18 +17,15 @@ import 'package:ui/ui.dart' as ui show Display;
 ///
 /// See: https://developer.mozilla.org/en-US/docs/Web/API/Window_Management_API
 class DisplayDprStream {
-  DisplayDprStream(
-    this._display, {
-    @visibleForTesting DebugDisplayDprStreamOverrides? overrides,
-  })  : _currentDpr = _display.devicePixelRatio,
-        _debugOverrides = overrides {
+  DisplayDprStream(this._display, {@visibleForTesting DebugDisplayDprStreamOverrides? overrides})
+    : _currentDpr = _display.devicePixelRatio,
+      _debugOverrides = overrides {
     // Start listening to DPR changes.
     _subscribeToMediaQuery();
   }
 
   /// A singleton instance of DisplayDprStream.
-  static DisplayDprStream instance =
-      DisplayDprStream(EngineFlutterDisplay.instance);
+  static DisplayDprStream instance = DisplayDprStream(EngineFlutterDisplay.instance);
 
   // The display object that will provide the DPR information.
   final ui.Display _display;
@@ -38,8 +34,7 @@ class DisplayDprStream {
   double _currentDpr;
 
   // Controls the [dprChanged] broadcast Stream.
-  final StreamController<double> _dprStreamController =
-      StreamController<double>.broadcast();
+  final StreamController<double> _dprStreamController = StreamController<double>.broadcast();
 
   // Object that fires a `change` event for the `_currentDpr`.
   late DomEventTarget _dprMediaQuery;
@@ -51,7 +46,7 @@ class DisplayDprStream {
     } else {
       _dprMediaQuery = domWindow.matchMedia('(resolution: ${_currentDpr}dppx)');
     }
-    _dprMediaQuery.addEventListenerWithOptions(
+    _dprMediaQuery.addEventListener(
       'change',
       createDomEventListener(_onDprMediaQueryChange),
       <String, Object>{
@@ -63,14 +58,14 @@ class DisplayDprStream {
         // listener from the old mediaQuery after we're done with it.
         'once': true,
         'passive': true,
-      },
+      }.toJSAnyDeep,
     );
   }
 
   // Handler of the _dprMediaQuery 'change' event.
   //
   // This calls subscribe again because events are listened to with `once: true`.
-  JSVoid _onDprMediaQueryChange(DomEvent _) {
+  void _onDprMediaQueryChange(DomEvent _) {
     _currentDpr = _display.devicePixelRatio;
     _dprStreamController.add(_currentDpr);
     // Re-subscribe...
@@ -86,8 +81,6 @@ class DisplayDprStream {
 
 @visibleForTesting
 class DebugDisplayDprStreamOverrides {
-  DebugDisplayDprStreamOverrides({
-    this.getMediaQuery,
-  });
+  DebugDisplayDprStreamOverrides({this.getMediaQuery});
   final DomEventTarget Function(double currentValue)? getMediaQuery;
 }

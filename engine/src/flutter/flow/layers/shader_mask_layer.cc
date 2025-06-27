@@ -8,7 +8,7 @@
 namespace flutter {
 
 ShaderMaskLayer::ShaderMaskLayer(std::shared_ptr<DlColorSource> color_source,
-                                 const SkRect& mask_rect,
+                                 const DlRect& mask_rect,
                                  DlBlendMode blend_mode)
     : CacheableContainerLayer(
           RasterCacheUtil::kMinimumRendersBeforeCachingFilterLayer),
@@ -37,9 +37,10 @@ void ShaderMaskLayer::Diff(DiffContext* context, const Layer* old_layer) {
 void ShaderMaskLayer::Preroll(PrerollContext* context) {
   Layer::AutoPrerollSaveLayerState save =
       Layer::AutoPrerollSaveLayerState::Create(context);
+#if !SLIMPELLER
   AutoCache cache = AutoCache(layer_raster_cache_item_.get(), context,
-                              context->state_stack.transform_3x3());
-
+                              context->state_stack.matrix());
+#endif  //  !SLIMPELLER
   ContainerLayer::Preroll(context);
   // We always paint with a saveLayer (or a cached rendering),
   // so we can always apply opacity in any of those cases.
@@ -51,6 +52,7 @@ void ShaderMaskLayer::Paint(PaintContext& context) const {
 
   auto mutator = context.state_stack.save();
 
+#if !SLIMPELLER
   if (context.raster_cache) {
     mutator.integralTransform();
 
@@ -60,7 +62,8 @@ void ShaderMaskLayer::Paint(PaintContext& context) const {
       return;
     }
   }
-  auto shader_rect = SkRect::MakeWH(mask_rect_.width(), mask_rect_.height());
+#endif  //  !SLIMPELLER
+  auto shader_rect = DlRect::MakeSize(mask_rect_.GetSize());
 
   mutator.saveLayer(paint_bounds());
 
@@ -71,7 +74,7 @@ void ShaderMaskLayer::Paint(PaintContext& context) const {
   if (color_source_) {
     dl_paint.setColorSource(color_source_.get());
   }
-  context.canvas->Translate(mask_rect_.left(), mask_rect_.top());
+  context.canvas->Translate(mask_rect_.GetLeft(), mask_rect_.GetTop());
   context.canvas->DrawRect(shader_rect, dl_paint);
 }
 

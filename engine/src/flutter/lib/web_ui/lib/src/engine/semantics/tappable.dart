@@ -6,12 +6,13 @@ import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
 /// Sets the "button" ARIA role.
-class Button extends PrimaryRoleManager {
-  Button(SemanticsObject semanticsObject) : super.withBasics(
-    PrimaryRole.button,
-    semanticsObject,
-    labelRepresentation: LeafLabelRepresentation.domText,
-  ) {
+class SemanticButton extends SemanticRole {
+  SemanticButton(SemanticsObject semanticsObject)
+    : super.withBasics(
+        EngineSemanticsRole.button,
+        semanticsObject,
+        preferredLabelRepresentation: LabelRepresentation.domText,
+      ) {
     addTappable();
     setAriaRole('button');
   }
@@ -31,24 +32,26 @@ class Button extends PrimaryRoleManager {
   }
 }
 
-/// Listens to HTML "click" gestures detected by the browser.
+/// Implements clicking and tapping behavior for a semantics node.
 ///
-/// This gestures is different from the click and tap gestures detected by the
+/// Listens to HTML DOM "click" events detected by the browser.
+///
+/// A DOM "click" is different from the click and tap gestures detected by the
 /// framework from raw pointer events. When an assistive technology is enabled
 /// the browser may not send us pointer events. In that mode we forward HTML
 /// click as [ui.SemanticsAction.tap].
-class Tappable extends RoleManager {
-  Tappable(SemanticsObject semanticsObject, PrimaryRoleManager owner)
-      : super(Role.tappable, semanticsObject, owner) {
+///
+/// See also [ClickDebouncer].
+class Tappable extends SemanticBehavior {
+  Tappable(super.semanticsObject, super.owner) {
     _clickListener = createDomEventListener((DomEvent click) {
-      PointerBinding.clickDebouncer.onClick(
-        click,
-        semanticsObject.id,
-        _isListening,
-      );
+      PointerBinding.clickDebouncer.onClick(click, viewId, semanticsObject.id, _isListening);
     });
     owner.element.addEventListener('click', _clickListener);
   }
+
+  @override
+  bool get acceptsPointerEvents => true;
 
   DomEventListener? _clickListener;
   bool _isListening = false;
@@ -56,7 +59,8 @@ class Tappable extends RoleManager {
   @override
   void update() {
     final bool wasListening = _isListening;
-    _isListening = semanticsObject.enabledState() != EnabledState.disabled && semanticsObject.isTappable;
+    _isListening =
+        semanticsObject.enabledState() != EnabledState.disabled && semanticsObject.isTappable;
     if (wasListening != _isListening) {
       _updateAttribute();
     }

@@ -62,7 +62,7 @@ static sk_sp<DlImage> CreateDeferredImage(
     uint32_t height,
     fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
     fml::RefPtr<fml::TaskRunner> raster_task_runner,
-    fml::RefPtr<SkiaUnrefQueue> unref_queue) {
+    const fml::RefPtr<SkiaUnrefQueue>& unref_queue) {
 #if IMPELLER_SUPPORTS_RENDERING
   if (impeller) {
     return DlDeferredImageGPUImpeller::Make(
@@ -71,11 +71,16 @@ static sk_sp<DlImage> CreateDeferredImage(
   }
 #endif  // IMPELLER_SUPPORTS_RENDERING
 
+#if SLIMPELLER
+  FML_LOG(FATAL) << "Impeller opt-out unavailable.";
+  return nullptr;
+#else   // SLIMPELLER
   const SkImageInfo image_info = SkImageInfo::Make(
       width, height, kRGBA_8888_SkColorType, kPremul_SkAlphaType);
-  return DlDeferredImageGPUSkia::Make(
-      image_info, std::move(display_list), std::move(snapshot_delegate),
-      raster_task_runner, std::move(unref_queue));
+  return DlDeferredImageGPUSkia::Make(image_info, std::move(display_list),
+                                      std::move(snapshot_delegate),
+                                      raster_task_runner, unref_queue);
+#endif  //  !SLIMPELLER
 }
 
 // static
@@ -94,8 +99,7 @@ void Picture::RasterizeToImageSync(sk_sp<DisplayList> display_list,
   auto image = CanvasImage::Create();
   auto dl_image = CreateDeferredImage(
       dart_state->IsImpellerEnabled(), std::move(display_list), width, height,
-      std::move(snapshot_delegate), std::move(raster_task_runner),
-      std::move(unref_queue));
+      std::move(snapshot_delegate), std::move(raster_task_runner), unref_queue);
   image->set_image(dl_image);
   image->AssociateWithDartWrapper(raw_image_handle);
 }
@@ -126,8 +130,8 @@ Dart_Handle Picture::RasterizeLayerTreeToImage(
     Dart_Handle raw_image_callback) {
   FML_DCHECK(layer_tree != nullptr);
   auto frame_size = layer_tree->frame_size();
-  return DoRasterizeToImage(nullptr, std::move(layer_tree), frame_size.width(),
-                            frame_size.height(), raw_image_callback);
+  return DoRasterizeToImage(nullptr, std::move(layer_tree), frame_size.width,
+                            frame_size.height, raw_image_callback);
 }
 
 Dart_Handle Picture::DoRasterizeToImage(const sk_sp<DisplayList>& display_list,
@@ -193,6 +197,7 @@ Dart_Handle Picture::DoRasterizeToImage(const sk_sp<DisplayList>& display_list,
         // image_callback is associated with the Dart isolate and must be
         // deleted on the UI thread.
         image_callback.reset();
+        // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
       });
 
   // Kick things off on the raster rask runner.
@@ -201,27 +206,25 @@ Dart_Handle Picture::DoRasterizeToImage(const sk_sp<DisplayList>& display_list,
       fml::MakeCopyable([ui_task_runner, snapshot_delegate, display_list, width,
                          height, ui_task,
                          layer_tree = std::move(layer_tree)]() mutable {
-        auto picture_bounds = SkISize::Make(width, height);
-        sk_sp<DlImage> image;
+        auto picture_bounds = DlISize(width, height);
+        sk_sp<DisplayList> snapshot_display_list = display_list;
         if (layer_tree) {
           FML_DCHECK(picture_bounds == layer_tree->frame_size());
-          auto display_list =
-              layer_tree->Flatten(SkRect::MakeWH(width, height),
+          snapshot_display_list =
+              layer_tree->Flatten(DlRect::MakeWH(width, height),
                                   snapshot_delegate->GetTextureRegistry(),
                                   snapshot_delegate->GetGrContext());
-
-          image = snapshot_delegate->MakeRasterSnapshot(display_list,
-                                                        picture_bounds);
-        } else {
-          image = snapshot_delegate->MakeRasterSnapshot(display_list,
-                                                        picture_bounds);
         }
-
-        fml::TaskRunner::RunNowOrPostTask(
-            ui_task_runner, [ui_task, image]() { ui_task(image); });
+        snapshot_delegate->MakeRasterSnapshot(
+            snapshot_display_list, ToSkISize(picture_bounds),
+            [ui_task_runner, ui_task](const sk_sp<DlImage>& image) {
+              fml::TaskRunner::RunNowOrPostTask(
+                  ui_task_runner, [ui_task, image]() { ui_task(image); });
+            });
       }));
 
   return Dart_Null();
+  // NOLINTNEXTLINE(clang-analyzer-cplusplus.NewDeleteLeaks)
 }
 
 }  // namespace flutter

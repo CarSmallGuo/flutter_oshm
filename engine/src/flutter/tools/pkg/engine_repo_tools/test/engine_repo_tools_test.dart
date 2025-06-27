@@ -3,10 +3,10 @@
 // found in the LICENSE file.
 
 import 'dart:io' as io;
-import 'package:async_helper/async_helper.dart';
+
 import 'package:engine_repo_tools/engine_repo_tools.dart';
-import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as p;
+import 'package:test/test.dart';
 
 void main() {
   late io.Directory emptyDir;
@@ -25,9 +25,9 @@ void main() {
         setUp();
         try {
           expect(
-          () => Engine.fromSrcPath(emptyDir.path),
-          _throwsInvalidEngineException,
-        );
+            () => Engine.fromSrcPath(emptyDir.path),
+            throwsA(const TypeMatcher<InvalidEngineException>()),
+          );
         } finally {
           tearDown();
         }
@@ -38,7 +38,7 @@ void main() {
         try {
           expect(
             () => Engine.fromSrcPath(p.join(emptyDir.path, 'src')),
-            _throwsInvalidEngineException,
+            throwsA(const TypeMatcher<InvalidEngineException>()),
           );
         } finally {
           tearDown();
@@ -51,7 +51,7 @@ void main() {
           final io.Directory srcDir = io.Directory(p.join(emptyDir.path, 'src'))..createSync();
           expect(
             () => Engine.fromSrcPath(srcDir.path),
-            _throwsInvalidEngineException,
+            throwsA(const TypeMatcher<InvalidEngineException>()),
           );
         } finally {
           tearDown();
@@ -92,10 +92,7 @@ void main() {
       test('the path does not contain a "src" directory', () {
         setUp();
         try {
-          expect(
-            () => Engine.findWithin(emptyDir.path),
-            throwsStateError,
-          );
+          expect(() => Engine.findWithin(emptyDir.path), throwsStateError);
         } finally {
           tearDown();
         }
@@ -105,10 +102,7 @@ void main() {
         setUp();
         try {
           final io.Directory srcDir = io.Directory(p.join(emptyDir.path, 'src'))..createSync();
-          expect(
-            () => Engine.findWithin(srcDir.path),
-            throwsStateError,
-          );
+          expect(() => Engine.findWithin(srcDir.path), throwsStateError);
         } finally {
           tearDown();
         }
@@ -144,7 +138,9 @@ void main() {
           io.Directory(p.join(srcDir.path, 'flutter')).createSync();
           io.Directory(p.join(srcDir.path, 'out')).createSync();
 
-          final io.Directory nestedSrcDir = io.Directory(p.join(srcDir.path, 'flutter', 'bar', 'src', 'baz'))..createSync(recursive: true);
+          final io.Directory nestedSrcDir = io.Directory(
+            p.join(srcDir.path, 'flutter', 'bar', 'src', 'baz'),
+          )..createSync(recursive: true);
 
           final Engine engine = Engine.findWithin(nestedSrcDir.path);
 
@@ -184,14 +180,14 @@ void main() {
 
       // Create two targets in out: host_debug and host_debug_unopt_arm64.
       io.Directory(p.join(emptyDir.path, 'src', 'out', 'host_debug')).createSync(recursive: true);
-      io.Directory(p.join(emptyDir.path, 'src', 'out', 'host_debug_unopt_arm64')).createSync(recursive: true);
+      io.Directory(
+        p.join(emptyDir.path, 'src', 'out', 'host_debug_unopt_arm64'),
+      ).createSync(recursive: true);
 
       final Engine engine = Engine.fromSrcPath(p.join(emptyDir.path, 'src'));
-      final List<String> outputs = engine.outputs().map((Output o) => p.basename(o.path.path)).toList()..sort();
-      expect(outputs, <String>[
-        'host_debug',
-        'host_debug_unopt_arm64',
-      ]);
+      final List<String> outputs =
+          engine.outputs().map((Output o) => p.basename(o.path.path)).toList()..sort();
+      expect(outputs, <String>['host_debug', 'host_debug_unopt_arm64']);
     } finally {
       tearDown();
     }
@@ -221,14 +217,8 @@ void main() {
         flutterDir: flutterDir,
         outDir: outDir,
         outputs: <TestOutput>[
-          TestOutput(
-            hostDebug,
-            lastModified: DateTime.utc(2023, 9, 23, 21, 16),
-          ),
-          TestOutput(
-            hostDebugUnoptArm64,
-            lastModified: DateTime.utc(2023, 9, 23, 22, 16),
-          ),
+          TestOutput(hostDebug, lastModified: DateTime.utc(2023, 9, 23, 21, 16)),
+          TestOutput(hostDebugUnoptArm64, lastModified: DateTime.utc(2023, 9, 23, 22, 16)),
         ],
       );
 
@@ -239,35 +229,5 @@ void main() {
     } finally {
       tearDown();
     }
-  });
-}
-
-// This is needed because async_minitest and friends is not a proper testing
-// library and is missing a lot of functionality that was exclusively added
-// to pkg/test.
-void _throwsInvalidEngineException(Object? o) {
-  _checkThrow<InvalidEngineException>(o, (_){});
-}
-
-// Mostly copied from async_minitest.
-void _checkThrow<T extends Object>(dynamic v, void Function(dynamic error) onError) {
-  if (v is Future) {
-    asyncStart();
-    v.then((_) {
-      Expect.fail('Did not throw');
-    }, onError: (Object e, StackTrace s) {
-      if (e is! T) {
-        // ignore: only_throw_errors
-        throw e;
-      }
-      onError(e);
-      asyncEnd();
-    });
-    return;
-  }
-  v as void Function();
-  Expect.throws<T>(v, (T e) {
-    onError(e);
-    return true;
   });
 }

@@ -15,7 +15,7 @@ shell_gpu_configuration("macos_gpu_configuration") {
   enable_software = true
   enable_gl = true
   enable_vulkan = false
-  enable_metal = shell_enable_metal
+  enable_metal = true
 }
 
 group("macos") {
@@ -52,6 +52,8 @@ _flutter_framework_headers_copy_dir =
 
 source_set("flutter_framework_source") {
   visibility = [ ":*" ]
+  cflags_objc = flutter_cflags_objc
+  cflags_objcc = flutter_cflags_objcc
 
   sources = [
     "framework/Source/AccessibilityBridgeMac.h",
@@ -75,9 +77,10 @@ source_set("flutter_framework_source") {
     "framework/Source/FlutterExternalTexture.h",
     "framework/Source/FlutterExternalTexture.mm",
     "framework/Source/FlutterKeyPrimaryResponder.h",
+    "framework/Source/FlutterKeyboardLayout.h",
+    "framework/Source/FlutterKeyboardLayout.mm",
     "framework/Source/FlutterKeyboardManager.h",
     "framework/Source/FlutterKeyboardManager.mm",
-    "framework/Source/FlutterKeyboardViewDelegate.h",
     "framework/Source/FlutterMenuPlugin.h",
     "framework/Source/FlutterMenuPlugin.mm",
     "framework/Source/FlutterMenuPlugin_Internal.h",
@@ -91,6 +94,10 @@ source_set("flutter_framework_source") {
     "framework/Source/FlutterPlatformViewController.mm",
     "framework/Source/FlutterRenderer.h",
     "framework/Source/FlutterRenderer.mm",
+    "framework/Source/FlutterResizeSynchronizer.h",
+    "framework/Source/FlutterResizeSynchronizer.mm",
+    "framework/Source/FlutterRunLoop.h",
+    "framework/Source/FlutterRunLoop.mm",
     "framework/Source/FlutterSurface.h",
     "framework/Source/FlutterSurface.mm",
     "framework/Source/FlutterSurfaceManager.h",
@@ -101,8 +108,6 @@ source_set("flutter_framework_source") {
     "framework/Source/FlutterTextInputSemanticsObject.mm",
     "framework/Source/FlutterTextureRegistrar.h",
     "framework/Source/FlutterTextureRegistrar.mm",
-    "framework/Source/FlutterThreadSynchronizer.h",
-    "framework/Source/FlutterThreadSynchronizer.mm",
     "framework/Source/FlutterTimeConverter.h",
     "framework/Source/FlutterTimeConverter.mm",
     "framework/Source/FlutterVSyncWaiter.h",
@@ -141,8 +146,6 @@ source_set("flutter_framework_source") {
     "FLUTTER_ENGINE_NO_PROTOTYPES",
   ]
 
-  cflags_objcc = flutter_cflags_objcc_arc
-
   frameworks = [
     "Carbon.framework",
     "Cocoa.framework",
@@ -173,6 +176,9 @@ test_fixtures("flutter_desktop_darwin_fixtures") {
 
 executable("flutter_desktop_darwin_unittests") {
   testonly = true
+  cflags_objc = flutter_cflags_objc
+  cflags_objcc = flutter_cflags_objcc
+  ldflags = [ "-ObjC" ]
 
   sources = [
     "framework/Source/AccessibilityBridgeMacTest.mm",
@@ -190,10 +196,10 @@ executable("flutter_desktop_darwin_unittests") {
     "framework/Source/FlutterMutatorViewTest.mm",
     "framework/Source/FlutterPlatformNodeDelegateMacTest.mm",
     "framework/Source/FlutterPlatformViewControllerTest.mm",
+    "framework/Source/FlutterResizeSynchronizerTest.mm",
     "framework/Source/FlutterSurfaceManagerTest.mm",
     "framework/Source/FlutterTextInputPluginTest.mm",
     "framework/Source/FlutterTextInputSemanticsObjectTest.mm",
-    "framework/Source/FlutterThreadSynchronizerTest.mm",
     "framework/Source/FlutterVSyncWaiterTest.mm",
     "framework/Source/FlutterViewControllerTest.mm",
     "framework/Source/FlutterViewControllerTestUtils.h",
@@ -205,13 +211,10 @@ executable("flutter_desktop_darwin_unittests") {
     "framework/Source/TestFlutterPlatformView.mm",
   ]
 
-  cflags_objcc = flutter_cflags_objcc_arc
-
-  ldflags = [ "-ObjC" ]
-
   deps = [
     ":flutter_desktop_darwin_fixtures",
     ":flutter_framework_source",
+    "//flutter/fml",
     "//flutter/shell/platform/common:common_cpp_accessibility",
     "//flutter/shell/platform/common:common_cpp_enums",
     "//flutter/shell/platform/darwin/common:framework_common",
@@ -246,6 +249,15 @@ copy("copy_framework_module_map") {
   visibility = [ ":*" ]
   sources = [ "framework/module.modulemap" ]
   outputs = [ "$_flutter_framework_dir/Versions/A/Modules/module.modulemap" ]
+}
+
+# Copy privacy manifest. This file is required by Apple for third-party SDKs.
+# See https://developer.apple.com/documentation/bundleresources/privacy_manifest_files
+copy("copy_framework_privacy_manifest") {
+  visibility = [ ":*" ]
+  sources = [ "framework/PrivacyInfo.xcprivacy" ]
+  outputs =
+      [ "$_flutter_framework_dir/Versions/A/Resources/PrivacyInfo.xcprivacy" ]
 }
 
 action("copy_framework_headers") {
@@ -304,6 +316,7 @@ action("_generate_symlinks") {
     ":copy_framework_icu",
     ":copy_framework_info_plist",
     ":copy_framework_module_map",
+    ":copy_framework_privacy_manifest",
     ":copy_license",
   ]
   metadata = {

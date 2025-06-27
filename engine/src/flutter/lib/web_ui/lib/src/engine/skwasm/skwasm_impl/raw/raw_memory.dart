@@ -12,16 +12,17 @@ import 'dart:typed_data';
 import 'package:ui/ui.dart' as ui;
 
 final class Stack extends Opaque {}
+
 typedef StackPointer = Pointer<Stack>;
 
 /// Generic linear memory allocation
-@Native<StackPointer Function(Size)>(symbol: 'stackAlloc', isLeaf: true)
+@Native<StackPointer Function(Size)>(symbol: '_emscripten_stack_alloc', isLeaf: true)
 external StackPointer stackAlloc(int length);
 
-@Native<StackPointer Function()>(symbol: 'stackSave', isLeaf: true)
+@Native<StackPointer Function()>(symbol: 'emscripten_stack_get_current', isLeaf: true)
 external StackPointer stackSave();
 
-@Native<Void Function(StackPointer)>(symbol: 'stackRestore', isLeaf: true)
+@Native<Void Function(StackPointer)>(symbol: '_emscripten_stack_restore', isLeaf: true)
 external void stackRestore(StackPointer pointer);
 
 class StackScope {
@@ -97,12 +98,7 @@ class StackScope {
   }
 
   ui.Rect convertRectFromNative(Pointer<Float> buffer) {
-    return ui.Rect.fromLTRB(
-      buffer[0],
-      buffer[1],
-      buffer[2],
-      buffer[3],
-    );
+    return ui.Rect.fromLTRB(buffer[0], buffer[1], buffer[2], buffer[3]);
   }
 
   Pointer<Int32> convertIRectToNative(ui.Rect rect) {

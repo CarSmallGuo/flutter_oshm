@@ -6,24 +6,17 @@
 
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterDartProject_Internal.h"
 
+#import <Metal/Metal.h>
+#import <UIKit/UIKit.h>
+
 #include <syslog.h>
 
-#import <Metal/Metal.h>
-#include <sstream>
-#include <string>
-
 #include "flutter/common/constants.h"
-#include "flutter/common/task_runners.h"
-#include "flutter/fml/mapping.h"
-#include "flutter/fml/message_loop.h"
-#include "flutter/fml/platform/darwin/scoped_nsobject.h"
-#include "flutter/runtime/dart_vm.h"
-#include "flutter/shell/common/shell.h"
+#include "flutter/fml/build_config.h"
 #include "flutter/shell/common/switches.h"
-#import "flutter/shell/platform/darwin/common/command_line.h"
-#import "flutter/shell/platform/darwin/ios/framework/Headers/FlutterViewController.h"
+#include "flutter/shell/platform/darwin/common/command_line.h"
 
-FLUTTER_ASSERT_NOT_ARC
+FLUTTER_ASSERT_ARC
 
 extern "C" {
 #if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG
@@ -47,7 +40,6 @@ static BOOL DoesHardwareSupportWideGamut() {
       // A9/A10 on iOS 10+
       result = [device supportsFeatureSet:MTLFeatureSet_iOS_GPUFamily3_v2];
     }
-    [device release];
   });
   return result;
 }
@@ -56,13 +48,13 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
   auto command_line = flutter::CommandLineFromNSProcessInfo(processInfoOrNil);
 
   // Precedence:
-  // 1. Settings from the specified NSBundle (except for enable-impeller).
+  // 1. Settings from the specified NSBundle.
   // 2. Settings passed explicitly via command-line arguments.
   // 3. Settings from the NSBundle with the default bundle ID.
   // 4. Settings from the main NSBundle and default values.
 
   NSBundle* mainBundle = FLTGetApplicationBundle();
-  NSBundle* engineBundle = [NSBundle bundleForClass:[FlutterViewController class]];
+  NSBundle* engineBundle = [NSBundle bundleForClass:[FlutterDartProject class]];
 
   bool hasExplicitBundle = bundle != nil;
   if (bundle == nil) {
@@ -90,6 +82,8 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
     std::string log = stream.str();
     syslog(LOG_ALERT, "%.*s", (int)log.size(), log.c_str());
   };
+
+  settings.enable_platform_isolates = true;
 
   // The command line arguments may not always be complete. If they aren't, attempt to fill in
   // defaults.
@@ -183,22 +177,8 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
   settings.enable_wide_gamut = enableWideGamut;
 #endif
 
-  // TODO(dnfield): We should reverse the order for all these settings so that command line options
-  // are preferred to plist settings. https://github.com/flutter/flutter/issues/124049
-  // Whether to enable Impeller. If the command line explicitly
-  // specified an option for this, ignore what's in the plist.
-  if (!command_line.HasOption("enable-impeller")) {
-    // Next, look in the app bundle.
-    NSNumber* enableImpeller = [bundle objectForInfoDictionaryKey:@"FLTEnableImpeller"];
-    if (enableImpeller == nil) {
-      // If it isn't in the app bundle, look in the main bundle.
-      enableImpeller = [mainBundle objectForInfoDictionaryKey:@"FLTEnableImpeller"];
-    }
-    // Change the default only if the option is present.
-    if (enableImpeller != nil) {
-      settings.enable_impeller = enableImpeller.boolValue;
-    }
-  }
+  NSNumber* nsAntialiasLines = [mainBundle objectForInfoDictionaryKey:@"FLTAntialiasLines"];
+  settings.impeller_antialiased_lines = (nsAntialiasLines ? nsAntialiasLines.boolValue : NO);
 
   settings.warn_on_impeller_opt_out = true;
 
@@ -206,6 +186,11 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
   // Change the default only if the option is present.
   if (enableTraceSystrace != nil) {
     settings.trace_systrace = enableTraceSystrace.boolValue;
+  }
+
+  NSNumber* enableDartAsserts = [mainBundle objectForInfoDictionaryKey:@"FLTEnableDartAsserts"];
+  if (enableDartAsserts != nil) {
+    settings.dart_flags.push_back("--enable-asserts");
   }
 
   NSNumber* enableDartProfiling = [mainBundle objectForInfoDictionaryKey:@"FLTEnableDartProfiling"];
@@ -219,6 +204,12 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
   // It will change the default leak_vm value in settings only if the key exists.
   if (leakDartVM != nil) {
     settings.leak_vm = leakDartVM.boolValue;
+  }
+
+  NSNumber* enableMergedPlatformUIThread =
+      [mainBundle objectForInfoDictionaryKey:@"FLTEnableMergedPlatformUIThread"];
+  if (enableMergedPlatformUIThread != nil) {
+    settings.merged_platform_ui_thread = enableMergedPlatformUIThread.boolValue;
   }
 
 #if FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG
@@ -362,18 +353,17 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
 
 + (NSString*)domainNetworkPolicy:(NSDictionary*)appTransportSecurity {
   // https://developer.apple.com/documentation/bundleresources/information_property_list/nsapptransportsecurity/nsexceptiondomains
-  NSDictionary* exceptionDomains = [appTransportSecurity objectForKey:@"NSExceptionDomains"];
+  NSDictionary* exceptionDomains = appTransportSecurity[@"NSExceptionDomains"];
   if (exceptionDomains == nil) {
     return @"";
   }
-  NSMutableArray* networkConfigArray = [[[NSMutableArray alloc] init] autorelease];
+  NSMutableArray* networkConfigArray = [[NSMutableArray alloc] init];
   for (NSString* domain in exceptionDomains) {
-    NSDictionary* domainConfiguration = [exceptionDomains objectForKey:domain];
+    NSDictionary* domainConfiguration = exceptionDomains[domain];
     // Default value is false.
-    bool includesSubDomains =
-        [[domainConfiguration objectForKey:@"NSIncludesSubdomains"] boolValue];
+    bool includesSubDomains = [domainConfiguration[@"NSIncludesSubdomains"] boolValue];
     bool allowsCleartextCommunication =
-        [[domainConfiguration objectForKey:@"NSExceptionAllowsInsecureHTTPLoads"] boolValue];
+        [domainConfiguration[@"NSExceptionAllowsInsecureHTTPLoads"] boolValue];
     [networkConfigArray addObject:@[
       domain, includesSubDomains ? @YES : @NO, allowsCleartextCommunication ? @YES : @NO
     ]];
@@ -381,11 +371,11 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
   NSData* jsonData = [NSJSONSerialization dataWithJSONObject:networkConfigArray
                                                      options:0
                                                        error:NULL];
-  return [[[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding] autorelease];
+  return [[NSString alloc] initWithData:jsonData encoding:NSUTF8StringEncoding];
 }
 
 + (bool)allowsArbitraryLoads:(NSDictionary*)appTransportSecurity {
-  return [[appTransportSecurity objectForKey:@"NSAllowsArbitraryLoads"] boolValue];
+  return [appTransportSecurity[@"NSAllowsArbitraryLoads"] boolValue];
 }
 
 + (NSString*)lookupKeyForAsset:(NSString*)asset {
@@ -414,10 +404,6 @@ flutter::Settings FLTDefaultSettingsForBundle(NSBundle* bundle, NSProcessInfo* p
 
 - (BOOL)isWideGamutEnabled {
   return _settings.enable_wide_gamut;
-}
-
-- (BOOL)isImpellerEnabled {
-  return _settings.enable_impeller;
 }
 
 @end

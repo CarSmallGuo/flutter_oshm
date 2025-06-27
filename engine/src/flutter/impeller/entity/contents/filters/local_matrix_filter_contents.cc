@@ -23,7 +23,7 @@ std::optional<Rect> LocalMatrixFilterContents::GetFilterSourceCoverage(
     const Matrix& effect_transform,
     const Rect& output_limit) const {
   auto matrix = matrix_.Basis();
-  if (matrix.GetDeterminant() == 0.0) {
+  if (!matrix.IsInvertible()) {
     return std::nullopt;
   }
   auto inverse = matrix.Invert();
@@ -42,8 +42,7 @@ std::optional<Entity> LocalMatrixFilterContents::RenderFilter(
   if (!snapshot.has_value()) {
     return std::nullopt;
   }
-  return Entity::FromSnapshot(snapshot.value(), entity.GetBlendMode(),
-                              entity.GetClipDepth());
+  return Entity::FromSnapshot(snapshot.value(), entity.GetBlendMode());
 }
 
 }  // namespace impeller

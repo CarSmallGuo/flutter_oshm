@@ -10,10 +10,10 @@ import 'package:engine_tool/src/environment.dart';
 import 'package:engine_tool/src/logger.dart';
 import 'package:engine_tool/src/proc_utils.dart';
 import 'package:engine_tool/src/worker_pool.dart';
-import 'package:litetest/litetest.dart';
 import 'package:platform/platform.dart';
 import 'package:process_fakes/process_fakes.dart';
 import 'package:process_runner/process_runner.dart';
+import 'package:test/test.dart';
 
 void main() {
   final Engine engine;
@@ -32,55 +32,57 @@ void main() {
         abi: ffi.Abi.macosArm64,
         engine: engine,
         platform: FakePlatform(
-            operatingSystem: Platform.macOS,
-            resolvedExecutable: io.Platform.resolvedExecutable),
+          operatingSystem: Platform.macOS,
+          resolvedExecutable: io.Platform.resolvedExecutable,
+          pathSeparator: '/',
+        ),
         processRunner: ProcessRunner(
-            processManager: FakeProcessManager(onStart: (List<String> command) {
-          runHistory.add(command);
-          switch (command) {
-            case ['success']:
-              return FakeProcess(stdout: 'stdout success');
-            case ['failure']:
-              return FakeProcess(exitCode: 1, stdout: 'stdout failure');
-            default:
-              return FakeProcess();
-          }
-        }, onRun: (List<String> command) {
-          // Should not be executed.
-          assert(false);
-          return io.ProcessResult(81, 1, '', '');
-        })),
+          processManager: FakeProcessManager(
+            onStart: (FakeCommandLogEntry entry) {
+              runHistory.add(entry.command);
+              switch (entry.command) {
+                case ['success']:
+                  return FakeProcess(stdout: 'stdout success');
+                case ['failure']:
+                  return FakeProcess(exitCode: 1, stdout: 'stdout failure');
+                default:
+                  return FakeProcess();
+              }
+            },
+            onRun: (FakeCommandLogEntry entry) {
+              // Should not be executed.
+              assert(false);
+              return io.ProcessResult(81, 1, '', '');
+            },
+          ),
+        ),
         logger: logger,
       ),
-      runHistory
+      runHistory,
     );
   }
 
   test('process queue success', () async {
-    final Logger logger = Logger.test();
+    final Logger logger = Logger.test((_) {});
     final (Environment env, _) = macEnv(logger);
     final WorkerPool wp = WorkerPool(env, NoopWorkerPoolProgressReporter());
-    final ProcessTask task =
-        ProcessTask('S', env, io.Directory.current, <String>['success']);
+    final ProcessTask task = ProcessTask('S', env, io.Directory.current, <String>['success']);
     final bool r = await wp.run(<WorkerTask>{task});
     expect(r, equals(true));
     expect(task.processArtifacts.exitCode, equals(0));
-    final ProcessArtifacts loaded =
-        ProcessArtifacts.fromFile(io.File(task.processArtifactsPath));
+    final ProcessArtifacts loaded = ProcessArtifacts.fromFile(io.File(task.processArtifactsPath));
     expect(loaded.stdout, equals('stdout success'));
   });
 
   test('process queue failure', () async {
-    final Logger logger = Logger.test();
+    final Logger logger = Logger.test((_) {});
     final (Environment env, _) = macEnv(logger);
     final WorkerPool wp = WorkerPool(env, NoopWorkerPoolProgressReporter());
-    final ProcessTask task =
-        ProcessTask('F', env, io.Directory.current, <String>['failure']);
+    final ProcessTask task = ProcessTask('F', env, io.Directory.current, <String>['failure']);
     final bool r = await wp.run(<WorkerTask>{task});
     expect(r, equals(false));
-    expect(task.processArtifacts.exitCode, notEquals(0));
-    final ProcessArtifacts loaded =
-        ProcessArtifacts.fromFile(io.File(task.processArtifactsPath));
+    expect(task.processArtifacts.exitCode, isNot(0));
+    final ProcessArtifacts loaded = ProcessArtifacts.fromFile(io.File(task.processArtifactsPath));
     expect(loaded.stdout, equals('stdout failure'));
   });
 }

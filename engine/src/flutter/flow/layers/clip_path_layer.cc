@@ -6,15 +6,29 @@
 
 namespace flutter {
 
-ClipPathLayer::ClipPathLayer(const SkPath& clip_path, Clip clip_behavior)
+ClipPathLayer::ClipPathLayer(const DlPath& clip_path, Clip clip_behavior)
     : ClipShapeLayer(clip_path, clip_behavior) {}
 
-const SkRect& ClipPathLayer::clip_shape_bounds() const {
-  return clip_shape().getBounds();
+const DlRect ClipPathLayer::clip_shape_bounds() const {
+  return clip_shape().GetBounds();
 }
 
 void ClipPathLayer::ApplyClip(LayerStateStack::MutatorContext& mutator) const {
-  mutator.clipPath(clip_shape(), clip_behavior() != Clip::kHardEdge);
+  bool is_aa = clip_behavior() != Clip::kHardEdge;
+  DlRect rect;
+  if (clip_shape().IsRect(&rect)) {
+    mutator.clipRect(rect, is_aa);
+  } else if (clip_shape().IsOval(&rect)) {
+    mutator.clipRRect(DlRoundRect::MakeOval(rect), is_aa);
+  } else {
+    DlRoundRect rrect;
+    if (clip_shape().IsRoundRect(&rrect)) {
+      mutator.clipRRect(rrect, is_aa);
+    } else {
+      clip_shape().WillRenderSkPath();
+      mutator.clipPath(clip_shape(), is_aa);
+    }
+  }
 }
 
 }  // namespace flutter

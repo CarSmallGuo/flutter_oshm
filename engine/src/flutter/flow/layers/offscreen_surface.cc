@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if !SLIMPELLER
+
 #include "flutter/flow/layers/offscreen_surface.h"
 
 #include "third_party/skia/include/core/SkColorSpace.h"
@@ -10,15 +12,15 @@
 #include "third_party/skia/include/core/SkImageInfo.h"
 #include "third_party/skia/include/core/SkPixmap.h"
 #include "third_party/skia/include/encode/SkPngEncoder.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 #include "third_party/skia/include/gpu/ganesh/SkSurfaceGanesh.h"
 
 namespace flutter {
 
 static sk_sp<SkSurface> CreateSnapshotSurface(GrDirectContext* surface_context,
-                                              const SkISize& size) {
-  const auto image_info = SkImageInfo::MakeN32Premul(
-      size.width(), size.height(), SkColorSpace::MakeSRGB());
+                                              const DlISize& size) {
+  const auto image_info = SkImageInfo::MakeN32Premul(size.width, size.height,
+                                                     SkColorSpace::MakeSRGB());
   if (surface_context) {
     // There is a rendering surface that may contain textures that are going to
     // be referenced in the layer tree about to be drawn.
@@ -67,7 +69,7 @@ static sk_sp<SkData> GetRasterData(const sk_sp<SkSurface>& offscreen_surface,
 }
 
 OffscreenSurface::OffscreenSurface(GrDirectContext* surface_context,
-                                   const SkISize& size) {
+                                   const DlISize& size) {
   offscreen_surface_ = CreateSnapshotSurface(surface_context, size);
   if (offscreen_surface_) {
     adapter_.set_canvas(offscreen_surface_->getCanvas());
@@ -87,3 +89,5 @@ bool OffscreenSurface::IsValid() const {
 }
 
 }  // namespace flutter
+
+#endif  //  !SLIMPELLER

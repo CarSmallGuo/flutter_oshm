@@ -39,7 +39,7 @@ std::unique_ptr<Screenshot> ReadTexture(
   bool success = blit_pass->AddCopy(texture, device_buffer);
   FML_CHECK(success);
 
-  success = blit_pass->EncodeCommands(surface_context->GetResourceAllocator());
+  success = blit_pass->EncodeCommands();
   FML_CHECK(success);
 
   fml::AutoResetWaitableEvent latch;
@@ -76,26 +76,6 @@ std::unique_ptr<Screenshot> ReadTexture(
   CGImagePtr image(CGBitmapContextCreateImage(context.get()), &CGImageRelease);
   FML_CHECK(image);
 
-  // TODO(https://github.com/flutter/flutter/issues/142641): Perform the flip at
-  // the blit stage to avoid this slow copy.
-  if (texture->GetYCoordScale() == -1) {
-    CGContextPtr flipped_context(
-        CGBitmapContextCreate(
-            nullptr, texture->GetSize().width, texture->GetSize().height,
-            /*bitsPerComponent=*/8,
-            /*bytesPerRow=*/0, color_space.get(), bitmap_info),
-        &CGContextRelease);
-    CGContextTranslateCTM(flipped_context.get(), 0, texture->GetSize().height);
-    CGContextScaleCTM(flipped_context.get(), 1.0, -1.0);
-    CGContextDrawImage(
-        flipped_context.get(),
-        CGRectMake(0, 0, texture->GetSize().width, texture->GetSize().height),
-        image.get());
-    CGImagePtr flipped_image(CGBitmapContextCreateImage(flipped_context.get()),
-                             &CGImageRelease);
-    image.swap(flipped_image);
-  }
-
   return std::make_unique<MetalScreenshot>(image.release());
 }
 }  // namespace
@@ -108,15 +88,7 @@ VulkanScreenshotter::VulkanScreenshotter(
 
 std::unique_ptr<Screenshot> VulkanScreenshotter::MakeScreenshot(
     AiksContext& aiks_context,
-    const Picture& picture,
-    const ISize& size,
-    bool scale_content) {
-  Vector2 content_scale =
-      scale_content ? playground_->GetContentScale() : Vector2{1, 1};
-  std::shared_ptr<Image> image = picture.ToImage(
-      aiks_context,
-      ISize(size.width * content_scale.x, size.height * content_scale.y));
-  std::shared_ptr<Texture> texture = image->GetTexture();
+    const std::shared_ptr<Texture> texture) {
   return ReadTexture(aiks_context.GetContext(), texture);
 }
 

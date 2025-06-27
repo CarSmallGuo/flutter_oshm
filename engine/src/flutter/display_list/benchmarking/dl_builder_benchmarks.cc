@@ -4,6 +4,7 @@
 
 #include "flutter/benchmarking/benchmarking.h"
 #include "flutter/display_list/testing/dl_test_snippets.h"
+#include "flutter/display_list/utils/dl_receiver_utils.h"
 
 namespace flutter {
 
@@ -16,11 +17,20 @@ namespace {
 static std::vector<testing::DisplayListInvocationGroup> allRenderingOps =
     testing::CreateAllRenderingOps();
 
+static std::vector<testing::DisplayListInvocationGroup> allOps =
+    testing::CreateAllGroups();
+
 enum class DisplayListBuilderBenchmarkType {
   kDefault,
   kBounds,
   kRtree,
   kBoundsAndRtree,
+};
+
+enum class DisplayListDispatchBenchmarkType {
+  kDefaultNoRtree,
+  kDefaultWithRtree,
+  kCulledWithRtree,
 };
 
 static void InvokeAllRenderingOps(DisplayListBuilder& builder) {
@@ -30,6 +40,21 @@ static void InvokeAllRenderingOps(DisplayListBuilder& builder) {
       auto& invocation = group.variants[i];
       invocation.Invoke(receiver);
     }
+  }
+}
+
+static void InvokeAllOps(DisplayListBuilder& builder) {
+  DlOpReceiver& receiver = DisplayListBuilderBenchmarkAccessor(builder);
+  for (auto& group : allOps) {
+    // Save/restore around each group so that the clip and transform
+    // test ops do not walk us out to infinity or prevent any future
+    // rendering ops.
+    receiver.save();
+    for (size_t i = 0; i < group.variants.size(); i++) {
+      auto& invocation = group.variants[i];
+      invocation.Invoke(receiver);
+    }
+    receiver.restore();
   }
 }
 
@@ -55,6 +80,10 @@ static void Complete(DisplayListBuilder& builder,
 bool NeedPrepareRTree(DisplayListBuilderBenchmarkType type) {
   return type == DisplayListBuilderBenchmarkType::kRtree ||
          type == DisplayListBuilderBenchmarkType::kBoundsAndRtree;
+}
+
+bool NeedPrepareRTree(DisplayListDispatchBenchmarkType type) {
+  return type != DisplayListDispatchBenchmarkType::kDefaultNoRtree;
 }
 
 }  // namespace
@@ -98,11 +127,11 @@ static void BM_DisplayListBuilderWithPerspective(
 static void BM_DisplayListBuilderWithClipRect(
     benchmark::State& state,
     DisplayListBuilderBenchmarkType type) {
-  SkRect clip_bounds = SkRect::MakeLTRB(6.5, 7.3, 90.2, 85.7);
+  DlRect clip_bounds = DlRect::MakeLTRB(6.5, 7.3, 90.2, 85.7);
   bool prepare_rtree = NeedPrepareRTree(type);
   while (state.KeepRunning()) {
     DisplayListBuilder builder(prepare_rtree);
-    builder.ClipRect(clip_bounds, DlCanvas::ClipOp::kIntersect, true);
+    builder.ClipRect(clip_bounds, DlClipOp::kIntersect, true);
     InvokeAllRenderingOps(builder);
     Complete(builder, type);
   }
@@ -116,7 +145,7 @@ static void BM_DisplayListBuilderWithGlobalSaveLayer(
     DisplayListBuilder builder(prepare_rtree);
     builder.Scale(3.5, 3.5);
     builder.Translate(10.3, 6.9);
-    builder.SaveLayer(nullptr, nullptr);
+    builder.SaveLayer(std::nullopt, nullptr);
     builder.Translate(45.3, 27.9);
     DlOpReceiver& receiver = DisplayListBuilderBenchmarkAccessor(builder);
     for (auto& group : allRenderingOps) {
@@ -140,7 +169,7 @@ static void BM_DisplayListBuilderWithSaveLayer(
     for (auto& group : allRenderingOps) {
       for (size_t i = 0; i < group.variants.size(); i++) {
         auto& invocation = group.variants[i];
-        builder.SaveLayer(nullptr, nullptr);
+        builder.SaveLayer(std::nullopt, nullptr);
         invocation.Invoke(receiver);
         builder.Restore();
       }
@@ -154,7 +183,7 @@ static void BM_DisplayListBuilderWithSaveLayerAndImageFilter(
     DisplayListBuilderBenchmarkType type) {
   DlPaint layer_paint;
   layer_paint.setImageFilter(&testing::kTestBlurImageFilter1);
-  SkRect layer_bounds = SkRect::MakeLTRB(6.5, 7.3, 35.2, 42.7);
+  DlRect layer_bounds = DlRect::MakeLTRB(6.5, 7.3, 35.2, 42.7);
   bool prepare_rtree = NeedPrepareRTree(type);
   while (state.KeepRunning()) {
     DisplayListBuilder builder(prepare_rtree);
@@ -162,12 +191,122 @@ static void BM_DisplayListBuilderWithSaveLayerAndImageFilter(
     for (auto& group : allRenderingOps) {
       for (size_t i = 0; i < group.variants.size(); i++) {
         auto& invocation = group.variants[i];
-        builder.SaveLayer(&layer_bounds, &layer_paint);
+        builder.SaveLayer(layer_bounds, &layer_paint);
         invocation.Invoke(receiver);
         builder.Restore();
       }
     }
     Complete(builder, type);
+  }
+}
+
+class DlOpReceiverIgnore : public IgnoreAttributeDispatchHelper,
+                           public IgnoreTransformDispatchHelper,
+                           public IgnoreClipDispatchHelper,
+                           public IgnoreDrawDispatchHelper {};
+
+static void BM_DisplayListDispatchDefault(
+    benchmark::State& state,
+    DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    display_list->Dispatch(receiver);
+  }
+}
+
+static void BM_DisplayListDispatchByIndexDefault(
+    benchmark::State& state,
+    DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    DlIndex end = display_list->GetRecordCount();
+    for (DlIndex i = 0u; i < end; i++) {
+      display_list->Dispatch(receiver, i);
+    }
+  }
+}
+
+static void BM_DisplayListDispatchByIteratorDefault(
+    benchmark::State& state,
+    DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    for (DlIndex i : *display_list) {
+      display_list->Dispatch(receiver, i);
+    }
+  }
+}
+
+static void BM_DisplayListDispatchByVectorDefault(
+    benchmark::State& state,
+    DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    std::vector<DlIndex> indices =
+        display_list->GetCulledIndices(display_list->GetBounds());
+    for (DlIndex index : indices) {
+      display_list->Dispatch(receiver, index);
+    }
+  }
+}
+
+static void BM_DisplayListDispatchCull(benchmark::State& state,
+                                       DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlRect rect = DlRect::MakeLTRB(0, 0, 100, 100);
+  EXPECT_FALSE(rect.Contains(display_list->GetBounds()));
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    display_list->Dispatch(receiver, rect);
+  }
+}
+
+static void BM_DisplayListDispatchByVectorCull(
+    benchmark::State& state,
+    DisplayListDispatchBenchmarkType type) {
+  bool prepare_rtree = NeedPrepareRTree(type);
+  DisplayListBuilder builder(prepare_rtree);
+  for (int i = 0; i < 5; i++) {
+    InvokeAllOps(builder);
+  }
+  auto display_list = builder.Build();
+  DlRect rect = DlRect::MakeLTRB(0, 0, 100, 100);
+  EXPECT_FALSE(rect.Contains(display_list->GetBounds()));
+  DlOpReceiverIgnore receiver;
+  while (state.KeepRunning()) {
+    std::vector<DlIndex> indices = display_list->GetCulledIndices(rect);
+    for (DlIndex index : indices) {
+      display_list->Dispatch(receiver, index);
+    }
   }
 }
 
@@ -288,6 +427,41 @@ BENCHMARK_CAPTURE(BM_DisplayListBuilderWithSaveLayerAndImageFilter,
 BENCHMARK_CAPTURE(BM_DisplayListBuilderWithSaveLayerAndImageFilter,
                   kBoundsAndRtree,
                   DisplayListBuilderBenchmarkType::kBoundsAndRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchDefault,
+                  kDefaultNoRtree,
+                  DisplayListDispatchBenchmarkType::kDefaultNoRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchDefault,
+                  kDefaultWithRtree,
+                  DisplayListDispatchBenchmarkType::kDefaultWithRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchCull,
+                  kCulledWithRtree,
+                  DisplayListDispatchBenchmarkType::kCulledWithRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchByIndexDefault,
+                  kDefaultNoRtree,
+                  DisplayListDispatchBenchmarkType::kDefaultNoRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchByIteratorDefault,
+                  kDefaultNoRtree,
+                  DisplayListDispatchBenchmarkType::kDefaultNoRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchByVectorDefault,
+                  kDefaultNoRtree,
+                  DisplayListDispatchBenchmarkType::kDefaultNoRtree)
+    ->Unit(benchmark::kMicrosecond);
+
+BENCHMARK_CAPTURE(BM_DisplayListDispatchByVectorCull,
+                  kCulledWithRtree,
+                  DisplayListDispatchBenchmarkType::kCulledWithRtree)
     ->Unit(benchmark::kMicrosecond);
 
 }  // namespace flutter

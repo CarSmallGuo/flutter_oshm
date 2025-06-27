@@ -20,10 +20,13 @@ import subprocess
 
 import git_revision
 
+_script_dir = os.path.abspath(os.path.join(os.path.realpath(__file__), '..'))
+_src_root_dir = os.path.join(_script_dir, '..', '..')
+
 
 def get_clang_version():
   clang_executable = str(
-      os.path.join('..', '..', 'flutter', 'buildtools', 'mac-x64', 'clang', 'bin', 'clang++')
+      os.path.join(_src_root_dir, 'flutter', 'buildtools', 'mac-x64', 'clang', 'bin', 'clang++')
   )
   version = subprocess.check_output([clang_executable, '--version'])
   return version.splitlines()[0]
@@ -47,7 +50,7 @@ def main():
   args = parser.parse_args()
 
   text = open(args.source).read()
-  engine_path = os.path.join(os.getcwd(), '..', '..', 'flutter')
+  engine_path = os.path.join(_src_root_dir, 'flutter')
   revision = git_revision.get_repository_version(engine_path)
   clang_version = get_clang_version()
   text = text.format(revision=revision, clang_version=clang_version, min_version=args.minversion)

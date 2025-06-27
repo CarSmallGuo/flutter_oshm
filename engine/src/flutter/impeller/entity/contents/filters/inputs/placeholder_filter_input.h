@@ -16,10 +16,7 @@ class PlaceholderFilterInput final : public FilterInput {
   ~PlaceholderFilterInput() override;
 
   // |FilterInput|
-  Variant GetInput() const override;
-
-  // |FilterInput|
-  std::optional<Snapshot> GetSnapshot(const std::string& label,
+  std::optional<Snapshot> GetSnapshot(std::string_view label,
                                       const ContentContext& renderer,
                                       const Entity& entity,
                                       std::optional<Rect> coverage_limit,
@@ -27,11 +24,6 @@ class PlaceholderFilterInput final : public FilterInput {
 
   // |FilterInput|
   std::optional<Rect> GetCoverage(const Entity& entity) const override;
-
-  // |FilterInput|
-  void PopulateGlyphAtlas(
-      const std::shared_ptr<LazyGlyphAtlas>& lazy_glyph_atlas,
-      Scalar scale) override;
 
  private:
   Rect coverage_rect_;

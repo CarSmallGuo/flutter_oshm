@@ -52,28 +52,23 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
   if (!src_snapshot.has_value()) {
     return true;
   }
-  auto coverage = src_snapshot->GetCoverage();
-  if (!coverage.has_value()) {
-    return true;
-  }
-  Rect src_coverage = coverage.value();
 
-  auto size = src_coverage.GetSize();
-  VertexBufferBuilder<VS::PerVertexData> vtx_builder;
-  vtx_builder.AddVertices({
-      {Point(0, 0), Point(0, 0)},
-      {Point(size.width, 0), Point(1, 0)},
-      {Point(0, size.height), Point(0, 1)},
-      {Point(size.width, size.height), Point(1, 1)},
-  });
+  auto size = src_snapshot->texture->GetSize();
+
+  std::array<VS::PerVertexData, 4> vertices = {
+      VS::PerVertexData{Point(0, 0), Point(0, 0)},
+      VS::PerVertexData{Point(size.width, 0), Point(1, 0)},
+      VS::PerVertexData{Point(0, size.height), Point(0, 1)},
+      VS::PerVertexData{Point(size.width, size.height), Point(1, 1)},
+  };
 
   auto options = OptionsFromPass(pass);
-  options.blend_mode = BlendMode::kSource;
+  options.blend_mode = BlendMode::kSrc;
   options.primitive_type = PrimitiveType::kTriangleStrip;
 
   pass.SetCommandLabel("Framebuffer Advanced Blend Filter");
-  pass.SetVertexBuffer(vtx_builder.CreateVertexBuffer(host_buffer));
-  pass.SetStencilReference(entity.GetClipDepth());
+  pass.SetVertexBuffer(
+      CreateVertexBuffer(vertices, renderer.GetTransientsBuffer()));
 
   switch (blend_mode_) {
     case BlendMode::kScreen:
@@ -133,7 +128,7 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
     src_sampler_descriptor.width_address_mode = SamplerAddressMode::kDecal;
     src_sampler_descriptor.height_address_mode = SamplerAddressMode::kDecal;
   }
-  const std::unique_ptr<const Sampler>& src_sampler =
+  raw_ptr<const Sampler> src_sampler =
       renderer.GetContext()->GetSamplerLibrary()->GetSampler(
           src_sampler_descriptor);
   FS::BindTextureSamplerSrc(pass, src_snapshot->texture, src_sampler);
@@ -144,6 +139,7 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
   VS::BindFrameInfo(pass, host_buffer.EmplaceUniform(frame_info));
 
   frag_info.src_input_alpha = src_snapshot->opacity;
+  frag_info.dst_input_alpha = 1.0;
   FS::BindFragInfo(pass, host_buffer.EmplaceUniform(frag_info));
 
   return pass.Draw().ok();

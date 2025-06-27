@@ -2,12 +2,9 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import 'dart:js_interop';
-
-import 'package:ui/ui.dart' as ui;
-
 import '../display.dart';
 import '../dom.dart';
+import '../util.dart';
 import 'rasterizer.dart';
 
 /// A visible (on-screen) canvas that can display bitmaps produced by CanvasKit
@@ -48,30 +45,20 @@ class RenderCanvas extends DisplayCanvas {
   final DomElement hostElement = createDomElement('flt-canvas-container');
 
   /// The underlying `<canvas>` element used to display the pixels.
-  final DomCanvasElement canvasElement = createDomCanvasElement();
+  final DomHTMLCanvasElement canvasElement = createDomCanvasElement();
   int _pixelWidth = 0;
   int _pixelHeight = 0;
 
-  late final DomCanvasRenderingContextBitmapRenderer renderContext =
-      canvasElement.contextBitmapRenderer;
+  late final DomImageBitmapRenderingContext renderContext = canvasElement.contextBitmapRenderer;
 
-  late final DomCanvasRenderingContext2D renderContext2d =
-      canvasElement.context2D;
+  late final DomCanvasRenderingContext2D renderContext2d = canvasElement.context2D;
 
   double _currentDevicePixelRatio = -1;
 
   /// Sets the CSS size of the canvas so that canvas pixels are 1:1 with device
   /// pixels.
-  ///
-  /// The logical size of the canvas is not based on the size of the window
-  /// but on the size of the canvas, which, due to `ceil()` above, may not be
-  /// the same as the window. We do not round/floor/ceil the logical size as
-  /// CSS pixels can contain more than one physical pixel and therefore to
-  /// match the size of the window precisely we use the most precise floating
-  /// point value we can get.
   void _updateLogicalHtmlCanvasSize() {
-    final double devicePixelRatio =
-        EngineFlutterDisplay.instance.devicePixelRatio;
+    final double devicePixelRatio = EngineFlutterDisplay.instance.devicePixelRatio;
     final double logicalWidth = _pixelWidth / devicePixelRatio;
     final double logicalHeight = _pixelHeight / devicePixelRatio;
     final DomCSSStyleDeclaration style = canvasElement.style;
@@ -85,14 +72,14 @@ class RenderCanvas extends DisplayCanvas {
   /// The canvas will be resized to accomodate the bitmap immediately before
   /// rendering it.
   void render(DomImageBitmap bitmap) {
-    _ensureSize(ui.Size(bitmap.width.toDartDouble, bitmap.height.toDartDouble));
+    _ensureSize(BitmapSize(bitmap.width, bitmap.height));
     renderContext.transferFromImageBitmap(bitmap);
   }
 
   void renderWithNoBitmapSupport(
     DomCanvasImageSource imageSource,
     int sourceHeight,
-    ui.Size size,
+    BitmapSize size,
   ) {
     _ensureSize(size);
     renderContext2d.drawImage(
@@ -109,15 +96,13 @@ class RenderCanvas extends DisplayCanvas {
   }
 
   /// Ensures that this canvas can draw a frame of the given [size].
-  void _ensureSize(ui.Size size) {
+  void _ensureSize(BitmapSize size) {
     // Check if the frame is the same size as before, and if so, we don't need
     // to resize the canvas.
-    if (size.width.ceil() == _pixelWidth &&
-        size.height.ceil() == _pixelHeight) {
+    if (size.width == _pixelWidth && size.height == _pixelHeight) {
       // The existing canvas doesn't need to be resized (unless the device pixel
       // ratio changed).
-      if (EngineFlutterDisplay.instance.devicePixelRatio !=
-          _currentDevicePixelRatio) {
+      if (EngineFlutterDisplay.instance.devicePixelRatio != _currentDevicePixelRatio) {
         _updateLogicalHtmlCanvasSize();
       }
       return;
@@ -127,8 +112,8 @@ class RenderCanvas extends DisplayCanvas {
     // the frame. We cannot allow the canvas to be larger than the screen
     // because then when we call `transferFromImageBitmap()` the bitmap will
     // be scaled to cover the entire canvas.
-    _pixelWidth = size.width.ceil();
-    _pixelHeight = size.height.ceil();
+    _pixelWidth = size.width;
+    _pixelHeight = size.height;
     canvasElement.width = _pixelWidth.toDouble();
     canvasElement.height = _pixelHeight.toDouble();
     _updateLogicalHtmlCanvasSize();

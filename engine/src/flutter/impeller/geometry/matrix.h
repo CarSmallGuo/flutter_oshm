@@ -110,6 +110,16 @@ struct Matrix {
     // clang-format on
   }
 
+  static constexpr Matrix MakeTranslateScale(const Vector3& s,
+                                             const Vector3& t) {
+    // clang-format off
+    return Matrix(s.x, 0.0f, 0.0f, 0.0f,
+                  0.0f, s.y, 0.0f, 0.0f,
+                  0.0f, 0.0f, s.z, 0.0f,
+                  t.x , t.y, t.z, 1.0f);
+    // clang-format on
+  }
+
   static constexpr Matrix MakeScale(const Vector2& s) {
     return MakeScale(Vector3(s.x, s.y, 1.0f));
   }
@@ -148,12 +158,13 @@ struct Matrix {
     // clang-format on
   }
 
-  static Matrix MakeRotation(Scalar radians, const Vector4& r) {
+  static Matrix MakeRotation(Radians radians, const Vector4& r) {
     const Vector4 v = r.Normalize();
 
-    const Scalar cosine = cos(radians);
+    const Vector2 cos_sin = CosSin(radians);
+    const Scalar cosine = cos_sin.x;
     const Scalar cosp = 1.0f - cosine;
-    const Scalar sine = sin(radians);
+    const Scalar sine = cos_sin.y;
 
     // clang-format off
     return Matrix(
@@ -180,8 +191,10 @@ struct Matrix {
   }
 
   static Matrix MakeRotationX(Radians r) {
-    const Scalar cosine = cos(r.radians);
-    const Scalar sine = sin(r.radians);
+    const Vector2 cos_sin = CosSin(r);
+    const Scalar cosine = cos_sin.x;
+    const Scalar sine = cos_sin.y;
+
     // clang-format off
     return Matrix(
       1.0f,  0.0f,    0.0f,    0.0f,
@@ -193,8 +206,9 @@ struct Matrix {
   }
 
   static Matrix MakeRotationY(Radians r) {
-    const Scalar cosine = cos(r.radians);
-    const Scalar sine = sin(r.radians);
+    const Vector2 cos_sin = CosSin(r);
+    const Scalar cosine = cos_sin.x;
+    const Scalar sine = cos_sin.y;
 
     // clang-format off
     return Matrix(
@@ -207,8 +221,9 @@ struct Matrix {
   }
 
   static Matrix MakeRotationZ(Radians r) {
-    const Scalar cosine = cos(r.radians);
-    const Scalar sine = sin(r.radians);
+    const Vector2 cos_sin = CosSin(r);
+    const Scalar cosine = cos_sin.x;
+    const Scalar sine = cos_sin.y;
 
     // clang-format off
     return Matrix (
@@ -232,6 +247,19 @@ struct Matrix {
     // clang-format on
   }
 
+  // Converts the second row/col to identity to make this an equivalent
+  // to a Skia 3x3 Matrix.
+  constexpr Matrix To3x3() const {
+    // clang-format off
+    return Matrix(
+      m[0], m[1], 0,  m[3],
+      m[4], m[5], 0,  m[7],
+      0, 0, 1, 0,
+      m[12], m[13], 0, m[15]
+    );
+    // clang-format on
+  }
+
   constexpr Matrix Translate(const Vector3& t) const {
     // clang-format off
     return Matrix(m[0], m[1], m[2], m[3],
@@ -240,7 +268,7 @@ struct Matrix {
                   m[0] * t.x + m[4] * t.y + m[8]  * t.z + m[12],
                   m[1] * t.x + m[5] * t.y + m[9]  * t.z + m[13],
                   m[2] * t.x + m[6] * t.y + m[10] * t.z + m[14],
-                  m[15]);
+                  m[3] * t.x + m[7] * t.y + m[11] * t.z + m[15]);
     // clang-format on
   }
 
@@ -290,9 +318,16 @@ struct Matrix {
 
   Scalar GetDeterminant() const;
 
-  Scalar GetMaxBasisLength() const;
+  bool IsInvertible() const { return GetDeterminant() != 0; }
 
   constexpr Scalar GetMaxBasisLengthXY() const {
+    // The full basis computation requires computing the squared scaling factor
+    // for translate/scale only matrices. This substantially limits the range of
+    // precision for small and large scales. Instead, check for the common cases
+    // and directly return the max scaling factor.
+    if (e[0][1] == 0 && e[1][0] == 0) {
+      return std::max(std::abs(e[0][0]), std::abs(e[1][1]));
+    }
     return std::sqrt(std::max(e[0][0] * e[0][0] + e[0][1] * e[0][1],
                               e[1][0] * e[1][0] + e[1][1] * e[1][1]));
   }
@@ -304,13 +339,18 @@ struct Matrix {
   constexpr Vector3 GetBasisZ() const { return Vector3(m[8], m[9], m[10]); }
 
   constexpr Vector3 GetScale() const {
-    return Vector3(GetBasisX().Length(), GetBasisY().Length(),
-                   GetBasisZ().Length());
+    return Vector3(GetBasisX().GetLength(), GetBasisY().GetLength(),
+                   GetBasisZ().GetLength());
   }
 
   constexpr Scalar GetDirectionScale(Vector3 direction) const {
-    return 1.0f / (this->Basis().Invert() * direction.Normalize()).Length() *
-           direction.Length();
+    return 1.0f / (this->Basis().Invert() * direction.Normalize()).GetLength() *
+           direction.GetLength();
+  }
+
+  constexpr bool IsFinite() const {
+    return vec[0].IsFinite() && vec[1].IsFinite() && vec[2].IsFinite() &&
+           vec[3].IsFinite();
   }
 
   constexpr bool IsAffine() const {
@@ -318,11 +358,35 @@ struct Matrix {
             m[9] == 0 && m[10] == 1 && m[11] == 0 && m[14] == 0 && m[15] == 1);
   }
 
+  constexpr bool HasPerspective2D() const {
+    return m[3] != 0 || m[7] != 0 || m[15] != 1;
+  }
+
   constexpr bool HasPerspective() const {
     return m[3] != 0 || m[7] != 0 || m[11] != 0 || m[15] != 1;
   }
 
+  constexpr bool HasTranslation() const { return m[12] != 0 || m[13] != 0; }
+
+  constexpr bool IsAligned2D(Scalar tolerance = 0) const {
+    if (HasPerspective2D()) {
+      return false;
+    }
+    if (ScalarNearlyZero(m[1], tolerance) &&
+        ScalarNearlyZero(m[4], tolerance)) {
+      return true;
+    }
+    if (ScalarNearlyZero(m[0], tolerance) &&
+        ScalarNearlyZero(m[5], tolerance)) {
+      return true;
+    }
+    return false;
+  }
+
   constexpr bool IsAligned(Scalar tolerance = 0) const {
+    if (HasPerspective()) {
+      return false;
+    }
     int v[] = {!ScalarNearlyZero(m[0], tolerance),  //
                !ScalarNearlyZero(m[1], tolerance),  //
                !ScalarNearlyZero(m[2], tolerance),  //
@@ -358,6 +422,19 @@ struct Matrix {
     );
   }
 
+  /// @brief  Returns true if the matrix has no entries other than translation
+  ///         components. Note that an identity matrix meets this criteria.
+  constexpr bool IsTranslationOnly() const {
+    return (
+        // clang-format off
+        m[0] == 1.0 && m[1]  == 0.0 && m[2]  == 0.0 && m[3]  == 0.0 &&
+        m[4] == 0.0 && m[5]  == 1.0 && m[6]  == 0.0 && m[7]  == 0.0 &&
+        m[8] == 0.0 && m[9]  == 0.0 && m[10] == 1.0 && m[11] == 0.0 &&
+                                                       m[15] == 1.0
+        // clang-format on
+    );
+  }
+
   /// @brief  Returns true if the matrix has a scale-only basis and is
   ///         non-projective. Note that an identity matrix meets this criteria.
   constexpr bool IsTranslationScaleOnly() const {
@@ -372,6 +449,27 @@ struct Matrix {
   }
 
   std::optional<MatrixDecomposition> Decompose() const;
+
+  bool Equals(const Matrix& matrix, Scalar epsilon = 1e-5f) const {
+    const Scalar* a = m;
+    const Scalar* b = matrix.m;
+    return ScalarNearlyEqual(a[0], b[0], epsilon) &&
+           ScalarNearlyEqual(a[1], b[1], epsilon) &&
+           ScalarNearlyEqual(a[2], b[2], epsilon) &&
+           ScalarNearlyEqual(a[3], b[3], epsilon) &&
+           ScalarNearlyEqual(a[4], b[4], epsilon) &&
+           ScalarNearlyEqual(a[5], b[5], epsilon) &&
+           ScalarNearlyEqual(a[6], b[6], epsilon) &&
+           ScalarNearlyEqual(a[7], b[7], epsilon) &&
+           ScalarNearlyEqual(a[8], b[8], epsilon) &&
+           ScalarNearlyEqual(a[9], b[9], epsilon) &&
+           ScalarNearlyEqual(a[10], b[10], epsilon) &&
+           ScalarNearlyEqual(a[11], b[11], epsilon) &&
+           ScalarNearlyEqual(a[12], b[12], epsilon) &&
+           ScalarNearlyEqual(a[13], b[13], epsilon) &&
+           ScalarNearlyEqual(a[14], b[14], epsilon) &&
+           ScalarNearlyEqual(a[15], b[15], epsilon);
+  }
 
   constexpr bool operator==(const Matrix& m) const {
     // clang-format off
@@ -431,6 +529,12 @@ struct Matrix {
       w = 1 / w;
     }
     return result * w;
+  }
+
+  constexpr Vector3 TransformHomogenous(const Point& v) const {
+    return Vector3(v.x * m[0] + v.y * m[4] + m[12],
+                   v.x * m[1] + v.y * m[5] + m[13],
+                   v.x * m[3] + v.y * m[7] + m[15]);
   }
 
   constexpr Vector4 TransformDirection(const Vector4& v) const {
@@ -509,6 +613,42 @@ struct Matrix {
       -right.Dot(position), -up.Dot(position), -forward.Dot(position), 1.0f
     };
     // clang-format on
+  }
+
+  static constexpr Vector2 CosSin(Radians radians) {
+    // The precision of a float around 1.0 is much lower than it is
+    // around 0.0, so we end up with cases on quadrant rotations where
+    // we get a +/-1.0 for one of the values and a non-zero value for
+    // the other. This happens around quadrant rotations which makes it
+    // especially common and results in unclean quadrant rotation
+    // matrices which do not return true from |IsAligned[2D]| even
+    // though that is exactly where you need them to exhibit that property.
+    // It also injects small floating point mantissa errors into the
+    // matrices whenever you concatenate them with a quadrant rotation.
+    //
+    // This issue is also exacerbated by the fact that, in radians, the
+    // angles for quadrant rotations are irrational numbers. The measuring
+    // error for representing 90 degree multiples is small enough that
+    // either sin or cos will return a value near +/-1.0, but not small
+    // enough that the other value will be a clean 0.0.
+    //
+    // Some geometry packages simply discard very small numbers from
+    // sin/cos, but the following approach specifically targets just the
+    // area around a quadrant rotation (where either the sin or cos are
+    // measuring as +/-1.0) for symmetry of precision.
+
+    Scalar sin = std::sin(radians.radians);
+    if (std::abs(sin) == 1.0f) {
+      // 90 or 270 degrees (mod 360)
+      return {0.0f, sin};
+    } else {
+      Scalar cos = std::cos(radians.radians);
+      if (std::abs(cos) == 1.0f) {
+        // 0 or 180 degrees (mod 360)
+        return {cos, 0.0f};
+      }
+      return {cos, sin};
+    }
   }
 };
 

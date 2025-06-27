@@ -5,29 +5,77 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_CONTENTS_ATLAS_CONTENTS_H_
 #define FLUTTER_IMPELLER_ENTITY_CONTENTS_ATLAS_CONTENTS_H_
 
-#include <functional>
 #include <memory>
-#include <vector>
 
-#include "flutter/fml/macros.h"
 #include "impeller/core/sampler_descriptor.h"
 #include "impeller/entity/contents/contents.h"
 #include "impeller/entity/entity.h"
+#include "impeller/geometry/color.h"
 
 namespace impeller {
 
-struct SubAtlasResult {
-  // Sub atlas values.
-  std::vector<Rect> sub_texture_coords;
-  std::vector<Color> sub_colors;
-  std::vector<Matrix> sub_transforms;
+// Interface wrapper to allow usage of DL pointer data without copying (or
+// circular imports).
+class AtlasGeometry {
+ public:
+  virtual bool ShouldUseBlend() const = 0;
 
-  // Result atlas values.
-  std::vector<Rect> result_texture_coords;
-  std::vector<Matrix> result_transforms;
+  virtual bool ShouldSkip() const = 0;
 
-  // Size of the sub-atlass.
-  ISize size;
+  virtual VertexBuffer CreateSimpleVertexBuffer(
+      HostBuffer& host_buffer) const = 0;
+
+  virtual VertexBuffer CreateBlendVertexBuffer(
+      HostBuffer& host_buffer) const = 0;
+
+  virtual Rect ComputeBoundingBox() const = 0;
+
+  virtual const std::shared_ptr<Texture>& GetAtlas() const = 0;
+
+  virtual const SamplerDescriptor& GetSamplerDescriptor() const = 0;
+
+  virtual BlendMode GetBlendMode() const = 0;
+
+  virtual bool ShouldInvertBlendMode() const { return true; }
+};
+
+/// @brief An atlas geometry that adapts for drawImageRect.
+class DrawImageRectAtlasGeometry : public AtlasGeometry {
+ public:
+  DrawImageRectAtlasGeometry(std::shared_ptr<Texture> texture,
+                             const Rect& source,
+                             const Rect& destination,
+                             const Color& color,
+                             BlendMode blend_mode,
+                             const SamplerDescriptor& desc);
+
+  ~DrawImageRectAtlasGeometry();
+
+  bool ShouldUseBlend() const override;
+
+  bool ShouldSkip() const override;
+
+  VertexBuffer CreateSimpleVertexBuffer(HostBuffer& host_buffer) const override;
+
+  VertexBuffer CreateBlendVertexBuffer(HostBuffer& host_buffer) const override;
+
+  Rect ComputeBoundingBox() const override;
+
+  const std::shared_ptr<Texture>& GetAtlas() const override;
+
+  const SamplerDescriptor& GetSamplerDescriptor() const override;
+
+  BlendMode GetBlendMode() const override;
+
+  bool ShouldInvertBlendMode() const override;
+
+ private:
+  const std::shared_ptr<Texture> texture_;
+  const Rect source_;
+  const Rect destination_;
+  const Color color_;
+  const BlendMode blend_mode_;
+  const SamplerDescriptor desc_;
 };
 
 class AtlasContents final : public Contents {
@@ -36,36 +84,9 @@ class AtlasContents final : public Contents {
 
   ~AtlasContents() override;
 
-  void SetTexture(std::shared_ptr<Texture> texture);
-
-  std::shared_ptr<Texture> GetTexture() const;
-
-  void SetTransforms(std::vector<Matrix> transforms);
-
-  void SetBlendMode(BlendMode blend_mode);
-
-  void SetTextureCoordinates(std::vector<Rect> texture_coords);
-
-  void SetColors(std::vector<Color> colors);
-
-  void SetCullRect(std::optional<Rect> cull_rect);
-
-  void SetSamplerDescriptor(SamplerDescriptor desc);
+  void SetGeometry(AtlasGeometry* geometry);
 
   void SetAlpha(Scalar alpha);
-
-  const SamplerDescriptor& GetSamplerDescriptor() const;
-
-  const std::vector<Matrix>& GetTransforms() const;
-
-  const std::vector<Rect>& GetTextureCoordinates() const;
-
-  const std::vector<Color>& GetColors() const;
-
-  /// @brief Compress a drawAtlas call with blending into a smaller sized atlas.
-  ///        This atlas has no overlapping to ensure
-  ///        blending behaves as if it were done in the fragment shader.
-  std::shared_ptr<SubAtlasResult> GenerateSubAtlas() const;
 
   // |Contents|
   std::optional<Rect> GetCoverage(const Entity& entity) const override;
@@ -76,28 +97,27 @@ class AtlasContents final : public Contents {
               RenderPass& pass) const override;
 
  private:
-  Rect ComputeBoundingBox() const;
-
-  std::shared_ptr<Texture> texture_;
-  std::vector<Rect> texture_coords_;
-  std::vector<Color> colors_;
-  std::vector<Matrix> transforms_;
-  BlendMode blend_mode_;
-  std::optional<Rect> cull_rect_;
+  AtlasGeometry* geometry_ = nullptr;
   Scalar alpha_ = 1.0;
-  SamplerDescriptor sampler_descriptor_ = {};
-  mutable std::optional<Rect> bounding_box_cache_;
 
   AtlasContents(const AtlasContents&) = delete;
 
   AtlasContents& operator=(const AtlasContents&) = delete;
 };
 
-class AtlasTextureContents final : public Contents {
+/// A specialized atlas class for applying a color matrix filter to a
+/// drawImageRect call.
+class ColorFilterAtlasContents final : public Contents {
  public:
-  explicit AtlasTextureContents(const AtlasContents& parent);
+  explicit ColorFilterAtlasContents();
 
-  ~AtlasTextureContents() override;
+  ~ColorFilterAtlasContents() override;
+
+  void SetGeometry(AtlasGeometry* geometry);
+
+  void SetAlpha(Scalar alpha);
+
+  void SetMatrix(ColorMatrix matrix);
 
   // |Contents|
   std::optional<Rect> GetCoverage(const Entity& entity) const override;
@@ -107,58 +127,17 @@ class AtlasTextureContents final : public Contents {
               const Entity& entity,
               RenderPass& pass) const override;
 
-  void SetAlpha(Scalar alpha);
-
-  void SetCoverage(Rect coverage);
-
-  void SetTexture(std::shared_ptr<Texture> texture);
-
-  void SetUseDestination(bool value);
-
-  void SetSubAtlas(const std::shared_ptr<SubAtlasResult>& subatlas);
-
  private:
-  const AtlasContents& parent_;
+  // These contents are created temporarily on the stack and never stored.
+  // The referenced geometry is also stack allocated and will be de-allocated
+  // after the contents are.
+  AtlasGeometry* geometry_ = nullptr;
+  ColorMatrix matrix_;
   Scalar alpha_ = 1.0;
-  Rect coverage_;
-  std::shared_ptr<Texture> texture_;
-  bool use_destination_ = false;
-  std::shared_ptr<SubAtlasResult> subatlas_;
 
-  AtlasTextureContents(const AtlasTextureContents&) = delete;
+  ColorFilterAtlasContents(const ColorFilterAtlasContents&) = delete;
 
-  AtlasTextureContents& operator=(const AtlasTextureContents&) = delete;
-};
-
-class AtlasColorContents final : public Contents {
- public:
-  explicit AtlasColorContents(const AtlasContents& parent);
-
-  ~AtlasColorContents() override;
-
-  // |Contents|
-  std::optional<Rect> GetCoverage(const Entity& entity) const override;
-
-  // |Contents|
-  bool Render(const ContentContext& renderer,
-              const Entity& entity,
-              RenderPass& pass) const override;
-
-  void SetAlpha(Scalar alpha);
-
-  void SetCoverage(Rect coverage);
-
-  void SetSubAtlas(const std::shared_ptr<SubAtlasResult>& subatlas);
-
- private:
-  const AtlasContents& parent_;
-  Scalar alpha_ = 1.0;
-  Rect coverage_;
-  std::shared_ptr<SubAtlasResult> subatlas_;
-
-  AtlasColorContents(const AtlasColorContents&) = delete;
-
-  AtlasColorContents& operator=(const AtlasColorContents&) = delete;
+  ColorFilterAtlasContents& operator=(const ColorFilterAtlasContents&) = delete;
 };
 
 }  // namespace impeller

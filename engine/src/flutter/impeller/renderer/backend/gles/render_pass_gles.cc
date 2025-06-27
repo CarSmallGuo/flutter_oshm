@@ -6,23 +6,26 @@
 
 #include <cstdint>
 
-#include "GLES3/gl3.h"
 #include "flutter/fml/trace_event.h"
 #include "fml/closure.h"
 #include "fml/logging.h"
 #include "impeller/base/validation.h"
+#include "impeller/core/buffer_view.h"
+#include "impeller/core/formats.h"
+#include "impeller/renderer/backend/gles/buffer_bindings_gles.h"
 #include "impeller/renderer/backend/gles/context_gles.h"
 #include "impeller/renderer/backend/gles/device_buffer_gles.h"
 #include "impeller/renderer/backend/gles/formats_gles.h"
 #include "impeller/renderer/backend/gles/gpu_tracer_gles.h"
 #include "impeller/renderer/backend/gles/pipeline_gles.h"
 #include "impeller/renderer/backend/gles/texture_gles.h"
+#include "impeller/renderer/command.h"
 
 namespace impeller {
 
 RenderPassGLES::RenderPassGLES(std::shared_ptr<const Context> context,
                                const RenderTarget& target,
-                               ReactorGLES::Ref reactor)
+                               std::shared_ptr<ReactorGLES> reactor)
     : RenderPass(std::move(context), target),
       reactor_(std::move(reactor)),
       is_valid_(reactor_ && reactor_->IsValid()) {}
@@ -36,8 +39,8 @@ bool RenderPassGLES::IsValid() const {
 }
 
 // |RenderPass|
-void RenderPassGLES::OnSetLabel(std::string label) {
-  label_ = std::move(label);
+void RenderPassGLES::OnSetLabel(std::string_view label) {
+  label_ = label;
 }
 
 void ConfigureBlending(const ProcTableGLES& gl,
@@ -127,6 +130,7 @@ struct RenderPassData {
   Scalar clear_depth = 1.0;
 
   std::shared_ptr<Texture> color_attachment;
+  std::shared_ptr<Texture> resolve_attachment;
   std::shared_ptr<Texture> depth_attachment;
   std::shared_ptr<Texture> stencil_attachment;
 
@@ -141,18 +145,63 @@ struct RenderPassData {
   std::string label;
 };
 
+static bool BindVertexBuffer(const ProcTableGLES& gl,
+                             BufferBindingsGLES* vertex_desc_gles,
+                             const BufferView& vertex_buffer_view,
+                             size_t buffer_index) {
+  if (!vertex_buffer_view) {
+    return false;
+  }
+
+  const DeviceBuffer* vertex_buffer = vertex_buffer_view.GetBuffer();
+
+  if (!vertex_buffer) {
+    return false;
+  }
+
+  const auto& vertex_buffer_gles = DeviceBufferGLES::Cast(*vertex_buffer);
+  if (!vertex_buffer_gles.BindAndUploadDataIfNecessary(
+          DeviceBufferGLES::BindingType::kArrayBuffer)) {
+    return false;
+  }
+
+  //--------------------------------------------------------------------------
+  /// Bind the vertex attributes associated with vertex buffer.
+  ///
+  if (!vertex_desc_gles->BindVertexAttributes(
+          gl, buffer_index, vertex_buffer_view.GetRange().offset)) {
+    return false;
+  }
+
+  return true;
+}
+
+void RenderPassGLES::ResetGLState(const ProcTableGLES& gl) {
+  gl.Disable(GL_SCISSOR_TEST);
+  gl.Disable(GL_DEPTH_TEST);
+  gl.Disable(GL_STENCIL_TEST);
+  gl.Disable(GL_CULL_FACE);
+  gl.Disable(GL_BLEND);
+  gl.Disable(GL_DITHER);
+  gl.ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+  gl.DepthMask(GL_TRUE);
+  gl.StencilMaskSeparate(GL_FRONT, 0xFFFFFFFF);
+  gl.StencilMaskSeparate(GL_BACK, 0xFFFFFFFF);
+}
+
 [[nodiscard]] bool EncodeCommandsInReactor(
     const RenderPassData& pass_data,
-    const std::shared_ptr<Allocator>& transients_allocator,
     const ReactorGLES& reactor,
     const std::vector<Command>& commands,
+    const std::vector<BufferView>& vertex_buffers,
+    const std::vector<TextureAndSampler>& bound_textures,
+    const std::vector<BufferResource>& bound_buffers,
     const std::shared_ptr<GPUTracerGLES>& tracer) {
   TRACE_EVENT0("impeller", "RenderPassGLES::EncodeCommandsInReactor");
 
   const auto& gl = reactor.GetProcTable();
 #ifdef IMPELLER_DEBUG
   tracer->MarkFrameStart(gl);
-#endif  // IMPELLER_DEBUG
 
   fml::ScopedCleanupClosure pop_pass_debug_marker(
       [&gl]() { gl.PopDebugGroup(); });
@@ -161,48 +210,60 @@ struct RenderPassData {
   } else {
     pop_pass_debug_marker.Release();
   }
+#endif  // IMPELLER_DEBUG
 
-  GLuint fbo = GL_NONE;
-  fml::ScopedCleanupClosure delete_fbo([&gl, &fbo]() {
-    if (fbo != GL_NONE) {
-      gl.BindFramebuffer(GL_FRAMEBUFFER, GL_NONE);
-      gl.DeleteFramebuffers(1u, &fbo);
+  TextureGLES& color_gles = TextureGLES::Cast(*pass_data.color_attachment);
+  const bool is_default_fbo = color_gles.IsWrapped();
+
+  std::optional<GLuint> fbo = 0;
+  if (is_default_fbo) {
+    if (color_gles.GetFBO().has_value()) {
+      // NOLINTNEXTLINE(bugprone-unchecked-optional-access)
+      gl.BindFramebuffer(GL_FRAMEBUFFER, *color_gles.GetFBO());
     }
-  });
-
-  const auto is_default_fbo =
-      TextureGLES::Cast(*pass_data.color_attachment).IsWrapped();
-
-  if (!is_default_fbo) {
+  } else {
     // Create and bind an offscreen FBO.
-    gl.GenFramebuffers(1u, &fbo);
-    gl.BindFramebuffer(GL_FRAMEBUFFER, fbo);
+    if (!color_gles.GetCachedFBO().IsDead()) {
+      fbo = reactor.GetGLHandle(color_gles.GetCachedFBO());
+      if (!fbo.has_value()) {
+        return false;
+      }
+      gl.BindFramebuffer(GL_FRAMEBUFFER, fbo.value());
+    } else {
+      HandleGLES cached_fbo =
+          reactor.CreateUntrackedHandle(HandleType::kFrameBuffer);
+      color_gles.SetCachedFBO(cached_fbo);
+      fbo = reactor.GetGLHandle(cached_fbo);
+      if (!fbo.has_value()) {
+        return false;
+      }
+      gl.BindFramebuffer(GL_FRAMEBUFFER, fbo.value());
 
-    if (auto color = TextureGLES::Cast(pass_data.color_attachment.get())) {
-      if (!color->SetAsFramebufferAttachment(
+      if (!color_gles.SetAsFramebufferAttachment(
               GL_FRAMEBUFFER, TextureGLES::AttachmentType::kColor0)) {
         return false;
       }
-    }
 
-    if (auto depth = TextureGLES::Cast(pass_data.depth_attachment.get())) {
-      if (!depth->SetAsFramebufferAttachment(
-              GL_FRAMEBUFFER, TextureGLES::AttachmentType::kDepth)) {
+      if (auto depth = TextureGLES::Cast(pass_data.depth_attachment.get())) {
+        if (!depth->SetAsFramebufferAttachment(
+                GL_FRAMEBUFFER, TextureGLES::AttachmentType::kDepth)) {
+          return false;
+        }
+      }
+      if (auto stencil =
+              TextureGLES::Cast(pass_data.stencil_attachment.get())) {
+        if (!stencil->SetAsFramebufferAttachment(
+                GL_FRAMEBUFFER, TextureGLES::AttachmentType::kStencil)) {
+          return false;
+        }
+      }
+
+      auto status = gl.CheckFramebufferStatus(GL_FRAMEBUFFER);
+      if (status != GL_FRAMEBUFFER_COMPLETE) {
+        VALIDATION_LOG << "Could not create a complete framebuffer: "
+                       << DebugToFramebufferError(status);
         return false;
       }
-    }
-    if (auto stencil = TextureGLES::Cast(pass_data.stencil_attachment.get())) {
-      if (!stencil->SetAsFramebufferAttachment(
-              GL_FRAMEBUFFER, TextureGLES::AttachmentType::kStencil)) {
-        return false;
-      }
-    }
-
-    auto status = gl.CheckFramebufferStatus(GL_FRAMEBUFFER);
-    if (status != GL_FRAMEBUFFER_COMPLETE) {
-      VALIDATION_LOG << "Could not create a complete frambuffer: "
-                     << DebugToFramebufferError(status);
-      return false;
     }
   }
 
@@ -233,29 +294,38 @@ struct RenderPassData {
     clear_bits |= GL_STENCIL_BUFFER_BIT;
   }
 
-  gl.Disable(GL_SCISSOR_TEST);
-  gl.Disable(GL_DEPTH_TEST);
-  gl.Disable(GL_STENCIL_TEST);
-  gl.Disable(GL_CULL_FACE);
-  gl.Disable(GL_BLEND);
-  gl.ColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
-  gl.DepthMask(GL_TRUE);
-  gl.StencilMaskSeparate(GL_FRONT, 0xFFFFFFFF);
-  gl.StencilMaskSeparate(GL_BACK, 0xFFFFFFFF);
+  RenderPassGLES::ResetGLState(gl);
 
   gl.Clear(clear_bits);
 
+  // Both the viewport and scissor are specified in framebuffer coordinates.
+  // Impeller's framebuffer coordinate system is top left origin, but OpenGL's
+  // is bottom left origin, so we convert the coordinates here.
+  ISize target_size = pass_data.color_attachment->GetSize();
+
+  //--------------------------------------------------------------------------
+  /// Setup the viewport.
+  ///
+  const auto& viewport = pass_data.viewport;
+  gl.Viewport(viewport.rect.GetX(),  // x
+              target_size.height - viewport.rect.GetY() -
+                  viewport.rect.GetHeight(),  // y
+              viewport.rect.GetWidth(),       // width
+              viewport.rect.GetHeight()       // height
+  );
+  if (pass_data.depth_attachment) {
+    if (gl.DepthRangef.IsAvailable()) {
+      gl.DepthRangef(viewport.depth_range.z_near, viewport.depth_range.z_far);
+    } else {
+      gl.DepthRange(viewport.depth_range.z_near, viewport.depth_range.z_far);
+    }
+  }
+
+  CullMode current_cull_mode = CullMode::kNone;
+  WindingOrder current_winding_order = WindingOrder::kClockwise;
+  gl.FrontFace(GL_CW);
+
   for (const auto& command : commands) {
-    if (command.instance_count != 1u) {
-      VALIDATION_LOG << "GLES backend does not support instanced rendering.";
-      return false;
-    }
-
-    if (!command.pipeline) {
-      VALIDATION_LOG << "Command has no pipeline specified.";
-      return false;
-    }
-
 #ifdef IMPELLER_DEBUG
     fml::ScopedCleanupClosure pop_cmd_debug_marker(
         [&gl]() { gl.PopDebugGroup(); });
@@ -299,26 +369,24 @@ struct RenderPassData {
       gl.Disable(GL_DEPTH_TEST);
     }
 
-    // Both the viewport and scissor are specified in framebuffer coordinates.
-    // Impeller's framebuffer coordinate system is top left origin, but OpenGL's
-    // is bottom left origin, so we convert the coordinates here.
-    auto target_size = pass_data.color_attachment->GetSize();
-
     //--------------------------------------------------------------------------
     /// Setup the viewport.
     ///
-    const auto& viewport = command.viewport.value_or(pass_data.viewport);
-    gl.Viewport(viewport.rect.GetX(),  // x
-                target_size.height - viewport.rect.GetY() -
-                    viewport.rect.GetHeight(),  // y
-                viewport.rect.GetWidth(),       // width
-                viewport.rect.GetHeight()       // height
-    );
-    if (pass_data.depth_attachment) {
-      if (gl.DepthRangef.IsAvailable()) {
-        gl.DepthRangef(viewport.depth_range.z_near, viewport.depth_range.z_far);
-      } else {
-        gl.DepthRange(viewport.depth_range.z_near, viewport.depth_range.z_far);
+    if (command.viewport.has_value()) {
+      gl.Viewport(viewport.rect.GetX(),  // x
+                  target_size.height - viewport.rect.GetY() -
+                      viewport.rect.GetHeight(),  // y
+                  viewport.rect.GetWidth(),       // width
+                  viewport.rect.GetHeight()       // height
+      );
+      if (pass_data.depth_attachment) {
+        if (gl.DepthRangef.IsAvailable()) {
+          gl.DepthRangef(viewport.depth_range.z_near,
+                         viewport.depth_range.z_far);
+        } else {
+          gl.DepthRange(viewport.depth_range.z_near,
+                        viewport.depth_range.z_far);
+        }
       }
     }
 
@@ -334,63 +402,61 @@ struct RenderPassData {
           scissor.GetWidth(),                                         // width
           scissor.GetHeight()                                         // height
       );
-    } else {
-      gl.Disable(GL_SCISSOR_TEST);
     }
 
     //--------------------------------------------------------------------------
     /// Setup culling.
     ///
-    switch (pipeline.GetDescriptor().GetCullMode()) {
-      case CullMode::kNone:
-        gl.Disable(GL_CULL_FACE);
-        break;
-      case CullMode::kFrontFace:
-        gl.Enable(GL_CULL_FACE);
-        gl.CullFace(GL_FRONT);
-        break;
-      case CullMode::kBackFace:
-        gl.Enable(GL_CULL_FACE);
-        gl.CullFace(GL_BACK);
-        break;
+    CullMode pipeline_cull_mode = pipeline.GetDescriptor().GetCullMode();
+    if (current_cull_mode != pipeline_cull_mode) {
+      switch (pipeline_cull_mode) {
+        case CullMode::kNone:
+          gl.Disable(GL_CULL_FACE);
+          break;
+        case CullMode::kFrontFace:
+          gl.Enable(GL_CULL_FACE);
+          gl.CullFace(GL_FRONT);
+          break;
+        case CullMode::kBackFace:
+          gl.Enable(GL_CULL_FACE);
+          gl.CullFace(GL_BACK);
+          break;
+      }
+      current_cull_mode = pipeline_cull_mode;
     }
+
     //--------------------------------------------------------------------------
     /// Setup winding order.
     ///
-    switch (pipeline.GetDescriptor().GetWindingOrder()) {
-      case WindingOrder::kClockwise:
-        gl.FrontFace(GL_CW);
-        break;
-      case WindingOrder::kCounterClockwise:
-        gl.FrontFace(GL_CCW);
-        break;
+    WindingOrder pipeline_winding_order =
+        pipeline.GetDescriptor().GetWindingOrder();
+    if (current_winding_order != pipeline_winding_order) {
+      switch (pipeline.GetDescriptor().GetWindingOrder()) {
+        case WindingOrder::kClockwise:
+          gl.FrontFace(GL_CW);
+          break;
+        case WindingOrder::kCounterClockwise:
+          gl.FrontFace(GL_CCW);
+          break;
+      }
+      current_winding_order = pipeline_winding_order;
     }
 
-    if (command.vertex_buffer.index_type == IndexType::kUnknown) {
-      return false;
-    }
-
-    auto vertex_desc_gles = pipeline.GetBufferBindings();
+    BufferBindingsGLES* vertex_desc_gles = pipeline.GetBufferBindings();
 
     //--------------------------------------------------------------------------
-    /// Bind vertex and index buffers.
+    /// Bind vertex buffers.
     ///
-    auto& vertex_buffer_view = command.vertex_buffer.vertex_buffer;
-
-    if (!vertex_buffer_view) {
-      return false;
-    }
-
-    auto vertex_buffer = vertex_buffer_view.buffer;
-
-    if (!vertex_buffer) {
-      return false;
-    }
-
-    const auto& vertex_buffer_gles = DeviceBufferGLES::Cast(*vertex_buffer);
-    if (!vertex_buffer_gles.BindAndUploadDataIfNecessary(
-            DeviceBufferGLES::BindingType::kArrayBuffer)) {
-      return false;
+    /// Note: There is no need to run `RenderPass::ValidateVertexBuffers` or
+    ///       `RenderPass::ValidateIndexBuffer` here, as validation already runs
+    ///       when the vertex/index buffers are set on the command.
+    ///
+    for (size_t i = 0; i < command.vertex_buffers.length; i++) {
+      if (!BindVertexBuffer(gl, vertex_desc_gles,
+                            vertex_buffers[i + command.vertex_buffers.offset],
+                            i)) {
+        return false;
+      }
     }
 
     //--------------------------------------------------------------------------
@@ -401,21 +467,15 @@ struct RenderPassData {
     }
 
     //--------------------------------------------------------------------------
-    /// Bind vertex attribs.
-    ///
-    if (!vertex_desc_gles->BindVertexAttributes(
-            gl, vertex_buffer_view.range.offset)) {
-      return false;
-    }
-
-    //--------------------------------------------------------------------------
     /// Bind uniform data.
     ///
-    if (!vertex_desc_gles->BindUniformData(gl,                        //
-                                           *transients_allocator,     //
-                                           command.vertex_bindings,   //
-                                           command.fragment_bindings  //
-                                           )) {
+    if (!vertex_desc_gles->BindUniformData(
+            gl,                                        //
+            bound_textures,                            //
+            bound_buffers,                             //
+            /*texture_range=*/command.bound_textures,  //
+            /*buffer_range=*/command.bound_buffers     //
+            )) {
       return false;
     }
 
@@ -427,30 +487,30 @@ struct RenderPassData {
     // correct; full triangle outlines won't be drawn and disconnected
     // geometry may appear connected. However this can still be useful for
     // wireframe debug views.
-    auto mode = pipeline.GetDescriptor().GetPolygonMode() == PolygonMode::kLine
-                    ? GL_LINE_STRIP
-                    : ToMode(pipeline.GetDescriptor().GetPrimitiveType());
+    GLenum mode =
+        pipeline.GetDescriptor().GetPolygonMode() == PolygonMode::kLine
+            ? GL_LINE_STRIP
+            : ToMode(pipeline.GetDescriptor().GetPrimitiveType());
 
     //--------------------------------------------------------------------------
     /// Finally! Invoke the draw call.
     ///
-    if (command.vertex_buffer.index_type == IndexType::kNone) {
-      gl.DrawArrays(mode, command.base_vertex,
-                    command.vertex_buffer.vertex_count);
+    if (command.index_type == IndexType::kNone) {
+      gl.DrawArrays(mode, command.base_vertex, command.element_count);
     } else {
       // Bind the index buffer if necessary.
-      auto index_buffer_view = command.vertex_buffer.index_buffer;
-      auto index_buffer = index_buffer_view.buffer;
+      auto index_buffer_view = command.index_buffer;
+      const DeviceBuffer* index_buffer = index_buffer_view.GetBuffer();
       const auto& index_buffer_gles = DeviceBufferGLES::Cast(*index_buffer);
       if (!index_buffer_gles.BindAndUploadDataIfNecessary(
               DeviceBufferGLES::BindingType::kElementArrayBuffer)) {
         return false;
       }
-      gl.DrawElements(mode,                                           // mode
-                      command.vertex_buffer.vertex_count,             // count
-                      ToIndexType(command.vertex_buffer.index_type),  // type
+      gl.DrawElements(mode,                             // mode
+                      command.element_count,            // count
+                      ToIndexType(command.index_type),  // type
                       reinterpret_cast<const GLvoid*>(static_cast<GLsizei>(
-                          index_buffer_view.range.offset))  // indices
+                          index_buffer_view.GetRange().offset))  // indices
       );
     }
 
@@ -460,39 +520,81 @@ struct RenderPassData {
     if (!vertex_desc_gles->UnbindVertexAttributes(gl)) {
       return false;
     }
+  }
 
-    //--------------------------------------------------------------------------
-    /// Unbind the program pipeline.
-    ///
-    if (!pipeline.UnbindProgram()) {
+  if (pass_data.resolve_attachment &&
+      !gl.GetCapabilities()->SupportsImplicitResolvingMSAA() &&
+      !is_default_fbo) {
+    FML_DCHECK(pass_data.resolve_attachment != pass_data.color_attachment);
+    // Perform multisample resolve via blit.
+    // Create and bind a resolve FBO.
+    GLuint resolve_fbo;
+    gl.GenFramebuffers(1u, &resolve_fbo);
+    gl.BindFramebuffer(GL_FRAMEBUFFER, resolve_fbo);
+
+    if (!TextureGLES::Cast(*pass_data.resolve_attachment)
+             .SetAsFramebufferAttachment(
+                 GL_FRAMEBUFFER, TextureGLES::AttachmentType::kColor0)) {
       return false;
     }
+
+    auto status = gl.CheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (gl.CheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+      VALIDATION_LOG << "Could not create a complete frambuffer: "
+                     << DebugToFramebufferError(status);
+      return false;
+    }
+
+    // Bind MSAA renderbuffer to read framebuffer.
+    gl.BindFramebuffer(GL_READ_FRAMEBUFFER, fbo.value());
+    gl.BindFramebuffer(GL_DRAW_FRAMEBUFFER, resolve_fbo);
+
+    RenderPassGLES::ResetGLState(gl);
+    auto size = pass_data.color_attachment->GetSize();
+
+    gl.BlitFramebuffer(/*srcX0=*/0,
+                       /*srcY0=*/0,
+                       /*srcX1=*/size.width,
+                       /*srcY1=*/size.height,
+                       /*dstX0=*/0,
+                       /*dstY0=*/0,
+                       /*dstX1=*/size.width,
+                       /*dstY1=*/size.height,
+                       /*mask=*/GL_COLOR_BUFFER_BIT,
+                       /*filter=*/GL_NEAREST);
+
+    gl.BindFramebuffer(GL_DRAW_FRAMEBUFFER, GL_NONE);
+    gl.BindFramebuffer(GL_READ_FRAMEBUFFER, GL_NONE);
+    gl.DeleteFramebuffers(1u, &resolve_fbo);
+    // Rebind the original FBO so that we can discard it below.
+    gl.BindFramebuffer(GL_FRAMEBUFFER, fbo.value());
   }
 
   if (gl.DiscardFramebufferEXT.IsAvailable()) {
-    std::vector<GLenum> attachments;
+    std::array<GLenum, 3> attachments;
+    size_t attachment_count = 0;
 
-    // TODO(jonahwilliams): discarding stencil or depth on the default fbo
-    // causes Angle to discard the entire render target. Until we know the
-    // reason, default to storing.
+    // TODO(130048): discarding stencil or depth on the default fbo causes Angle
+    // to discard the entire render target. Until we know the reason, default to
+    // storing.
     bool angle_safe = gl.GetCapabilities()->IsANGLE() ? !is_default_fbo : true;
 
     if (pass_data.discard_color_attachment) {
-      attachments.push_back(is_default_fbo ? GL_COLOR_EXT
-                                           : GL_COLOR_ATTACHMENT0);
+      attachments[attachment_count++] =
+          (is_default_fbo ? GL_COLOR_EXT : GL_COLOR_ATTACHMENT0);
     }
     if (pass_data.discard_depth_attachment && angle_safe) {
-      attachments.push_back(is_default_fbo ? GL_DEPTH_EXT
-                                           : GL_DEPTH_ATTACHMENT);
+      attachments[attachment_count++] =
+          (is_default_fbo ? GL_DEPTH_EXT : GL_DEPTH_ATTACHMENT);
     }
 
     if (pass_data.discard_stencil_attachment && angle_safe) {
-      attachments.push_back(is_default_fbo ? GL_STENCIL_EXT
-                                           : GL_STENCIL_ATTACHMENT);
+      attachments[attachment_count++] =
+          (is_default_fbo ? GL_STENCIL_EXT : GL_STENCIL_ATTACHMENT);
     }
-    gl.DiscardFramebufferEXT(GL_FRAMEBUFFER,      // target
-                             attachments.size(),  // attachments to discard
-                             attachments.data()   // size
+    gl.DiscardFramebufferEXT(GL_FRAMEBUFFER,     // target
+                             attachment_count,   // attachments to discard
+                             attachments.data()  // size
     );
   }
 
@@ -514,9 +616,11 @@ bool RenderPassGLES::OnEncodeCommands(const Context& context) const {
   if (!render_target.HasColorAttachment(0u)) {
     return false;
   }
-  const auto& color0 = render_target.GetColorAttachments().at(0u);
-  const auto& depth0 = render_target.GetDepthAttachment();
-  const auto& stencil0 = render_target.GetStencilAttachment();
+  const ColorAttachment& color0 = render_target.GetColorAttachment(0);
+  const std::optional<DepthAttachment>& depth0 =
+      render_target.GetDepthAttachment();
+  const std::optional<StencilAttachment>& stencil0 =
+      render_target.GetStencilAttachment();
 
   auto pass_data = std::make_shared<RenderPassData>();
   pass_data->label = label_;
@@ -526,6 +630,7 @@ bool RenderPassGLES::OnEncodeCommands(const Context& context) const {
   /// Setup color data.
   ///
   pass_data->color_attachment = color0.texture;
+  pass_data->resolve_attachment = color0.resolve_texture;
   pass_data->clear_color = color0.clear_color;
   pass_data->clear_color_attachment = CanClearAttachment(color0.load_action);
   pass_data->discard_color_attachment =
@@ -533,10 +638,13 @@ bool RenderPassGLES::OnEncodeCommands(const Context& context) const {
 
   // When we are using EXT_multisampled_render_to_texture, it is implicitly
   // resolved when we bind the texture to the framebuffer. We don't need to
-  // discard the attachment when we are done.
+  // discard the attachment when we are done. If not using
+  // EXT_multisampled_render_to_texture but still using MSAA we discard the
+  // attachment as normal.
   if (color0.resolve_texture) {
-    FML_DCHECK(context.GetCapabilities()->SupportsImplicitResolvingMSAA());
-    pass_data->discard_color_attachment = false;
+    pass_data->discard_color_attachment =
+        pass_data->discard_color_attachment &&
+        !context.GetCapabilities()->SupportsImplicitResolvingMSAA();
   }
 
   //----------------------------------------------------------------------------
@@ -562,16 +670,23 @@ bool RenderPassGLES::OnEncodeCommands(const Context& context) const {
         CanDiscardAttachmentWhenDone(stencil0->store_action);
   }
 
-  std::shared_ptr<const RenderPassGLES> shared_this = shared_from_this();
-  auto tracer = ContextGLES::Cast(context).GetGPUTracer();
-  return reactor_->AddOperation([pass_data,
-                                 allocator = context.GetResourceAllocator(),
-                                 render_pass = std::move(shared_this),
-                                 tracer](const auto& reactor) {
-    auto result = EncodeCommandsInReactor(*pass_data, allocator, reactor,
-                                          render_pass->commands_, tracer);
-    FML_CHECK(result) << "Must be able to encode GL commands without error.";
-  });
+  return reactor_->AddOperation(
+      [pass_data = std::move(pass_data), render_pass = shared_from_this(),
+       tracer =
+           ContextGLES::Cast(context).GetGPUTracer()](const auto& reactor) {
+        auto result = EncodeCommandsInReactor(
+            /*pass_data=*/*pass_data,                         //
+            /*reactor=*/reactor,                              //
+            /*commands=*/render_pass->commands_,              //
+            /*vertex_buffers=*/render_pass->vertex_buffers_,  //
+            /*bound_textures=*/render_pass->bound_textures_,  //
+            /*bound_buffers=*/render_pass->bound_buffers_,    //
+            /*tracer=*/tracer                                 //
+        );
+        FML_CHECK(result)
+            << "Must be able to encode GL commands without error.";
+      },
+      /*defer=*/true);
 }
 
 }  // namespace impeller

@@ -4,8 +4,6 @@
 
 package io.flutter.plugin.platform;
 
-import static android.view.MotionEvent.PointerCoords;
-import static android.view.MotionEvent.PointerProperties;
 import static io.flutter.Build.API_LEVELS;
 
 import android.annotation.TargetApi;
@@ -46,9 +44,8 @@ import java.util.List;
 /**
  * Manages platform views.
  *
- * <p>Each {@link io.flutter.embedding.engine.FlutterEngine} or {@link
- * io.flutter.app.FlutterPluginRegistry} has a single platform views controller. A platform views
- * controller can be attached to at most one Flutter view.
+ * <p>Each {@link io.flutter.embedding.engine.FlutterEngine} has a single platform views controller.
+ * A platform views controller can be attached to at most one Flutter view.
  */
 public class PlatformViewsController implements PlatformViewsAccessibilityDelegate {
   private static final String TAG = "PlatformViewsController";
@@ -668,6 +665,25 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
     return textureId;
   }
 
+  /**
+   * Translates an original touch event to have the same locations as the ones that Flutter
+   * calculates (because original + flutter's - original = flutter's).
+   *
+   * @param originalEvent The saved original input event.
+   * @param pointerCoords The coordinates that Flutter thinks the touch is happening at.
+   */
+  private static void translateMotionEvent(
+      MotionEvent originalEvent, PointerCoords[] pointerCoords) {
+    if (pointerCoords.length < 1) {
+      return;
+    }
+
+    float xOffset = pointerCoords[0].x - originalEvent.getX();
+    float yOffset = pointerCoords[0].y - originalEvent.getY();
+
+    originalEvent.offsetLocation(xOffset, yOffset);
+  }
+
   @VisibleForTesting
   public MotionEvent toMotionEvent(
       float density, PlatformViewsChannel.PlatformViewTouch touch, boolean usingVirtualDiplay) {
@@ -675,25 +691,27 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
         MotionEventTracker.MotionEventId.from(touch.motionEventId);
     MotionEvent trackedEvent = motionEventTracker.pop(motionEventId);
 
+    // Pointer coordinates in the tracked events are global to FlutterView
+    // The framework converts them to be local to a widget, given that
+    // motion events operate on local coords, we need to replace these in the tracked
+    // event with their local counterparts.
+    // Compute this early so it can be used as input to translateNonVirtualDisplayMotionEvent.
+    PointerCoords[] pointerCoords =
+        parsePointerCoordsList(touch.rawPointerCoords, density)
+            .toArray(new PointerCoords[touch.pointerCount]);
+
     if (!usingVirtualDiplay && trackedEvent != null) {
-      // We have the original event, deliver it as it will pass the verifiable
+      // We have the original event, deliver it after offsetting as it will pass the verifiable
       // input check.
+      translateMotionEvent(trackedEvent, pointerCoords);
       return trackedEvent;
     }
     // We are in virtual display mode or don't have a reference to the original MotionEvent.
     // In this case we manually recreate a MotionEvent to be delivered. This MotionEvent
     // will fail the verifiable input check.
-
-    // Pointer coordinates in the tracked events are global to FlutterView
-    // framework converts them to be local to a widget, given that
-    // motion events operate on local coords, we need to replace these in the tracked
-    // event with their local counterparts.
     PointerProperties[] pointerProperties =
         parsePointerPropertiesList(touch.rawPointerPropertiesList)
             .toArray(new PointerProperties[touch.pointerCount]);
-    PointerCoords[] pointerCoords =
-        parsePointerCoordsList(touch.rawPointerCoords, density)
-            .toArray(new PointerCoords[touch.pointerCount]);
 
     // TODO (kaushikiska) : warn that we are potentially using an untracked
     // event in the platform views.
@@ -910,14 +928,6 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
 
   /**
    * Invoked when the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@link
-   * PlatformViewsController} attaches to JNI.
-   */
-  public void onAttachedToJNI() {
-    // Currently no action needs to be taken after JNI attachment.
-  }
-
-  /**
-   * Invoked when the {@link io.flutter.embedding.engine.FlutterEngine} that owns this {@link
    * PlatformViewsController} detaches from JNI.
    */
   public void onDetachedFromJNI() {
@@ -967,7 +977,12 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
   private static PlatformViewRenderTarget makePlatformViewRenderTarget(
       TextureRegistry textureRegistry) {
     if (enableSurfaceProducerRenderTarget && Build.VERSION.SDK_INT >= API_LEVELS.API_29) {
-      final TextureRegistry.SurfaceProducer textureEntry = textureRegistry.createSurfaceProducer();
+      TextureRegistry.SurfaceLifecycle lifecycle =
+          Build.VERSION.SDK_INT == API_LEVELS.API_34
+              ? TextureRegistry.SurfaceLifecycle.resetInBackground
+              : TextureRegistry.SurfaceLifecycle.manual;
+      final TextureRegistry.SurfaceProducer textureEntry =
+          textureRegistry.createSurfaceProducer(lifecycle);
       Log.i(TAG, "PlatformView is using SurfaceProducer backend");
       return new SurfaceProducerPlatformViewRenderTarget(textureEntry);
     }
@@ -1096,14 +1111,13 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
    *     testing.
    */
   @VisibleForTesting
-  void initializePlatformViewIfNeeded(int viewId) {
+  boolean initializePlatformViewIfNeeded(int viewId) {
     final PlatformView platformView = platformViews.get(viewId);
     if (platformView == null) {
-      throw new IllegalStateException(
-          "Platform view hasn't been initialized from the platform view channel.");
+      return false;
     }
     if (platformViewParent.get(viewId) != null) {
-      return;
+      return true;
     }
     final View embeddedView = platformView.getView();
     if (embeddedView == null) {
@@ -1141,6 +1155,7 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
 
     parentView.addView(embeddedView);
     flutterView.addView(parentView);
+    return true;
   }
 
   public void attachToFlutterRenderer(@NonNull FlutterRenderer flutterRenderer) {
@@ -1170,7 +1185,9 @@ public class PlatformViewsController implements PlatformViewsAccessibilityDelega
       int viewHeight,
       @NonNull FlutterMutatorsStack mutatorsStack) {
     initializeRootImageViewIfNeeded();
-    initializePlatformViewIfNeeded(viewId);
+    if (!initializePlatformViewIfNeeded(viewId)) {
+      return;
+    }
 
     final FlutterMutatorView parentView = platformViewParent.get(viewId);
     parentView.readyToDisplay(mutatorsStack, x, y, width, height);

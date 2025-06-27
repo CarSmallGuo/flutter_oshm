@@ -45,14 +45,14 @@ vec4 IPSampleLinear(sampler2D texture_sampler,
 /// returned. In all other cases, a value between 0 and 1 is returned by tiling
 /// `t`.
 /// When `t` is between [0 to 1), the original unchanged `t` is always returned.
-float IPFloatTile(float t, float tile_mode) {
+highp float IPFloatTile(highp float t, float tile_mode) {
   if (tile_mode == kTileModeClamp) {
     t = clamp(t, 0.0, 1.0);
   } else if (tile_mode == kTileModeRepeat) {
     t = fract(t);
   } else if (tile_mode == kTileModeMirror) {
-    float t1 = t - 1;
-    float t2 = t1 - 2 * floor(t1 * 0.5) - 1;
+    highp float t1 = t - 1;
+    highp float t2 = t1 - 2 * floor(t1 * 0.5) - 1;
     t = abs(t2);
   }
   return t;
@@ -82,22 +82,20 @@ vec4 IPSampleWithTileMode(sampler2D tex,
   return texture(tex, coords, kDefaultMipBias);
 }
 
-const float16_t kTileModeDecalHf = 3.0hf;
-
 /// Sample a texture, emulating a specific tile mode.
 ///
 /// This is useful for Impeller graphics backend that don't have native support
 /// for Decal.
 f16vec4 IPHalfSampleWithTileMode(f16sampler2D tex,
                                  vec2 coords,
-                                 float16_t x_tile_mode,
-                                 float16_t y_tile_mode) {
-  if (x_tile_mode == kTileModeDecalHf && (coords.x < 0.0 || coords.x >= 1.0) ||
-      y_tile_mode == kTileModeDecalHf && (coords.y < 0.0 || coords.y >= 1.0)) {
+                                 float x_tile_mode,
+                                 float y_tile_mode) {
+  if (x_tile_mode == kTileModeDecal && (coords.x < 0.0 || coords.x >= 1.0) ||
+      y_tile_mode == kTileModeDecal && (coords.y < 0.0 || coords.y >= 1.0)) {
     return f16vec4(0.0hf);
   }
 
-  return texture(tex, coords, kDefaultMipBiasHalf);
+  return texture(tex, coords, float16_t(kDefaultMipBias));
 }
 
 /// Sample a texture, emulating a specific tile mode.
@@ -137,7 +135,7 @@ f16vec4 IPHalfSampleDecal(f16sampler2D texture_sampler, vec2 coords) {
       any(greaterThanEqual(coords, vec2(1)))) {
     return f16vec4(0.0);
   }
-  return texture(texture_sampler, coords, kDefaultMipBiasHalf);
+  return texture(texture_sampler, coords, float16_t(kDefaultMipBias));
 }
 
 /// Sample a texture, emulating a specific tile mode.

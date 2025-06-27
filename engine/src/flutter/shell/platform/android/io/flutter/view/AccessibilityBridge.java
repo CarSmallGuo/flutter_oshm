@@ -24,6 +24,7 @@ import android.text.SpannableString;
 import android.text.TextUtils;
 import android.text.style.LocaleSpan;
 import android.text.style.TtsSpan;
+import android.text.style.URLSpan;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.WindowInsets;
@@ -125,6 +126,12 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
 
   // Font weight adjustment for bold text. FontWeight.Bold - FontWeight.Normal = w700 - w400 = 300.
   private static final int BOLD_TEXT_WEIGHT_ADJUSTMENT = 300;
+
+  // Default transition animation scale (animations enabled)
+  private static final float DEFAULT_TRANSITION_ANIMATION_SCALE = 1.0f;
+
+  // Transition animation scale when animations are disabled
+  private static final float DISABLED_TRANSITION_ANIMATION_SCALE = 0.0f;
 
   /// Value is derived from ACTION_TYPE_MASK in AccessibilityNodeInfo.java
   private static int FIRST_RESOURCE_ID = 267386881;
@@ -296,6 +303,17 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
         /** The Dart application would like the given {@code message} to be announced. */
         @Override
         public void announce(@NonNull String message) {
+          if (Build.VERSION.SDK_INT >= API_LEVELS.API_36) {
+            Log.w(
+                TAG,
+                "Using AnnounceSemanticsEvent for accessibility is deprecated on Android. "
+                    + "Migrate to using semantic properties for a more robust and accessible "
+                    + "user experience.\n"
+                    + "Flutter: If you are unsure why you are seeing this bug, it might be because "
+                    + "you are using a widget that calls this method. See https://github.com/flutter/flutter/issues/165510 "
+                    + "for more details.\n"
+                    + "Android documentation: https://developer.android.com/reference/android/view/View#announceForAccessibility(java.lang.CharSequence)");
+          }
           rootAccessibilityView.announceForAccessibility(message);
         }
 
@@ -399,11 +417,13 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
             return;
           }
           // Retrieve the current value of TRANSITION_ANIMATION_SCALE from the OS.
-          String value =
-              Settings.Global.getString(
-                  contentResolver, Settings.Global.TRANSITION_ANIMATION_SCALE);
+          float value =
+              Settings.Global.getFloat(
+                  contentResolver,
+                  Settings.Global.TRANSITION_ANIMATION_SCALE,
+                  DEFAULT_TRANSITION_ANIMATION_SCALE);
 
-          boolean shouldAnimationsBeDisabled = value != null && value.equals("0");
+          boolean shouldAnimationsBeDisabled = value == DISABLED_TRANSITION_ANIMATION_SCALE;
           if (shouldAnimationsBeDisabled) {
             accessibilityFeatureFlags |= AccessibilityFeature.DISABLE_ANIMATIONS.value;
           } else {
@@ -560,7 +580,7 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
     if (shouldBold) {
       accessibilityFeatureFlags |= AccessibilityFeature.BOLD_TEXT.value;
     } else {
-      accessibilityFeatureFlags &= AccessibilityFeature.BOLD_TEXT.value;
+      accessibilityFeatureFlags &= ~AccessibilityFeature.BOLD_TEXT.value;
     }
     sendLatestAccessibilityFlagsToFlutter();
   }
@@ -740,7 +760,7 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
       result.addAction(AccessibilityNodeInfo.ACTION_SET_TEXT);
     }
 
-    if (semanticsNode.hasFlag(Flag.IS_BUTTON) || semanticsNode.hasFlag(Flag.IS_LINK)) {
+    if (semanticsNode.hasFlag(Flag.IS_BUTTON)) {
       result.setClassName("android.widget.Button");
     }
     if (semanticsNode.hasFlag(Flag.IS_IMAGE)) {
@@ -791,6 +811,15 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
                 AccessibilityNodeInfo.ACTION_CLICK, semanticsNode.onTapOverride.hint));
         result.setClickable(true);
       } else {
+        result.addAction(AccessibilityNodeInfo.ACTION_CLICK);
+        result.setClickable(true);
+      }
+    } else {
+      // Prevent Slider to receive a regular tap which will change the value.
+      //
+      // This is needed because it causes slider to select to middle if it
+      // doesn't have a semantics tap.
+      if (semanticsNode.hasFlag(Flag.IS_SLIDER)) {
         result.addAction(AccessibilityNodeInfo.ACTION_CLICK);
         result.setClickable(true);
       }
@@ -2102,7 +2131,9 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
     DISMISS(1 << 18),
     MOVE_CURSOR_FORWARD_BY_WORD(1 << 19),
     MOVE_CURSOR_BACKWARD_BY_WORD(1 << 20),
-    SET_TEXT(1 << 21);
+    SET_TEXT(1 << 21),
+    FOCUS(1 << 22),
+    SCROLL_TO_OFFSET(1 << 23);
 
     public final int value;
 
@@ -2149,7 +2180,10 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
     IS_KEYBOARD_KEY(1 << 24),
     IS_CHECK_STATE_MIXED(1 << 25),
     HAS_EXPANDED_STATE(1 << 26),
-    IS_EXPANDED(1 << 27);
+    IS_EXPANDED(1 << 27),
+    HAS_SELECTED_STATE(1 << 28),
+    HAS_REQUIRED_STATE(1 << 29),
+    IS_REQUIRED(1 << 30);
 
     final int value;
 
@@ -2242,6 +2276,7 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
   private enum StringAttributeType {
     SPELLOUT,
     LOCALE,
+    URL
   }
 
   private static class StringAttribute {
@@ -2254,6 +2289,10 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
 
   private static class LocaleStringAttribute extends StringAttribute {
     String locale;
+  }
+
+  private static class UrlStringAttribute extends StringAttribute {
+    String url;
   }
 
   /**
@@ -2308,6 +2347,9 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
     // The tooltip is attached through AccessibilityNodeInfo.setTooltipText if
     // API level >= 28; otherwise, this is attached to the end of content description.
     @Nullable private String tooltip;
+
+    // The Url the widget's points to.
+    @Nullable private String linkUrl;
 
     // The id of the sibling node that is before this node in traversal
     // order.
@@ -2519,6 +2561,9 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
 
       stringIndex = buffer.getInt();
       tooltip = stringIndex == -1 ? null : strings[stringIndex];
+
+      stringIndex = buffer.getInt();
+      linkUrl = stringIndex == -1 ? null : strings[stringIndex];
 
       textDirection = TextDirection.fromInt(buffer.getInt());
 
@@ -2812,7 +2857,21 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
     }
 
     private CharSequence getLabel() {
-      return createSpannableString(label, labelAttributes);
+      List<StringAttribute> attributes = labelAttributes;
+      if (linkUrl != null && linkUrl.length() > 0) {
+        if (attributes == null) {
+          attributes = new ArrayList<StringAttribute>();
+        } else {
+          attributes = new ArrayList<StringAttribute>(attributes);
+        }
+        UrlStringAttribute uriStringAttribute = new UrlStringAttribute();
+        uriStringAttribute.start = 0;
+        uriStringAttribute.end = label.length();
+        uriStringAttribute.url = linkUrl;
+        uriStringAttribute.type = StringAttributeType.URL;
+        attributes.add(uriStringAttribute);
+      }
+      return createSpannableString(label, attributes);
     }
 
     private CharSequence getHint() {
@@ -2869,6 +2928,13 @@ public class AccessibilityBridge extends AccessibilityNodeProvider {
                 Locale locale = Locale.forLanguageTag(localeAttribute.locale);
                 final LocaleSpan localeSpan = new LocaleSpan(locale);
                 spannableString.setSpan(localeSpan, attribute.start, attribute.end, 0);
+                break;
+              }
+            case URL:
+              {
+                UrlStringAttribute uriAttribute = (UrlStringAttribute) attribute;
+                final URLSpan urlSpan = new URLSpan(uriAttribute.url);
+                spannableString.setSpan(urlSpan, attribute.start, attribute.end, 0);
                 break;
               }
           }

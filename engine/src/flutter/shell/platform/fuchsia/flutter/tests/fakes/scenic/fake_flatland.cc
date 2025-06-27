@@ -41,7 +41,7 @@ fuchsia::ui::composition::FlatlandHandle FakeFlatland::ConnectFlatland(
 }
 
 void FakeFlatland::Disconnect(fuchsia::ui::composition::FlatlandError error) {
-  flatland_binding_.events().OnError(std::move(error));
+  flatland_binding_.events().OnError(error);
   flatland_binding_.Unbind();
   allocator_binding_
       .Unbind();  // TODO(fxb/85619): Does the real Scenic unbind this when
@@ -73,13 +73,24 @@ void FakeFlatland::RegisterBufferCollection(
     fuchsia::ui::composition::RegisterBufferCollectionArgs args,
     RegisterBufferCollectionCallback callback) {
   auto [export_token_koid, _] = GetKoids(args.export_token());
+
+  // Callers must not set both.
+  ZX_ASSERT(!args.has_buffer_collection_token2() ||
+            !args.has_buffer_collection_token());
+  fuchsia::sysmem2::BufferCollectionTokenHandle sysmem_token;
+  if (args.has_buffer_collection_token2()) {
+    sysmem_token = std::move(*args.mutable_buffer_collection_token2());
+  } else {
+    sysmem_token = fuchsia::sysmem2::BufferCollectionTokenHandle(
+        args.mutable_buffer_collection_token()->TakeChannel());
+  }
+
   auto [__, emplace_binding_success] =
       graph_bindings_.buffer_collections.emplace(
           export_token_koid,
           BufferCollectionBinding{
               .export_token = std::move(*args.mutable_export_token()),
-              .sysmem_token =
-                  std::move(*args.mutable_buffer_collection_token()),
+              .sysmem_token = std::move(sysmem_token),
               .usage = args.usage(),
           });
   // TODO(fxb/85619): Disconnect the Allocator here

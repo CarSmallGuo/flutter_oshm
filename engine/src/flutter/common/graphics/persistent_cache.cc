@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if !SLIMPELLER
+
 #include "flutter/common/graphics/persistent_cache.h"
 
 #include <future>
@@ -22,7 +24,7 @@
 #include "flutter/shell/version/version.h"
 #include "openssl/sha.h"
 #include "rapidjson/document.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace flutter {
 
@@ -174,7 +176,7 @@ sk_sp<SkData> ParseBase64(const std::string& input) {
   size_t output_len;
   error = Base64::Decode(input.c_str(), input.length(), nullptr, &output_len);
   if (error != Base64::Error::kNone) {
-    FML_LOG(ERROR) << "Base64 decode error: " << (int)error;
+    FML_LOG(ERROR) << "Base64 decode error: " << static_cast<int>(error);
     FML_LOG(ERROR) << "Base64 can't decode: " << input;
     return nullptr;
   }
@@ -183,7 +185,7 @@ sk_sp<SkData> ParseBase64(const std::string& input) {
   void* output = data->writable_data();
   error = Base64::Decode(input.c_str(), input.length(), output, &output_len);
   if (error != Base64::Error::kNone) {
-    FML_LOG(ERROR) << "Base64 decode error: " << (int)error;
+    FML_LOG(ERROR) << "Base64 decode error: " << static_cast<int>(error);
     FML_LOG(ERROR) << "Base64 can't decode: " << input;
     return nullptr;
   }
@@ -483,3 +485,5 @@ PersistentCache::GetSkpsFromAssetManager() const {
 }
 
 }  // namespace flutter
+
+#endif  //  !SLIMPELLER

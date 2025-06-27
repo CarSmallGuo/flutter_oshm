@@ -8,18 +8,15 @@ include: ../../analysis_options.yaml
 
 analyzer:
   errors:
-    # We need this in the web engine in order to prevent committing `solo: true`
-    # in tests.
-    deprecated_member_use: true
+    avoid_print: ignore
+    avoid_setters_without_getters: ignore
+    library_private_types_in_public_api: ignore
+    no_default_cases: ignore
+    prefer_relative_imports: ignore
+    public_member_api_docs: ignore
+    use_setters_to_change_properties: ignore
 
 linter:
   rules:
-    avoid_dynamic_calls: false
-    avoid_print: false
-    avoid_setters_without_getters: false
-    library_private_types_in_public_api: false
-    no_default_cases: false
-    prefer_relative_imports: false
-    public_member_api_docs: false
-    unawaited_futures: true
-    use_setters_to_change_properties: false
+    - directives_ordering
+    - unawaited_futures

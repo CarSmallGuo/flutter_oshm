@@ -8,6 +8,9 @@ import 'dart:io' as io show IOSink, stderr, stdout;
 import 'package:logging/logging.dart' as log;
 import 'package:meta/meta.dart';
 
+// Part of the public API, so it's nicer to provide the symbols directly.
+export 'package:logging/logging.dart' show LogRecord;
+
 // This is where a flutter_tool style progress spinner, color output,
 // ascii art, terminal control for clearing lines or the whole screen, etc.
 // can go. We can just add more methods to Logger using the flutter_tool's
@@ -26,22 +29,20 @@ import 'package:meta/meta.dart';
 /// which can be inspected by unit tetss.
 class Logger {
   /// Constructs a logger for use in the tool.
-  Logger()
-      : _logger = log.Logger.detached('et'),
-        _test = false {
-    _logger.level = statusLevel;
+  Logger({log.Level level = statusLevel}) : _logger = log.Logger.detached('et'), _test = false {
+    _logger.level = level;
     _logger.onRecord.listen(_handler);
     _setupIoSink(io.stderr);
     _setupIoSink(io.stdout);
   }
 
-  /// A logger for tests.
+  /// Constructs a logger that invokes a [callback] for each log message.
   @visibleForTesting
-  Logger.test()
-      : _logger = log.Logger.detached('et'),
-        _test = true {
-    _logger.level = statusLevel;
-    _logger.onRecord.listen((log.LogRecord r) => _testLogs.add(r));
+  Logger.test(void Function(log.LogRecord) onLog, {log.Level level = statusLevel})
+    : _logger = log.Logger.detached('et'),
+      _test = true {
+    _logger.level = level;
+    _logger.onRecord.listen(onLog);
   }
 
   /// The logging level for error messages. These go to stderr.
@@ -58,8 +59,7 @@ class Logger {
 
   static void _handler(log.LogRecord r) {
     final io.IOSink sink = r.level >= warningLevel ? io.stderr : io.stdout;
-    final String prefix =
-        r.level >= warningLevel ? '[${r.time}] ${r.level}: ' : '';
+    final String prefix = r.level >= warningLevel ? '[${r.time}] ${r.level}: ' : '';
     _ioSinkWrite(sink, '$prefix${r.message}');
   }
 
@@ -74,15 +74,18 @@ class Logger {
     if (_stdioDone) {
       return;
     }
-    runZoned<void>(() {
-      try {
-        sink.write(message);
-      } catch (_) {
+    runZoned<void>(
+      () {
+        try {
+          sink.write(message);
+        } catch (_) {
+          _stdioDone = true;
+        }
+      },
+      onError: (Object e, StackTrace s) {
         _stdioDone = true;
-      }
-    }, onError: (Object e, StackTrace s) {
-      _stdioDone = true;
-    });
+      },
+    );
   }
 
   static void _setupIoSink(io.IOSink sink) {
@@ -124,49 +127,39 @@ class Logger {
   }
 
   /// Record a log message at level [Logger.error].
-  void error(
-    Object? message, {
-    int indent = 0,
-    bool newline = true,
-    bool fit = false,
-  }) {
+  void error(Object? message, {int indent = 0, bool newline = true, bool fit = false}) {
     _emitLog(errorLevel, message, indent, newline, fit);
   }
 
   /// Record a log message at level [Logger.warning].
-  void warning(
-    Object? message, {
-    int indent = 0,
-    bool newline = true,
-    bool fit = false,
-  }) {
+  void warning(Object? message, {int indent = 0, bool newline = true, bool fit = false}) {
     _emitLog(warningLevel, message, indent, newline, fit);
   }
 
   /// Record a log message at level [Logger.warning].
-  void status(
-    Object? message, {
-    int indent = 0,
-    bool newline = true,
-    bool fit = false,
-  }) {
+  void status(Object? message, {int indent = 0, bool newline = true, bool fit = false}) {
     _emitLog(statusLevel, message, indent, newline, fit);
   }
 
   /// Record a log message at level [Logger.info].
-  void info(
-    Object? message, {
-    int indent = 0,
-    bool newline = true,
-    bool fit = false,
-  }) {
+  void info(Object? message, {int indent = 0, bool newline = true, bool fit = false}) {
     _emitLog(infoLevel, message, indent, newline, fit);
   }
 
-  /// Writes a number of spaces to stdout equal to the width of the terminal
-  /// and emits a carriage return.
+  /// Functionally ends and starts a new line.
+  ///
+  /// How that is done depends on the terminal capabilities:
+  ///
+  /// - If we are not in a terminal, just write a newline.
+  /// - If we are in a a terminal, any spinners are temporarily paused, the
+  ///   current line is cleared, and spinners are resumed. If ANSI escapes are
+  ///   supported, the cursor is moved to the start of the line and the line is
+  ///   cleared. Otherwise, the line is cleared by writing spaces to the width
+  ///   of the terminal, then moving the cursor back to the start of the line.
   void clearLine() {
     if (!io.stdout.hasTerminal || _test) {
+      // Just write a newline if we're not in a terminal.
+      _ioSinkWrite(io.stdout, '\n');
       return;
     }
     _status?.pause();
@@ -175,17 +168,17 @@ class Logger {
   }
 
   /// Starts printing a progress spinner.
-  Spinner startSpinner({
-    void Function()? onFinish,
-  }) {
+  @useResult
+  Spinner startSpinner({void Function()? onFinish}) {
     void finishCallback() {
       onFinish?.call();
       _status = null;
     }
 
-    _status = io.stdout.hasTerminal && !_test
-        ? FlutterSpinner(onFinish: finishCallback)
-        : Spinner(onFinish: finishCallback);
+    _status =
+        io.stdout.hasTerminal && !_test
+            ? FlutterSpinner(onFinish: finishCallback)
+            : Spinner(onFinish: finishCallback);
     _status!.start();
     return _status!;
   }
@@ -210,13 +203,7 @@ class Logger {
     return m;
   }
 
-  void _emitLog(
-    log.Level level,
-    Object? message,
-    int indent,
-    bool newline,
-    bool fit,
-  ) {
+  void _emitLog(log.Level level, Object? message, int indent, bool newline, bool fit) {
     final String m = _formatMessage(message, indent, newline, fit);
     _status?.pause();
     _logger.log(level, m);
@@ -260,11 +247,6 @@ class Logger {
     s = s.replaceRange(leftEnd, rightStart, '...');
     return s + maybeNewline;
   }
-
-  /// In a [Logger] constructed by [Logger.test], this list will contain all of
-  /// the [LogRecord]s emitted by the test.
-  @visibleForTesting
-  List<log.LogRecord> get testLogs => _testLogs;
 }
 
 /// A base class for progress spinners, and a no-op implementation that prints
@@ -272,9 +254,7 @@ class Logger {
 class Spinner {
   /// Creates a progress spinner. If supplied the `onDone` callback will be
   /// called when `finish()` is called.
-  Spinner({
-    this.onFinish,
-  });
+  Spinner({this.onFinish});
 
   /// The callback called when `finish()` is called.
   final void Function()? onFinish;
@@ -298,16 +278,13 @@ class Spinner {
 /// A [Spinner] implementation that prints an animated "Flutter" banner.
 class FlutterSpinner extends Spinner {
   // ignore: public_member_api_docs
-  FlutterSpinner({
-    super.onFinish,
-  });
+  FlutterSpinner({super.onFinish});
 
   /// The frames of the animation.
   static const String frames = '⢸⡯⠭⠅⢸⣇⣀⡀⢸⣇⣸⡇⠈⢹⡏⠁⠈⢹⡏⠁⢸⣯⣭⡅⢸⡯⢕⡂⠀⠀';
 
-  static final List<String> _flutterAnimation = frames.runes
-      .map<String>((int scalar) => String.fromCharCode(scalar))
-      .toList();
+  static final List<String> _flutterAnimation =
+      frames.runes.map<String>((int scalar) => String.fromCharCode(scalar)).toList();
 
   Timer? _timer;
   int _ticks = 0;
@@ -360,7 +337,7 @@ class FlutterSpinner extends Spinner {
 }
 
 /// FatalErrors are thrown when a fatal error has occurred.
-class FatalError extends Error {
+final class FatalError extends Error {
   /// Constructs a FatalError with a message.
   FatalError(this._message);
 

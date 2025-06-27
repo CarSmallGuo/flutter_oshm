@@ -9,6 +9,7 @@
 
 #include "flutter/display_list/display_list.h"
 #include "flutter/display_list/image/dl_image.h"
+#include "flutter/display_list/skia/dl_sk_canvas.h"
 #include "flutter/fml/mapping.h"
 #include "flutter/testing/testing.h"
 
@@ -32,6 +33,8 @@ class DlSurfaceInstance {
   virtual ~DlSurfaceInstance() = default;
 
   virtual sk_sp<SkSurface> sk_surface() const = 0;
+  virtual DlCanvas* GetCanvas() = 0;
+  void FlushSubmitCpuSync();
 
   int width() const { return sk_surface()->width(); }
   int height() const { return sk_surface()->height(); }
@@ -40,13 +43,15 @@ class DlSurfaceInstance {
 class DlSurfaceInstanceBase : public DlSurfaceInstance {
  public:
   explicit DlSurfaceInstanceBase(sk_sp<SkSurface> surface)
-      : surface_(std::move(surface)) {}
+      : surface_(std::move(surface)), adapter_(surface_->getCanvas()) {}
   ~DlSurfaceInstanceBase() = default;
 
   sk_sp<SkSurface> sk_surface() const override { return surface_; }
+  DlCanvas* GetCanvas() override { return &adapter_; }
 
  private:
   sk_sp<SkSurface> surface_;
+  DlSkCanvasAdapter adapter_;
 };
 
 class DlSurfaceProvider {
@@ -97,6 +102,11 @@ class DlSurfaceProvider {
 
  protected:
   DlSurfaceProvider() = default;
+
+ private:
+  static std::unique_ptr<DlSurfaceProvider> CreateSoftware();
+  static std::unique_ptr<DlSurfaceProvider> CreateMetal();
+  static std::unique_ptr<DlSurfaceProvider> CreateOpenGL();
 };
 
 }  // namespace testing

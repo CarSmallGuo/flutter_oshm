@@ -2,7 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-import '../browser_detection.dart';
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
+
 import '../dom.dart';
 
 /// Various types of inputs used in text fields.
@@ -81,8 +82,8 @@ abstract class EngineInputType {
 
     // Only apply `inputmode` in mobile browsers so that the right virtual
     // keyboard shows up.
-    if (operatingSystem == OperatingSystem.iOs ||
-        operatingSystem == OperatingSystem.android ||
+    if (ui_web.browser.operatingSystem == ui_web.OperatingSystem.iOs ||
+        ui_web.browser.operatingSystem == ui_web.OperatingSystem.android ||
         inputmodeAttribute == EngineInputType.none.inputmodeAttribute) {
       domElement.setAttribute('inputmode', inputmodeAttribute!);
     }
@@ -119,7 +120,7 @@ class MultilineNoTextInputType extends MultilineInputType {
   String? get inputmodeAttribute => 'none';
 
   @override
-  DomHTMLElement createDomElement() => createDomHTMLTextAreaElement();
+  DomHTMLElement createDomElement() => createMultilineTextArea();
 }
 
 /// Single-line text input type.
@@ -183,5 +184,12 @@ class MultilineInputType extends EngineInputType {
   String? get inputmodeAttribute => null;
 
   @override
-  DomHTMLElement createDomElement() => createDomHTMLTextAreaElement();
+  DomHTMLElement createDomElement() => createMultilineTextArea();
+}
+
+DomHTMLTextAreaElement createMultilineTextArea() {
+  final element = createDomHTMLTextAreaElement();
+  // Scrollbar width affects text layout. This zeroes out the scrollbar width.
+  element.style.scrollbarWidth = 'none';
+  return element;
 }

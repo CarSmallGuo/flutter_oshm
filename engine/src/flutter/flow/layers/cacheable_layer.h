@@ -9,6 +9,7 @@
 
 #include "flutter/flow/layers/container_layer.h"
 #include "flutter/flow/layers/layer_raster_cache_item.h"
+#include "flutter/flow/raster_cache_util.h"
 
 namespace flutter {
 
@@ -16,7 +17,7 @@ class AutoCache {
  public:
   AutoCache(RasterCacheItem* raster_cache_item,
             PrerollContext* context,
-            const SkMatrix& matrix);
+            const DlMatrix& matrix);
 
   void ShouldNotBeCached() { raster_cache_item_ = nullptr; }
 
@@ -25,8 +26,8 @@ class AutoCache {
  private:
   inline bool IsCacheEnabled();
   RasterCacheItem* raster_cache_item_ = nullptr;
-  PrerollContext* context_ = nullptr;
-  const SkMatrix matrix_;
+  [[maybe_unused]] PrerollContext* context_ = nullptr;
+  const DlMatrix matrix_;
 };
 
 class CacheableContainerLayer : public ContainerLayer {
@@ -36,12 +37,14 @@ class CacheableContainerLayer : public ContainerLayer {
           RasterCacheUtil::kMinimumRendersBeforeCachingFilterLayer,
       bool can_cache_children = false);
 
+#if !SLIMPELLER
   const LayerRasterCacheItem* raster_cache_item() const {
     return layer_raster_cache_item_.get();
   }
 
  protected:
   std::unique_ptr<LayerRasterCacheItem> layer_raster_cache_item_;
+#endif  //  !SLIMPELLER
 };
 
 }  // namespace flutter

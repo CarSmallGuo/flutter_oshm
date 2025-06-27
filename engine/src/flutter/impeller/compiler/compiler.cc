@@ -26,6 +26,17 @@
 namespace impeller {
 namespace compiler {
 
+namespace {
+constexpr const char* kEGLImageExternalExtension = "GL_OES_EGL_image_external";
+constexpr const char* kEGLImageExternalExtension300 =
+    "GL_OES_EGL_image_external_essl3";
+}  // namespace
+
+// This value should be <= 7372. UBOs can be larger on some devices but a
+// performance cost will be paid.
+// https://docs.qualcomm.com/bundle/publicresource/topics/80-78185-2/best_practices.html?product=1601111740035277#buffer-best-practices
+static const uint32_t kMaxUniformBufferSize = 6208;
+
 static uint32_t ParseMSLVersion(const std::string& msl_version) {
   std::stringstream sstream(msl_version);
   std::string version_part;
@@ -147,7 +158,11 @@ static CompilerBackend CreateGLSLCompiler(const spirv_cross::ParsedIR& ir,
   // incompatible with ES 310+.
   for (auto& id : ir.ids_for_constant_or_variable) {
     if (StringStartsWith(ir.get_name(id), kExternalTexturePrefix)) {
-      gl_compiler->require_extension("GL_OES_EGL_image_external");
+      if (source_options.gles_language_version >= 300) {
+        gl_compiler->require_extension(kEGLImageExternalExtension300);
+      } else {
+        gl_compiler->require_extension(kEGLImageExternalExtension);
+      }
       break;
     }
   }
@@ -156,11 +171,15 @@ static CompilerBackend CreateGLSLCompiler(const spirv_cross::ParsedIR& ir,
   sl_options.force_zero_initialized_variables = true;
   sl_options.vertex.fixup_clipspace = true;
   if (source_options.target_platform == TargetPlatform::kOpenGLES ||
-      source_options.target_platform == TargetPlatform::kRuntimeStageGLES) {
+      source_options.target_platform == TargetPlatform::kRuntimeStageGLES ||
+      source_options.target_platform == TargetPlatform::kRuntimeStageGLES3) {
     sl_options.version = source_options.gles_language_version > 0
                              ? source_options.gles_language_version
                              : 100;
     sl_options.es = true;
+    if (source_options.target_platform == TargetPlatform::kRuntimeStageGLES3) {
+      sl_options.version = 300;
+    }
     if (source_options.require_framebuffer_fetch &&
         source_options.type == SourceType::kFragmentShader) {
       gl_compiler->remap_ext_framebuffer_fetch(0, 0, true);
@@ -202,6 +221,7 @@ static bool EntryPointMustBeNamedMain(TargetPlatform platform) {
     case TargetPlatform::kOpenGLES:
     case TargetPlatform::kOpenGLDesktop:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageGLES3:
       return true;
   }
   FML_UNREACHABLE();
@@ -224,6 +244,7 @@ static CompilerBackend CreateCompiler(const spirv_cross::ParsedIR& ir,
     case TargetPlatform::kOpenGLES:
     case TargetPlatform::kOpenGLDesktop:
     case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageGLES3:
       compiler = CreateGLSLCompiler(ir, source_options);
       break;
     case TargetPlatform::kSkSL:
@@ -240,6 +261,21 @@ static CompilerBackend CreateCompiler(const spirv_cross::ParsedIR& ir,
   }
   return compiler;
 }
+
+namespace {
+uint32_t CalculateUBOSize(const spirv_cross::Compiler* compiler) {
+  spirv_cross::ShaderResources resources = compiler->get_shader_resources();
+  uint32_t result = 0;
+  for (const spirv_cross::Resource& ubo : resources.uniform_buffers) {
+    const spirv_cross::SPIRType& ubo_type =
+        compiler->get_type(ubo.base_type_id);
+    uint32_t size = compiler->get_declared_struct_size(ubo_type);
+    result += size;
+  }
+  return result;
+}
+
+}  // namespace
 
 Compiler::Compiler(const std::shared_ptr<const fml::Mapping>& source_mapping,
                    const SourceOptions& source_options,
@@ -317,7 +353,8 @@ Compiler::Compiler(const std::shared_ptr<const fml::Mapping>& source_mapping,
       spirv_options.target = target;
     } break;
     case TargetPlatform::kRuntimeStageMetal:
-    case TargetPlatform::kRuntimeStageGLES: {
+    case TargetPlatform::kRuntimeStageGLES:
+    case TargetPlatform::kRuntimeStageGLES3: {
       SPIRVCompilerTargetEnv target;
 
       target.env = shaderc_target_env::shaderc_target_env_opengl;
@@ -390,6 +427,13 @@ Compiler::Compiler(const std::shared_ptr<const fml::Mapping>& source_mapping,
   if (!sl_compiler) {
     COMPILER_ERROR(error_stream_)
         << "Could not create compiler for target platform.";
+    return;
+  }
+
+  uint32_t ubo_size = CalculateUBOSize(sl_compiler.GetCompiler());
+  if (ubo_size > kMaxUniformBufferSize) {
+    COMPILER_ERROR(error_stream_) << "Uniform buffer size exceeds max ("
+                                  << kMaxUniformBufferSize << "): " << ubo_size;
     return;
   }
 

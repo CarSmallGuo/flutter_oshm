@@ -5,6 +5,8 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_RENDER_TARGET_CACHE_H_
 #define FLUTTER_IMPELLER_ENTITY_RENDER_TARGET_CACHE_H_
 
+#include <string_view>
+
 #include "impeller/renderer/render_target.h"
 
 namespace impeller {
@@ -15,7 +17,8 @@ namespace impeller {
 ///        Any textures unused after a frame are immediately discarded.
 class RenderTargetCache : public RenderTargetAllocator {
  public:
-  explicit RenderTargetCache(std::shared_ptr<Allocator> allocator);
+  explicit RenderTargetCache(std::shared_ptr<Allocator> allocator,
+                             uint32_t keep_alive_frame_count = 4);
 
   ~RenderTargetCache() = default;
 
@@ -25,11 +28,17 @@ class RenderTargetCache : public RenderTargetAllocator {
   // |RenderTargetAllocator|
   void End() override;
 
+  // |RenderTargetAllocator|
+  void DisableCache() override;
+
+  // |RenderTargetAllocator|
+  void EnableCache() override;
+
   RenderTarget CreateOffscreen(
       const Context& context,
       ISize size,
       int mip_count,
-      const std::string& label = "Offscreen",
+      std::string_view label = "Offscreen",
       RenderTarget::AttachmentConfig color_attachment_config =
           RenderTarget::kDefaultColorAttachmentConfig,
       std::optional<RenderTarget::AttachmentConfig> stencil_attachment_config =
@@ -42,7 +51,7 @@ class RenderTargetCache : public RenderTargetAllocator {
       const Context& context,
       ISize size,
       int mip_count,
-      const std::string& label = "Offscreen MSAA",
+      std::string_view label = "Offscreen MSAA",
       RenderTarget::AttachmentConfigMSAA color_attachment_config =
           RenderTarget::kDefaultColorAttachmentConfigMSAA,
       std::optional<RenderTarget::AttachmentConfig> stencil_attachment_config =
@@ -58,11 +67,16 @@ class RenderTargetCache : public RenderTargetAllocator {
  private:
   struct RenderTargetData {
     bool used_this_frame;
+    uint32_t keep_alive_frame_count;
     RenderTargetConfig config;
     RenderTarget render_target;
   };
 
+  bool CacheEnabled() const;
+
   std::vector<RenderTargetData> render_target_data_;
+  uint32_t keep_alive_frame_count_;
+  uint32_t cache_disabled_count_ = 0;
 
   RenderTargetCache(const RenderTargetCache&) = delete;
 

@@ -7,6 +7,8 @@
 
 #include "impeller/geometry/path.h"
 #include "impeller/geometry/rect.h"
+#include "impeller/geometry/round_rect.h"
+#include "impeller/geometry/round_superellipse.h"
 #include "impeller/geometry/scalar.h"
 
 namespace impeller {
@@ -58,6 +60,16 @@ class PathBuilder {
                                 Point point,
                                 bool relative = false);
 
+  /// @brief Insert a conic curve from the current position to `point` using
+  /// the control point `controlPoint` and the weight `weight`.
+  ///
+  /// If `relative` is true the `point` and `controlPoint` are relative to
+  /// current location.
+  PathBuilder& ConicCurveTo(Point controlPoint,
+                            Point point,
+                            Scalar weight,
+                            bool relative = false);
+
   /// @brief Insert a cubic curve from the curren position to `point` using the
   /// control points `controlPoint1` and `controlPoint2`.
   ///
@@ -68,7 +80,7 @@ class PathBuilder {
                             Point point,
                             bool relative = false);
 
-  PathBuilder& AddRect(Rect rect);
+  PathBuilder& AddRect(const Rect& rect);
 
   PathBuilder& AddCircle(const Point& center, Scalar radius);
 
@@ -84,11 +96,23 @@ class PathBuilder {
 
   /// @brief Move to point `p1`, then insert a quadradic curve from `p1` to `p2`
   /// with the control point `cp`.
-  PathBuilder& AddQuadraticCurve(Point p1, Point cp, Point p2);
+  PathBuilder& AddQuadraticCurve(const Point& p1,
+                                 const Point& cp,
+                                 const Point& p2);
+
+  /// @brief Move to point `p1`, then insert a conic curve from `p1` to `p2`
+  /// with the control point `cp` and weight `weight`.
+  PathBuilder& AddConicCurve(const Point& p1,
+                             const Point& cp,
+                             const Point& p2,
+                             Scalar weight);
 
   /// @brief Move to point `p1`, then insert a cubic curve from `p1` to `p2`
   /// with control points `cp1` and `cp2`.
-  PathBuilder& AddCubicCurve(Point p1, Point cp1, Point cp2, Point p2);
+  PathBuilder& AddCubicCurve(const Point& p1,
+                             const Point& cp1,
+                             const Point& cp2,
+                             const Point& p2);
 
   /// @brief Transform the existing path segments and contours by the given
   /// `offset`.
@@ -102,60 +126,17 @@ class PathBuilder {
   ///        recomputing these bounds.
   PathBuilder& SetBounds(Rect bounds);
 
-  struct RoundingRadii {
-    Point top_left;
-    Point bottom_left;
-    Point top_right;
-    Point bottom_right;
+  PathBuilder& AddRoundRect(RoundRect rect);
 
-    RoundingRadii() = default;
-
-    RoundingRadii(Scalar p_top_left,
-                  Scalar p_bottom_left,
-                  Scalar p_top_right,
-                  Scalar p_bottom_right)
-        : top_left(p_top_left, p_top_left),
-          bottom_left(p_bottom_left, p_bottom_left),
-          top_right(p_top_right, p_top_right),
-          bottom_right(p_bottom_right, p_bottom_right) {}
-
-    explicit RoundingRadii(Scalar radius)
-        : top_left(radius, radius),
-          bottom_left(radius, radius),
-          top_right(radius, radius),
-          bottom_right(radius, radius) {}
-
-    explicit RoundingRadii(Point radii)
-        : top_left(radii),
-          bottom_left(radii),
-          top_right(radii),
-          bottom_right(radii) {}
-
-    explicit RoundingRadii(Size radii)
-        : top_left(radii),
-          bottom_left(radii),
-          top_right(radii),
-          bottom_right(radii) {}
-
-    bool AreAllZero() const {
-      return top_left.IsZero() &&     //
-             bottom_left.IsZero() &&  //
-             top_right.IsZero() &&    //
-             bottom_right.IsZero();
-    }
-  };
-
-  PathBuilder& AddRoundedRect(Rect rect, RoundingRadii radii);
-
-  PathBuilder& AddRoundedRect(Rect rect, Size radii);
-
-  PathBuilder& AddRoundedRect(Rect rect, Scalar radius);
+  PathBuilder& AddRoundSuperellipse(RoundSuperellipse rse);
 
   PathBuilder& AddPath(const Path& path);
 
  private:
   Point subpath_start_;
   Point current_;
+  size_t current_contour_location_ = 0u;
+  size_t contour_count_ = 0u;
   Path::Data prototype_;
 
   PathBuilder& AddRoundedRectTopLeft(Rect rect, RoundingRadii radii);
@@ -172,7 +153,14 @@ class PathBuilder {
 
   void AddLinearComponent(const Point& p1, const Point& p2);
 
+  void AddLinearComponentIfNeeded(const Point& p1, const Point& p2);
+
   void AddQuadraticComponent(const Point& p1, const Point& cp, const Point& p2);
+
+  void AddConicComponent(const Point& p1,
+                         const Point& cp,
+                         const Point& p2,
+                         Scalar weight);
 
   void AddCubicComponent(const Point& p1,
                          const Point& cp1,

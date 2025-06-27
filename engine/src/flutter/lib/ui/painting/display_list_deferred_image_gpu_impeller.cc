@@ -77,6 +77,11 @@ SkISize DlDeferredImageGPUImpeller::dimensions() const {
 }
 
 // |DlImage|
+DlISize DlDeferredImageGPUImpeller::GetSize() const {
+  return wrapper_ ? ToDlISize(wrapper_->size()) : DlISize();
+}
+
+// |DlImage|
 size_t DlDeferredImageGPUImpeller::GetApproximateByteSize() const {
   auto size = sizeof(DlDeferredImageGPUImpeller);
   if (wrapper_) {
@@ -110,8 +115,8 @@ DlDeferredImageGPUImpeller::ImageWrapper::Make(
     fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
     fml::RefPtr<fml::TaskRunner> raster_task_runner) {
   auto wrapper = std::shared_ptr<ImageWrapper>(new ImageWrapper(
-      nullptr, layer_tree->frame_size(), std::move(snapshot_delegate),
-      std::move(raster_task_runner)));
+      nullptr, ToSkISize(layer_tree->frame_size()),
+      std::move(snapshot_delegate), std::move(raster_task_runner)));
   wrapper->SnapshotDisplayList(std::move(layer_tree));
   return wrapper;
 }
@@ -172,10 +177,10 @@ void DlDeferredImageGPUImpeller::ImageWrapper::SnapshotDisplayList(
 
         if (layer_tree) {
           wrapper->display_list_ = layer_tree->Flatten(
-              SkRect::MakeWH(wrapper->size_.width(), wrapper->size_.height()),
+              DlRect::MakeWH(wrapper->size_.width(), wrapper->size_.height()),
               wrapper->texture_registry_);
         }
-        auto snapshot = snapshot_delegate->MakeRasterSnapshot(
+        auto snapshot = snapshot_delegate->MakeRasterSnapshotSync(
             wrapper->display_list_, wrapper->size_);
         if (!snapshot) {
           std::scoped_lock lock(wrapper->error_mutex_);

@@ -4,7 +4,6 @@
 
 #include "flutter/lib/ui/ui_dart_state.h"
 
-#include <iostream>
 #include <utility>
 
 #include "flutter/fml/message_loop.h"
@@ -12,15 +11,6 @@
 #include "flutter/lib/ui/window/platform_message.h"
 #include "third_party/tonic/converter/dart_converter.h"
 #include "third_party/tonic/dart_message_handler.h"
-
-#if defined(FML_OS_ANDROID)
-#include <android/log.h>
-#elif defined(FML_OS_IOS)
-extern "C" {
-// Cannot import the syslog.h header directly because of macro collision.
-extern void syslog(int, const char*, ...);
-}
-#endif
 
 using tonic::ToDart;
 
@@ -38,7 +28,7 @@ UIDartState::Context::Context(
     fml::WeakPtr<ImageGeneratorRegistry> image_generator_registry,
     std::string advisory_script_uri,
     std::string advisory_script_entrypoint,
-    std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
+    bool deterministic_rendering_enabled,
     std::shared_ptr<fml::ConcurrentTaskRunner> concurrent_task_runner,
     bool enable_impeller,
     impeller::RuntimeStageBackend runtime_stage_backend)
@@ -50,7 +40,7 @@ UIDartState::Context::Context(
       image_generator_registry(std::move(image_generator_registry)),
       advisory_script_uri(std::move(advisory_script_uri)),
       advisory_script_entrypoint(std::move(advisory_script_entrypoint)),
-      volatile_path_tracker(std::move(volatile_path_tracker)),
+      deterministic_rendering_enabled(deterministic_rendering_enabled),
       concurrent_task_runner(std::move(concurrent_task_runner)),
       enable_impeller(enable_impeller),
       runtime_stage_backend(runtime_stage_backend) {}
@@ -81,6 +71,10 @@ UIDartState::~UIDartState() {
 
 const std::string& UIDartState::GetAdvisoryScriptURI() const {
   return context_.advisory_script_uri;
+}
+
+bool UIDartState::IsDeterministicRenderingEnabled() const {
+  return context_.deterministic_rendering_enabled;
 }
 
 bool UIDartState::IsImpellerEnabled() const {
@@ -148,11 +142,6 @@ fml::RefPtr<flutter::SkiaUnrefQueue> UIDartState::GetSkiaUnrefQueue() const {
   return context_.unref_queue;
 }
 
-std::shared_ptr<VolatilePathTracker> UIDartState::GetVolatilePathTracker()
-    const {
-  return context_.volatile_path_tracker;
-}
-
 std::shared_ptr<fml::ConcurrentTaskRunner>
 UIDartState::GetConcurrentTaskRunner() const {
   return context_.concurrent_task_runner;
@@ -168,6 +157,10 @@ void UIDartState::ScheduleMicrotask(Dart_Handle closure) {
 
 void UIDartState::FlushMicrotasksNow() {
   microtask_queue_.RunMicrotasks();
+}
+
+bool UIDartState::HasPendingMicrotasks() {
+  return microtask_queue_.HasMicrotasks();
 }
 
 void UIDartState::AddOrRemoveTaskObserver(bool add) {
@@ -216,26 +209,6 @@ void UIDartState::LogMessage(const std::string& tag,
                              const std::string& message) const {
   if (log_message_callback_) {
     log_message_callback_(tag, message);
-  } else {
-    // Fall back to previous behavior if unspecified.
-#if defined(FML_OS_ANDROID)
-    __android_log_print(ANDROID_LOG_INFO, tag.c_str(), "%.*s",
-                        static_cast<int>(message.size()), message.c_str());
-#elif defined(FML_OS_IOS)
-    std::stringstream stream;
-    if (!tag.empty()) {
-      stream << tag << ": ";
-    }
-    stream << message;
-    std::string log = stream.str();
-    syslog(1 /* LOG_ALERT */, "%.*s", static_cast<int>(log.size()),
-           log.c_str());
-#else
-    if (!tag.empty()) {
-      std::cout << tag << ": ";
-    }
-    std::cout << message << std::endl;
-#endif
   }
 }
 

@@ -19,11 +19,12 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "third_party/skia/include/core/SkSurface.h"
-#include "third_party/skia/include/gpu/GrDirectContext.h"
+#include "third_party/skia/include/gpu/ganesh/GrDirectContext.h"
 
 namespace flutter {
 namespace testing {
 
+using ::testing::_;
 using ::testing::ByMove;
 using ::testing::Return;
 
@@ -273,12 +274,14 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
         auto surface_frame_2 = std::make_unique<SurfaceFrame>(
             SkSurfaces::Null(1000, 1000), framebuffer_info,
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -293,7 +296,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
 
         return android_surface_mock;
       });
@@ -314,6 +317,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
           }
           return true;
         },
+        [](const SurfaceFrame& surface_frame) { return true; },
         /*frame_size=*/SkISize::Make(800, 600));
 
     embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
@@ -336,31 +340,29 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
 
     // Add an Android view.
     MutatorsStack stack1;
-    SkMatrix matrix1;
-    matrix1.setIdentity();
-    SkMatrix scale = SkMatrix::Scale(1.5, 1.5);
-    SkMatrix trans = SkMatrix::Translate(100, 100);
-    matrix1.setConcat(scale, trans);
+    DlMatrix scale = DlMatrix::MakeScale({1.5, 1.5, 1});
+    DlMatrix trans = DlMatrix::MakeTranslation({100, 100});
+    DlMatrix matrix1 = scale * trans;
     stack1.PushTransform(scale);
     stack1.PushTransform(trans);
     // TODO(egarciad): Investigate why Flow applies the device pixel ratio to
     // the offsetPixels, but not the sizePoints.
     auto view_params_1 = std::make_unique<EmbeddedViewParams>(
-        matrix1, SkSize::Make(200, 200), stack1);
+        ToSkMatrix(matrix1), SkSize::Make(200, 200), stack1);
 
     embedder->PrerollCompositeEmbeddedView(0, std::move(view_params_1));
     // This is the recording canvas flow writes to.
     auto canvas_1 = embedder->CompositeEmbeddedView(0);
 
-    auto rect_paint = DlPaint();
+    DlPaint rect_paint;
     rect_paint.setColor(DlColor::kCyan());
     rect_paint.setDrawStyle(DlDrawStyle::kFill);
 
     // This simulates Flutter UI that doesn't intersect with the Android view.
-    canvas_1->DrawRect(SkRect::MakeXYWH(0, 0, 50, 50), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(0, 0, 50, 50), rect_paint);
     // This simulates Flutter UI that intersects with the Android view.
-    canvas_1->DrawRect(SkRect::MakeXYWH(50, 50, 200, 200), rect_paint);
-    canvas_1->DrawRect(SkRect::MakeXYWH(150, 150, 100, 100), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(50, 50, 200, 200), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(150, 150, 100, 100), rect_paint);
 
     // Create a new overlay surface.
     EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
@@ -384,6 +386,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
           }
           return true;
         },
+        [](const SurfaceFrame& surface_frame) { return true; },
         /*frame_size=*/SkISize::Make(800, 600));
 
     embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
@@ -406,31 +409,29 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
 
     // Add an Android view.
     MutatorsStack stack1;
-    SkMatrix matrix1;
-    matrix1.setIdentity();
-    SkMatrix scale = SkMatrix::Scale(1.5, 1.5);
-    SkMatrix trans = SkMatrix::Translate(100, 100);
-    matrix1.setConcat(scale, trans);
+    DlMatrix scale = DlMatrix::MakeScale({1.5, 1.5, 1});
+    DlMatrix trans = DlMatrix::MakeTranslation({100, 100});
+    DlMatrix matrix1 = scale * trans;
     stack1.PushTransform(scale);
     stack1.PushTransform(trans);
     // TODO(egarciad): Investigate why Flow applies the device pixel ratio to
     // the offsetPixels, but not the sizePoints.
     auto view_params_1 = std::make_unique<EmbeddedViewParams>(
-        matrix1, SkSize::Make(200, 200), stack1);
+        ToSkMatrix(matrix1), SkSize::Make(200, 200), stack1);
 
     embedder->PrerollCompositeEmbeddedView(0, std::move(view_params_1));
     // This is the recording canvas flow writes to.
     auto canvas_1 = embedder->CompositeEmbeddedView(0);
 
-    auto rect_paint = DlPaint();
+    DlPaint rect_paint;
     rect_paint.setColor(DlColor::kCyan());
     rect_paint.setDrawStyle(DlDrawStyle::kFill);
 
     // This simulates Flutter UI that doesn't intersect with the Android view.
-    canvas_1->DrawRect(SkRect::MakeXYWH(0, 0, 50, 50), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(0, 0, 50, 50), rect_paint);
     // This simulates Flutter UI that intersects with the Android view.
-    canvas_1->DrawRect(SkRect::MakeXYWH(50, 50, 200, 200), rect_paint);
-    canvas_1->DrawRect(SkRect::MakeXYWH(150, 150, 100, 100), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(50, 50, 200, 200), rect_paint);
+    canvas_1->DrawRect(DlRect::MakeXYWH(150, 150, 100, 100), rect_paint);
 
     // Don't create a new overlay surface since it's recycled from the first
     // frame.
@@ -452,6 +453,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFlutterView) {
           }
           return true;
         },
+        [](const SurfaceFrame& surface_frame) { return true; },
         /*frame_size=*/SkISize::Make(800, 600));
     embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
                                 std::move(surface_frame));
@@ -485,6 +487,7 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -498,7 +501,7 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
         return android_surface_mock;
       });
   auto embedder = std::make_unique<AndroidExternalViewEmbedder>(
@@ -542,7 +545,7 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
   // finally merge The final size of the overlay will be smaller than the
   // width and height of the rect.
   embedder->CompositeEmbeddedView(1)->DrawRect(
-      SkRect::MakeXYWH(150, 50, 200, 200), rect_paint);
+      DlRect::MakeXYWH(150, 50, 200, 200), rect_paint);
 
   EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
       .WillRepeatedly([&]() {
@@ -560,6 +563,7 @@ TEST(AndroidExternalViewEmbedder, OverlayCoverTwoPlatformViews) {
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
+      [](const SurfaceFrame& surface_frame) { return true; },
       /*frame_size=*/SkISize::Make(800, 600));
 
   embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
@@ -585,6 +589,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -598,7 +603,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
         return android_surface_mock;
       });
   auto embedder = std::make_unique<AndroidExternalViewEmbedder>(
@@ -614,7 +619,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
     // Add first Android view.
     SkMatrix matrix;
     MutatorsStack stack;
-    stack.PushTransform(SkMatrix::Translate(0, 0));
+    stack.PushTransform(DlMatrix::MakeTranslation({0, 0}));
 
     embedder->PrerollCompositeEmbeddedView(
         0, std::make_unique<EmbeddedViewParams>(matrix, SkSize::Make(200, 200),
@@ -629,13 +634,13 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
 
   // This simulates Flutter UI that intersects with the first Android view.
   embedder->CompositeEmbeddedView(0)->DrawRect(
-      SkRect::MakeXYWH(25, 25, 80, 150), rect_paint);
+      DlRect::MakeXYWH(25, 25, 80, 150), rect_paint);
 
   {
     // Add second Android view.
     SkMatrix matrix;
     MutatorsStack stack;
-    stack.PushTransform(SkMatrix::Translate(0, 100));
+    stack.PushTransform(DlMatrix::MakeTranslation({0, 100}));
 
     embedder->PrerollCompositeEmbeddedView(
         1, std::make_unique<EmbeddedViewParams>(matrix, SkSize::Make(100, 100),
@@ -645,11 +650,11 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
   }
   // This simulates Flutter UI that intersects with the first and second Android
   // views.
-  embedder->CompositeEmbeddedView(1)->DrawRect(SkRect::MakeXYWH(25, 25, 80, 50),
+  embedder->CompositeEmbeddedView(1)->DrawRect(DlRect::MakeXYWH(25, 25, 80, 50),
                                                rect_paint);
 
   embedder->CompositeEmbeddedView(1)->DrawRect(
-      SkRect::MakeXYWH(75, 75, 30, 100), rect_paint);
+      DlRect::MakeXYWH(75, 75, 30, 100), rect_paint);
 
   EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
       .WillRepeatedly([&]() {
@@ -665,6 +670,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFrameOverlayComposition) {
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
+      [](const SurfaceFrame& surface_frame) { return true; },
       /*frame_size=*/SkISize::Make(800, 600));
 
   embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
@@ -690,6 +696,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -703,7 +710,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
         return android_surface_mock;
       });
   auto embedder = std::make_unique<AndroidExternalViewEmbedder>(
@@ -719,7 +726,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
     // Add Android view.
     SkMatrix matrix;
     MutatorsStack stack;
-    stack.PushTransform(SkMatrix::Translate(0, 0));
+    stack.PushTransform(DlMatrix::MakeTranslation({0, 0}));
 
     embedder->PrerollCompositeEmbeddedView(
         0, std::make_unique<EmbeddedViewParams>(matrix, SkSize::Make(200, 200),
@@ -735,6 +742,7 @@ TEST(AndroidExternalViewEmbedder, SubmitFramePlatformViewWithoutAnyOverlay) {
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) mutable {
         return true;
       },
+      [](const SurfaceFrame& surface_frame) { return true; },
       /*frame_size=*/SkISize::Make(800, 600));
 
   embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
@@ -780,6 +788,7 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -792,7 +801,7 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
 
         return android_surface_mock;
       });
@@ -820,7 +829,7 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
 
     // This simulates Flutter UI that intersects with the Android view.
     embedder->CompositeEmbeddedView(0)->DrawRect(
-        SkRect::MakeXYWH(50, 50, 200, 200), DlPaint());
+        DlRect::MakeXYWH(50, 50, 200, 200), DlPaint());
 
     // Create a new overlay surface.
     EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
@@ -839,6 +848,7 @@ TEST(AndroidExternalViewEmbedder, DestroyOverlayLayersOnSizeChange) {
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
+        [](const SurfaceFrame& surface_frame) { return true; },
         /*frame_size=*/SkISize::Make(800, 600));
     embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
                                 std::move(surface_frame));
@@ -870,6 +880,7 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -882,7 +893,7 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
         EXPECT_CALL(*android_surface_mock, CreateGPUSurface(gr_context.get()))
             .WillOnce(Return(ByMove(std::move(surface_mock))));
 
-        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window));
+        EXPECT_CALL(*android_surface_mock, SetNativeWindow(window, _));
 
         return android_surface_mock;
       });
@@ -910,7 +921,7 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
 
     // This simulates Flutter UI that intersects with the Android view.
     embedder->CompositeEmbeddedView(0)->DrawRect(
-        SkRect::MakeXYWH(50, 50, 200, 200), DlPaint());
+        DlRect::MakeXYWH(50, 50, 200, 200), DlPaint());
 
     // Create a new overlay surface.
     EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
@@ -928,6 +939,7 @@ TEST(AndroidExternalViewEmbedder, DoesNotDestroyOverlayLayersOnSizeChange) {
         [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
           return true;
         },
+        [](const SurfaceFrame& surface_frame) { return true; },
         /*frame_size=*/SkISize::Make(800, 600));
     embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
                                 std::move(surface_frame));
@@ -998,6 +1010,7 @@ TEST(AndroidExternalViewEmbedder, Teardown) {
             [](const SurfaceFrame& surface_frame, DlCanvas* canvas) {
               return true;
             },
+            [](const SurfaceFrame& surface_frame) { return true; },
             /*frame_size=*/SkISize::Make(800, 600));
 
         auto surface_mock = std::make_unique<SurfaceMock>();
@@ -1030,7 +1043,7 @@ TEST(AndroidExternalViewEmbedder, Teardown) {
 
   // This simulates Flutter UI that intersects with the Android view.
   embedder->CompositeEmbeddedView(0)->DrawRect(
-      SkRect::MakeXYWH(50, 50, 200, 200), DlPaint());
+      DlRect::MakeXYWH(50, 50, 200, 200), DlPaint());
 
   // Create a new overlay surface.
   EXPECT_CALL(*jni_mock, FlutterViewCreateOverlaySurface())
@@ -1042,6 +1055,7 @@ TEST(AndroidExternalViewEmbedder, Teardown) {
   auto surface_frame = std::make_unique<SurfaceFrame>(
       SkSurfaces::Null(1000, 1000), framebuffer_info,
       [](const SurfaceFrame& surface_frame, DlCanvas* canvas) { return true; },
+      [](const SurfaceFrame& surface_frame) { return true; },
       /*frame_size=*/SkISize::Make(800, 600));
   embedder->SubmitFlutterView(kImplicitViewId, gr_context.get(), nullptr,
                               std::move(surface_frame));

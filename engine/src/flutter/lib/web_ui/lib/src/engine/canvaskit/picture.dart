@@ -7,6 +7,7 @@ import 'dart:typed_data';
 import 'package:ui/ui.dart' as ui;
 
 import '../scene_painting.dart';
+import '../util.dart';
 import 'canvas.dart';
 import 'canvaskit_api.dart';
 import 'image.dart';
@@ -42,8 +43,7 @@ class CkPicture implements ScenePicture {
       return result!;
     }
 
-    throw StateError(
-        'Picture.debugDisposed is only available when asserts are enabled.');
+    throw StateError('Picture.debugDisposed is only available when asserts are enabled.');
   }
 
   /// This is set to true when [dispose] is called and is never reset back to
@@ -100,8 +100,7 @@ class CkPicture implements ScenePicture {
     assert(debugCheckNotDisposed('Cannot convert picture to image.'));
 
     final Surface surface = CanvasKitRenderer.instance.pictureToImageSurface;
-    final CkSurface ckSurface = surface
-        .createOrUpdateSurface(ui.Size(width.toDouble(), height.toDouble()));
+    final CkSurface ckSurface = surface.createOrUpdateSurface(BitmapSize(width, height));
     final CkCanvas ckCanvas = ckSurface.getCanvas();
     ckCanvas.clear(const ui.Color(0x00000000));
     ckCanvas.drawPicture(this);
@@ -113,9 +112,11 @@ class CkPicture implements ScenePicture {
       width: width.toDouble(),
       height: height.toDouble(),
     );
-    final Uint8List pixels = skImage.readPixels(0, 0, imageInfo);
-    final SkImage? rasterImage =
-        canvasKit.MakeImage(imageInfo, pixels, (4 * width).toDouble());
+    final Uint8List? pixels = skImage.readPixels(0, 0, imageInfo);
+    if (pixels == null) {
+      throw StateError('Unable to read pixels from SkImage.');
+    }
+    final SkImage? rasterImage = canvasKit.MakeImage(imageInfo, pixels, (4 * width).toDouble());
     if (rasterImage == null) {
       throw StateError('Unable to convert image pixels into SkImage.');
     }

@@ -5,7 +5,7 @@
 import 'dart:typed_data' show Float64List;
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 
 void main() {
   test('path getBounds', () {
@@ -27,7 +27,11 @@ void main() {
     final Path difference = Path.combine(PathOperation.difference, pathCircle1, pathCircle2);
     expect(difference.getBounds(), equals(c1));
 
-    final Path reverseDifference = Path.combine(PathOperation.reverseDifference, pathCircle1, pathCircle2);
+    final Path reverseDifference = Path.combine(
+      PathOperation.reverseDifference,
+      pathCircle1,
+      pathCircle2,
+    );
     expect(reverseDifference.getBounds(), equals(c2));
 
     final Path union = Path.combine(PathOperation.union, pathCircle1, pathCircle2);
@@ -53,7 +57,11 @@ void main() {
 
     expect(difference.getBounds().top, closeTo(0.88, 0.01));
 
-    final Path reverseDifference = Path.combine(PathOperation.reverseDifference, pathCircle1, pathCircle2);
+    final Path reverseDifference = Path.combine(
+      PathOperation.reverseDifference,
+      pathCircle1,
+      pathCircle2,
+    );
     expect(reverseDifference.getBounds().right, closeTo(14.11, 0.01));
 
     final Path union = Path.combine(PathOperation.union, pathCircle1, pathCircle2);
@@ -98,8 +106,7 @@ void main() {
     expect(p.getBounds(), equals(bounds));
     final Path pTransformed = p.transform(scaleMatrix);
 
-    expect(pTransformed.getBounds(),
-        equals(const Rect.fromLTRB(0.0, 0.0, 10 * 2.5, 10 * 0.5)));
+    expect(pTransformed.getBounds(), equals(const Rect.fromLTRB(0.0, 0.0, 10 * 2.5, 10 * 0.5)));
 
     final Path p2 = Path()..lineTo(10.0, 10.0);
 
@@ -107,8 +114,7 @@ void main() {
     expect(p.getBounds(), equals(const Rect.fromLTRB(0.0, 0.0, 20.0, 20.0)));
 
     p.addPath(p2, const Offset(20.0, 20.0), matrix4: scaleMatrix);
-    expect(p.getBounds(),
-        equals(const Rect.fromLTRB(0.0, 0.0, 20 + (10 * 2.5), 20 + (10 * .5))));
+    expect(p.getBounds(), equals(const Rect.fromLTRB(0.0, 0.0, 20 + (10 * 2.5), 20 + (10 * .5))));
 
     p.extendWithPath(p2, Offset.zero);
     expect(p.getBounds(), equals(const Rect.fromLTRB(0.0, 0.0, 45.0, 25.0)));
@@ -149,24 +155,28 @@ void main() {
 
     // test getTangentForOffset with vertical line
     final Path simpleVerticalLine = Path()..lineTo(0.0, 10.0);
-    final PathMetrics simpleMetricsVertical = simpleVerticalLine.computeMetrics()..iterator.moveNext();
+    final PathMetrics simpleMetricsVertical =
+        simpleVerticalLine.computeMetrics()..iterator.moveNext();
     final Tangent posTanVertical = simpleMetricsVertical.iterator.current.getTangentForOffset(5.0)!;
     expect(posTanVertical.position, equals(const Offset(0.0, 5.0)));
     expect(posTanVertical.angle, closeTo(-1.5708, .0001)); // 90 degrees
 
     // test getTangentForOffset with diagonal line
     final Path simpleDiagonalLine = Path()..lineTo(10.0, 10.0);
-    final PathMetrics simpleMetricsDiagonal = simpleDiagonalLine.computeMetrics()..iterator.moveNext();
+    final PathMetrics simpleMetricsDiagonal =
+        simpleDiagonalLine.computeMetrics()..iterator.moveNext();
     final double midPoint = simpleMetricsDiagonal.iterator.current.length / 2;
-    final Tangent posTanDiagonal = simpleMetricsDiagonal.iterator.current.getTangentForOffset(midPoint)!;
+    final Tangent posTanDiagonal =
+        simpleMetricsDiagonal.iterator.current.getTangentForOffset(midPoint)!;
     expect(posTanDiagonal.position, equals(const Offset(5.0, 5.0)));
     expect(posTanDiagonal.angle, closeTo(-0.7853981633974483, .00001)); // ~45 degrees
 
     // test a multi-contour path
-    final Path multiContour = Path()
-      ..lineTo(0.0, 10.0)
-      ..moveTo(10.0, 10.0)
-      ..lineTo(10.0, 15.0);
+    final Path multiContour =
+        Path()
+          ..lineTo(0.0, 10.0)
+          ..moveTo(10.0, 10.0)
+          ..lineTo(10.0, 15.0);
 
     final PathMetrics multiContourMetric = multiContour.computeMetrics();
     expect(() => multiContourMetric.iterator.current, throwsRangeError);
@@ -181,10 +191,12 @@ void main() {
   });
 
   test('PathMetrics can remember lengths and isClosed', () {
-    final Path path = Path()..lineTo(0, 10)
-                            ..close()
-                            ..moveTo(0, 15)
-                            ..lineTo(10, 15);
+    final Path path =
+        Path()
+          ..lineTo(0, 10)
+          ..close()
+          ..moveTo(0, 15)
+          ..lineTo(10, 15);
     final List<PathMetric> metrics = path.computeMetrics().toList();
     expect(metrics.length, 2);
     expect(metrics[0].length, 20);
@@ -208,7 +220,10 @@ void main() {
     expect(firstMetric.getTangentForOffset(4.0)!.vector, const Offset(0.0, 1.0));
     expect(firstMetric.extractPath(4.0, 10.0).computeMetrics().first.length, 6.0);
 
-    path..lineTo(10, 10)..lineTo(10, 0)..close();
+    path
+      ..lineTo(10, 10)
+      ..lineTo(10, 0)
+      ..close();
     // mutating the path shouldn't have added anything to the iterator.
     expect(metrics, isEmpty);
     expect(firstMetric.length, 10);
@@ -227,17 +242,67 @@ void main() {
   });
 
   test('PathMetrics on a mutated path', () {
-    final Path path = Path()
-      ..lineTo(0, 30)
-      ..lineTo(40, 30)
-      ..moveTo(100, 0)
-      ..lineTo(100, 30)
-      ..lineTo(140, 30)
-      ..close();
+    final Path path =
+        Path()
+          ..lineTo(0, 30)
+          ..lineTo(40, 30)
+          ..moveTo(100, 0)
+          ..lineTo(100, 30)
+          ..lineTo(140, 30)
+          ..close();
     final PathMetrics metrics = path.computeMetrics();
-    expect(metrics.toString(),
+    expect(
+      metrics.toString(),
       '(PathMetric(length: 70.0, isClosed: false, contourIndex: 0), '
-       'PathMetric(length: 120.0, isClosed: true, contourIndex: 1))',
+      'PathMetric(length: 120.0, isClosed: true, contourIndex: 1))',
     );
   });
+
+  test('RSuperellipse path is correct for a slim diagnal shape', () {
+    // This test mirrors a similar test from "geometry_test.dart" and serves as
+    // a smoke test.
+    final RSuperellipse rsuperellipse = RSuperellipse.fromLTRBAndCorners(
+      -50,
+      -50,
+      50,
+      50,
+      topLeft: const Radius.circular(1.0),
+      topRight: const Radius.circular(99.0),
+      bottomLeft: const Radius.circular(99.0),
+      bottomRight: const Radius.circular(1.0),
+    );
+    final Path path =
+        Path()
+          ..addRSuperellipse(rsuperellipse)
+          ..close();
+
+    expect(path.contains(Offset.zero), isTrue);
+    expect(path.contains(const Offset(-49.999, -49.999)), isFalse);
+    expect(path.contains(const Offset(-49.999, 49.999)), isFalse);
+    expect(path.contains(const Offset(49.999, 49.999)), isFalse);
+    expect(path.contains(const Offset(49.999, -49.999)), isFalse);
+
+    // The pointy ends at the NE and SW corners
+    checkPointWithOffset(path, const Offset(-49.70, -49.70), const Offset(-0.02, -0.02));
+    checkPointWithOffset(path, const Offset(49.70, 49.70), const Offset(0.02, 0.02));
+
+    // Checks two points symmetrical to the origin.
+    void checkDiagnalPoints(Offset p) {
+      checkPointWithOffset(path, p, const Offset(0.02, -0.02));
+      checkPointWithOffset(path, Offset(-p.dx, -p.dy), const Offset(-0.02, 0.02));
+    }
+
+    // A few other points along the edge
+    checkDiagnalPoints(const Offset(-40.0, -49.59));
+    checkDiagnalPoints(const Offset(-20.0, -45.64));
+    checkDiagnalPoints(const Offset(0.0, -37.01));
+    checkDiagnalPoints(const Offset(20.0, -21.96));
+    checkDiagnalPoints(const Offset(21.05, -20.92));
+    checkDiagnalPoints(const Offset(40.0, 5.68));
+  });
+}
+
+void checkPointWithOffset(Path path, Offset inPoint, Offset outwardOffset) {
+  expect(path.contains(inPoint), isTrue);
+  expect(path.contains(inPoint + outwardOffset), isFalse);
 }

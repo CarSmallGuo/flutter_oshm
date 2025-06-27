@@ -31,7 +31,7 @@ static constexpr inline bool ValidateBlendModes() {
   IMPELLER_FOR_EACH_BLEND_MODE(_IMPELLER_ASSERT_BLEND_MODE)
   // Ensure the total number of blend modes match.
   if (i - 1 !=
-      static_cast<std::underlying_type_t<BlendMode>>(BlendMode::kLast)) {
+      static_cast<std::underlying_type_t<BlendMode>>(BlendMode::kLastMode)) {
     return false;
   }
   return true;
@@ -48,83 +48,6 @@ const char* BlendModeToString(BlendMode blend_mode) {
   return kBlendModeNames[static_cast<std::underlying_type_t<BlendMode>>(
       blend_mode)];
 }
-
-ColorHSB ColorHSB::FromRGB(Color rgb) {
-  Scalar R = rgb.red;
-  Scalar G = rgb.green;
-  Scalar B = rgb.blue;
-
-  Scalar v = 0.0;
-  Scalar x = 0.0;
-  Scalar f = 0.0;
-
-  int64_t i = 0;
-
-  x = fmin(R, G);
-  x = fmin(x, B);
-
-  v = fmax(R, G);
-  v = fmax(v, B);
-
-  if (v == x) {
-    return ColorHSB(0.0, 0.0, v, rgb.alpha);
-  }
-
-  f = (R == x) ? G - B : ((G == x) ? B - R : R - G);
-  i = (R == x) ? 3 : ((G == x) ? 5 : 1);
-
-  return ColorHSB(((i - f / (v - x)) / 6.0), (v - x) / v, v, rgb.alpha);
-}
-
-Color ColorHSB::ToRGBA() const {
-  Scalar h = hue * 6.0;
-  Scalar s = saturation;
-  Scalar v = brightness;
-
-  Scalar m = 0.0;
-  Scalar n = 0.0;
-  Scalar f = 0.0;
-
-  int64_t i = 0;
-
-  if (h == 0) {
-    h = 0.01;
-  }
-
-  if (h == 0.0) {
-    return Color(v, v, v, alpha);
-  }
-
-  i = static_cast<int64_t>(floor(h));
-
-  f = h - i;
-
-  if (!(i & 1)) {
-    f = 1 - f;
-  }
-
-  m = v * (1 - s);
-  n = v * (1 - s * f);
-
-  switch (i) {
-    case 6:
-    case 0:
-      return Color(v, n, m, alpha);
-    case 1:
-      return Color(n, v, m, alpha);
-    case 2:
-      return Color(m, v, n, alpha);
-    case 3:
-      return Color(m, n, v, alpha);
-    case 4:
-      return Color(n, m, v, alpha);
-    case 5:
-      return Color(v, m, n, alpha);
-  }
-  return Color(0, 0, 0, alpha);
-}
-
-Color::Color(const ColorHSB& hsbColor) : Color(hsbColor.ToRGBA()) {}
 
 Color::Color(const Vector4& value)
     : red(value.x), green(value.y), blue(value.z), alpha(value.w) {}
@@ -237,36 +160,36 @@ Color Color::Blend(Color src, BlendMode blend_mode) const {
   switch (blend_mode) {
     case BlendMode::kClear:
       return Color::BlackTransparent();
-    case BlendMode::kSource:
+    case BlendMode::kSrc:
       return src;
-    case BlendMode::kDestination:
+    case BlendMode::kDst:
       return dst;
-    case BlendMode::kSourceOver:
+    case BlendMode::kSrcOver:
       // r = s + (1-sa)*d
       return (src.Premultiply() + dst.Premultiply() * (1 - src.alpha))
           .Unpremultiply();
-    case BlendMode::kDestinationOver:
+    case BlendMode::kDstOver:
       // r = d + (1-da)*s
       return (dst.Premultiply() + src.Premultiply() * (1 - dst.alpha))
           .Unpremultiply();
-    case BlendMode::kSourceIn:
+    case BlendMode::kSrcIn:
       // r = s * da
       return (src.Premultiply() * dst.alpha).Unpremultiply();
-    case BlendMode::kDestinationIn:
+    case BlendMode::kDstIn:
       // r = d * sa
       return (dst.Premultiply() * src.alpha).Unpremultiply();
-    case BlendMode::kSourceOut:
+    case BlendMode::kSrcOut:
       // r = s * ( 1- da)
       return (src.Premultiply() * (1 - dst.alpha)).Unpremultiply();
-    case BlendMode::kDestinationOut:
+    case BlendMode::kDstOut:
       // r = d * (1-sa)
       return (dst.Premultiply() * (1 - src.alpha)).Unpremultiply();
-    case BlendMode::kSourceATop:
+    case BlendMode::kSrcATop:
       // r = s*da + d*(1-sa)
       return (src.Premultiply() * dst.alpha +
               dst.Premultiply() * (1 - src.alpha))
           .Unpremultiply();
-    case BlendMode::kDestinationATop:
+    case BlendMode::kDstATop:
       // r = d*sa + s*(1-da)
       return (dst.Premultiply() * src.alpha +
               src.Premultiply() * (1 - dst.alpha))

@@ -4,6 +4,7 @@
 
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterEngine.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterEngine_Internal.h"
+#include "shell/platform/darwin/macos/framework/Source/FlutterResizeSynchronizer.h"
 
 #include <objc/objc.h>
 
@@ -20,6 +21,7 @@
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterAppDelegate.h"
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterAppLifecycleDelegate.h"
 #import "flutter/shell/platform/darwin/macos/framework/Headers/FlutterPluginMacOS.h"
+#import "flutter/shell/platform/darwin/macos/framework/Source/FlutterCompositor.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterEngineTestUtils.h"
 #import "flutter/shell/platform/darwin/macos/framework/Source/FlutterViewControllerTestUtils.h"
 #include "flutter/shell/platform/embedder/embedder.h"
@@ -31,8 +33,6 @@
 
 // CREATE_NATIVE_ENTRY and MOCK_ENGINE_PROC are leaky by design
 // NOLINTBEGIN(clang-analyzer-core.StackAddressEscape)
-
-constexpr int64_t kImplicitViewId = 0ll;
 
 @interface FlutterEngine (Test)
 /**
@@ -48,8 +48,9 @@ constexpr int64_t kImplicitViewId = 0ll;
 @end
 
 @implementation TestPlatformViewFactory
-- (nonnull NSView*)createWithViewIdentifier:(int64_t)viewId arguments:(nullable id)args {
-  return viewId == 42 ? [[NSView alloc] init] : nil;
+- (nonnull NSView*)createWithViewIdentifier:(FlutterViewIdentifier)viewIdentifier
+                                  arguments:(nullable id)args {
+  return viewIdentifier == 42 ? [[NSView alloc] init] : nil;
 }
 
 @end
@@ -222,7 +223,7 @@ TEST_F(FlutterEngineTest, CanLogToStdout) {
   EXPECT_TRUE(stdout_capture.GetOutput().find("Hello logging") != std::string::npos);
 }
 
-TEST_F(FlutterEngineTest, BackgroundIsBlack) {
+TEST_F(FlutterEngineTest, DISABLED_BackgroundIsBlack) {
   FlutterEngine* engine = GetFlutterEngine();
 
   // Latch to ensure the entire layer tree has been generated and presented.
@@ -524,9 +525,15 @@ TEST_F(FlutterEngineTest, Compositor) {
                 result:^(id result){
                 }];
 
-  [engine.testThreadSynchronizer blockUntilFrameAvailable];
-
+  // Wait up to 1 second for Flutter to emit a frame.
+  CFAbsoluteTime start = CFAbsoluteTimeGetCurrent();
   CALayer* rootLayer = viewController.flutterView.layer;
+  while (rootLayer.sublayers.count == 0) {
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, YES);
+    if (CFAbsoluteTimeGetCurrent() - start > 1) {
+      break;
+    }
+  }
 
   // There are two layers with Flutter contents and one view
   EXPECT_EQ(rootLayer.sublayers.count, 2u);
@@ -535,7 +542,56 @@ TEST_F(FlutterEngineTest, Compositor) {
   // TODO(gw280): add support for screenshot tests in this test harness
 
   [engine shutDownEngine];
-}  // namespace flutter::testing
+}
+
+TEST_F(FlutterEngineTest, CompositorIgnoresUnknownView) {
+  FlutterEngine* engine = GetFlutterEngine();
+  auto original_init = engine.embedderAPI.Initialize;
+  ::FlutterCompositor compositor;
+  engine.embedderAPI.Initialize = MOCK_ENGINE_PROC(
+      Initialize, ([&compositor, &original_init](
+                       size_t version, const FlutterRendererConfig* config,
+                       const FlutterProjectArgs* args, void* user_data, auto engine_out) {
+        compositor = *args->compositor;
+        return original_init(version, config, args, user_data, engine_out);
+      }));
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
+  [viewController loadView];
+
+  EXPECT_TRUE([engine runWithEntrypoint:@"empty"]);
+
+  FlutterBackingStoreConfig config = {
+      .struct_size = sizeof(FlutterBackingStoreConfig),
+      .size = FlutterSize{10, 10},
+  };
+  FlutterBackingStore backing_store = {};
+  EXPECT_NE(compositor.create_backing_store_callback, nullptr);
+  EXPECT_TRUE(
+      compositor.create_backing_store_callback(&config, &backing_store, compositor.user_data));
+
+  FlutterLayer layer{
+      .type = kFlutterLayerContentTypeBackingStore,
+      .backing_store = &backing_store,
+  };
+  std::vector<FlutterLayer*> layers = {&layer};
+
+  FlutterPresentViewInfo info = {
+      .struct_size = sizeof(FlutterPresentViewInfo),
+      .view_id = 123,
+      .layers = const_cast<const FlutterLayer**>(layers.data()),
+      .layers_count = 1,
+      .user_data = compositor.user_data,
+  };
+  EXPECT_NE(compositor.present_view_callback, nullptr);
+  EXPECT_FALSE(compositor.present_view_callback(&info));
+  EXPECT_TRUE(compositor.collect_backing_store_callback(&backing_store, compositor.user_data));
+
+  (void)viewController;
+  [engine shutDownEngine];
+}
 
 TEST_F(FlutterEngineTest, DartEntrypointArguments) {
   NSString* fixtures = @(flutter::testing::GetFixturesPath());
@@ -567,6 +623,7 @@ TEST_F(FlutterEngineTest, DartEntrypointArguments) {
 
   EXPECT_TRUE([engine runWithEntrypoint:@"main"]);
   EXPECT_TRUE(called);
+  [engine shutDownEngine];
 }
 
 // Verify that the engine is not retained indirectly via the binary messenger held by channels and
@@ -812,15 +869,40 @@ TEST_F(FlutterEngineTest, ResponseFromBackgroundThread) {
   }
 }
 
-TEST_F(FlutterEngineTest, ThreadSynchronizerNotBlockingRasterThreadAfterShutdown) {
-  FlutterThreadSynchronizer* threadSynchronizer = [[FlutterThreadSynchronizer alloc] init];
-  [threadSynchronizer shutdown];
+TEST_F(FlutterEngineTest, CanGetEngineForId) {
+  FlutterEngine* engine = GetFlutterEngine();
+
+  fml::AutoResetWaitableEvent latch;
+  std::optional<int64_t> engineId;
+  AddNativeCallback("NotifyEngineId", CREATE_NATIVE_ENTRY([&](Dart_NativeArguments args) {
+                      const auto argument = Dart_GetNativeArgument(args, 0);
+                      if (!Dart_IsNull(argument)) {
+                        const auto id = tonic::DartConverter<int64_t>::FromDart(argument);
+                        engineId = id;
+                      }
+                      latch.Signal();
+                    }));
+
+  EXPECT_TRUE([engine runWithEntrypoint:@"testEngineId"]);
+  latch.Wait();
+
+  EXPECT_TRUE(engineId.has_value());
+  if (!engineId.has_value()) {
+    return;
+  }
+  EXPECT_EQ(engine, [FlutterEngine engineForIdentifier:*engineId]);
+  ShutDownEngine();
+}
+
+TEST_F(FlutterEngineTest, ResizeSynchronizerNotBlockingRasterThreadAfterShutdown) {
+  FlutterResizeSynchronizer* threadSynchronizer = [[FlutterResizeSynchronizer alloc] init];
+  [threadSynchronizer shutDown];
 
   std::thread rasterThread([&threadSynchronizer] {
-    [threadSynchronizer performCommitForView:kImplicitViewId
-                                        size:CGSizeMake(100, 100)
+    [threadSynchronizer performCommitForSize:CGSizeMake(100, 100)
                                       notify:^{
-                                      }];
+                                      }
+                                       delay:0];
   });
 
   rasterThread.join();
@@ -838,7 +920,7 @@ TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByController) {
   @autoreleasepool {
     // Create FVC1.
     viewController1 = [[FlutterViewController alloc] initWithProject:project];
-    EXPECT_EQ(viewController1.viewId, 0ll);
+    EXPECT_EQ(viewController1.viewIdentifier, 0ll);
 
     engine = viewController1.engine;
     engine.viewController = nil;
@@ -855,7 +937,7 @@ TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByController) {
 
   engine.viewController = viewController1;
   EXPECT_EQ(engine.viewController, viewController1);
-  EXPECT_EQ(viewController1.viewId, 0ll);
+  EXPECT_EQ(viewController1.viewIdentifier, 0ll);
 }
 
 TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByEngine) {
@@ -869,7 +951,7 @@ TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByEngine) {
 
   @autoreleasepool {
     viewController1 = [[FlutterViewController alloc] initWithEngine:engine nibName:nil bundle:nil];
-    EXPECT_EQ(viewController1.viewId, 0ll);
+    EXPECT_EQ(viewController1.viewIdentifier, 0ll);
     EXPECT_EQ(engine.viewController, viewController1);
 
     engine.viewController = nil;
@@ -877,7 +959,7 @@ TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByEngine) {
     FlutterViewController* viewController2 = [[FlutterViewController alloc] initWithEngine:engine
                                                                                    nibName:nil
                                                                                     bundle:nil];
-    EXPECT_EQ(viewController2.viewId, 0ll);
+    EXPECT_EQ(viewController2.viewIdentifier, 0ll);
     EXPECT_EQ(engine.viewController, viewController2);
   }
   // FVC2 is deallocated but FVC1 is retained.
@@ -886,7 +968,40 @@ TEST_F(FlutterEngineTest, ManageControllersIfInitiatedByEngine) {
 
   engine.viewController = viewController1;
   EXPECT_EQ(engine.viewController, viewController1);
-  EXPECT_EQ(viewController1.viewId, 0ll);
+  EXPECT_EQ(viewController1.viewIdentifier, 0ll);
+}
+
+TEST_F(FlutterEngineTest, RemovingViewDisposesCompositorResources) {
+  NSString* fixtures = @(flutter::testing::GetFixturesPath());
+  FlutterDartProject* project = [[FlutterDartProject alloc]
+      initWithAssetsPath:fixtures
+             ICUDataPath:[fixtures stringByAppendingString:@"/icudtl.dat"]];
+  FlutterEngine* engine = [[FlutterEngine alloc] initWithName:@"test" project:project];
+
+  FlutterViewController* viewController = [[FlutterViewController alloc] initWithEngine:engine
+                                                                                nibName:nil
+                                                                                 bundle:nil];
+  [viewController loadView];
+  [viewController viewDidLoad];
+  viewController.flutterView.frame = CGRectMake(0, 0, 800, 600);
+
+  EXPECT_TRUE([engine runWithEntrypoint:@"drawIntoAllViews"]);
+  // Wait up to 1 second for Flutter to emit a frame.
+  CFTimeInterval start = CACurrentMediaTime();
+  while (engine.macOSCompositor->DebugNumViews() == 0) {
+    CFRunLoopRunInMode(kCFRunLoopDefaultMode, 1, YES);
+    if (CACurrentMediaTime() - start > 1) {
+      break;
+    }
+  }
+
+  EXPECT_EQ(engine.macOSCompositor->DebugNumViews(), 1u);
+
+  engine.viewController = nil;
+  EXPECT_EQ(engine.macOSCompositor->DebugNumViews(), 0u);
+
+  [engine shutDownEngine];
+  engine = nil;
 }
 
 TEST_F(FlutterEngineTest, HandlesTerminationRequest) {
@@ -1190,6 +1305,44 @@ TEST_F(FlutterEngineTest, DisplaySizeIsInPhysicalPixel) {
   EXPECT_TRUE(updated);
   [engine shutDownEngine];
   engine = nil;
+}
+
+TEST_F(FlutterEngineTest, ReportsHourFormat) {
+  __block BOOL expectedValue;
+
+  // Set up mocks.
+  id channelMock = OCMClassMock([FlutterBasicMessageChannel class]);
+  OCMStub([channelMock messageChannelWithName:@"flutter/settings"
+                              binaryMessenger:[OCMArg any]
+                                        codec:[OCMArg any]])
+      .andReturn(channelMock);
+  OCMStub([channelMock sendMessage:[OCMArg any]]).andDo((^(NSInvocation* invocation) {
+    __weak id message;
+    [invocation getArgument:&message atIndex:2];
+    EXPECT_EQ(message[@"alwaysUse24HourFormat"], @(expectedValue));
+  }));
+
+  id mockHourFormat = OCMClassMock([FlutterHourFormat class]);
+  OCMStub([mockHourFormat isAlwaysUse24HourFormat]).andDo((^(NSInvocation* invocation) {
+    [invocation setReturnValue:&expectedValue];
+  }));
+
+  id engineMock = CreateMockFlutterEngine(nil);
+
+  // Verify the YES case.
+  expectedValue = YES;
+  EXPECT_TRUE([engineMock runWithEntrypoint:@"main"]);
+  [engineMock shutDownEngine];
+
+  // Verify the NO case.
+  expectedValue = NO;
+  EXPECT_TRUE([engineMock runWithEntrypoint:@"main"]);
+  [engineMock shutDownEngine];
+
+  // Clean up mocks.
+  [mockHourFormat stopMocking];
+  [engineMock stopMocking];
+  [channelMock stopMocking];
 }
 
 }  // namespace flutter::testing

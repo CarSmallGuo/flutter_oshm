@@ -8,7 +8,7 @@ import 'dart:developer' as developer;
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
+import 'package:test/test.dart';
 import 'package:vm_service/vm_service.dart' as vms;
 import 'package:vm_service/vm_service_io.dart';
 
@@ -56,7 +56,6 @@ void main() {
       expect(impellerEnabled, true);
       expect(e.toString(), contains('Cannot capture SKP screenshot with Impeller enabled.'));
     }
-
 
     await vmService.dispose();
   });

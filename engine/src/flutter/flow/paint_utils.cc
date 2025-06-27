@@ -13,26 +13,26 @@ namespace flutter {
 
 namespace {
 
-std::shared_ptr<DlColorSource> CreateCheckerboardShader(SkColor c1,
-                                                        SkColor c2,
-                                                        int size) {
+static std::shared_ptr<DlColorSource> CreateCheckerboardShader(SkColor c1,
+                                                               SkColor c2,
+                                                               int size) {
   SkBitmap bm;
   bm.allocN32Pixels(2 * size, 2 * size);
   bm.eraseColor(c1);
   bm.eraseArea(SkIRect::MakeLTRB(0, 0, size, size), c2);
   bm.eraseArea(SkIRect::MakeLTRB(size, size, 2 * size, 2 * size), c2);
   auto image = DlImage::Make(SkImages::RasterFromBitmap(bm));
-  return std::make_shared<DlImageColorSource>(
-      image, DlTileMode::kRepeat, DlTileMode::kRepeat,
-      DlImageSampling::kNearestNeighbor);
+  return DlColorSource::MakeImage(image, DlTileMode::kRepeat,
+                                  DlTileMode::kRepeat,
+                                  DlImageSampling::kNearestNeighbor);
 }
 
 }  // anonymous namespace
 
-void DrawCheckerboard(DlCanvas* canvas, const SkRect& rect) {
+void DrawCheckerboard(DlCanvas* canvas, const DlRect& rect) {
   // Draw a checkerboard
   canvas->Save();
-  canvas->ClipRect(rect, DlCanvas::ClipOp::kIntersect, false);
+  canvas->ClipRect(rect, DlClipOp::kIntersect, false);
 
   // Secure random number generation isn't needed here.
   // NOLINTBEGIN(clang-analyzer-security.insecureAPI.rand)

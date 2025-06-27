@@ -23,6 +23,20 @@ class MockDelegate : public PlatformView::Delegate {
   MOCK_METHOD(void, OnPlatformViewDestroyed, (), (override));
   MOCK_METHOD(void, OnPlatformViewScheduleFrame, (), (override));
   MOCK_METHOD(void,
+              OnPlatformViewAddView,
+              (int64_t view_id,
+               const ViewportMetrics& viewport_metrics,
+               AddViewCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              OnPlatformViewRemoveView,
+              (int64_t view_id, RemoveViewCallback callback),
+              (override));
+  MOCK_METHOD(void,
+              OnPlatformViewSendViewFocusEvent,
+              (const ViewFocusEvent& event),
+              (override));
+  MOCK_METHOD(void,
               OnPlatformViewSetNextFrameCallback,
               (const fml::closure& closure),
               (override));
@@ -40,7 +54,10 @@ class MockDelegate : public PlatformView::Delegate {
               (override));
   MOCK_METHOD(void,
               OnPlatformViewDispatchSemanticsAction,
-              (int32_t id, SemanticsAction action, fml::MallocMapping args),
+              (int64_t view_id,
+               int32_t node_id,
+               SemanticsAction action,
+               fml::MallocMapping args),
               (override));
   MOCK_METHOD(void,
               OnPlatformViewSetSemanticsEnabled,

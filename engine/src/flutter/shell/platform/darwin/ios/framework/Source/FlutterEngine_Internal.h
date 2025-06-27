@@ -25,15 +25,11 @@
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterRestorationPlugin.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterTextInputDelegate.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterTextInputPlugin.h"
-#import "flutter/shell/platform/darwin/ios/platform_view_ios.h"
+#import "flutter/shell/platform/darwin/ios/framework/Source/FlutterView.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-extern NSString* const kFlutterEngineWillDealloc;
-
 @interface FlutterEngine () <FlutterViewEngineDelegate>
-
-- (flutter::Shell&)shell;
 
 - (void)updateViewportMetrics:(flutter::ViewportMetrics)viewportMetrics;
 - (void)dispatchPointerDataPacket:(std::unique_ptr<flutter::PointerDataPacket>)packet;
@@ -42,13 +38,15 @@ extern NSString* const kFlutterEngineWillDealloc;
 - (fml::RefPtr<fml::TaskRunner>)uiTaskRunner;
 - (fml::RefPtr<fml::TaskRunner>)rasterTaskRunner;
 
-- (fml::WeakPtr<flutter::PlatformView>)platformView;
+- (void)installFirstFrameCallback:(void (^)(void))block;
+- (void)enableSemantics:(BOOL)enabled withFlags:(int64_t)flags;
+- (void)notifyViewCreated;
+- (void)notifyViewDestroyed;
 
 - (flutter::Rasterizer::Screenshot)screenshot:(flutter::Rasterizer::ScreenshotType)type
                                  base64Encode:(bool)base64Encode;
 
 - (FlutterPlatformPlugin*)platformPlugin;
-- (std::shared_ptr<flutter::FlutterPlatformViewsController>&)platformViewsController;
 - (FlutterTextInputPlugin*)textInputPlugin;
 - (FlutterRestorationPlugin*)restorationPlugin;
 - (void)launchEngine:(nullable NSString*)entrypoint
@@ -59,8 +57,13 @@ extern NSString* const kFlutterEngineWillDealloc;
        initialRoute:(nullable NSString*)initialRoute;
 - (void)attachView;
 - (void)notifyLowMemory;
-- (flutter::PlatformViewIOS*)iosPlatformView;
 
+/// Blocks until the first frame is presented or the timeout is exceeded, then invokes callback.
+- (void)waitForFirstFrameSync:(NSTimeInterval)timeout
+                     callback:(NS_NOESCAPE void (^)(BOOL didTimeout))callback;
+
+/// Asynchronously waits until the first frame is presented or the timeout is exceeded, then invokes
+/// callback.
 - (void)waitForFirstFrame:(NSTimeInterval)timeout callback:(void (^)(BOOL didTimeout))callback;
 
 /**
@@ -83,6 +86,23 @@ extern NSString* const kFlutterEngineWillDealloc;
             userData:(nullable void*)userData;
 
 @property(nonatomic, readonly) FlutterDartProject* project;
+
+/**
+ * Returns the engine handle. Used in FlutterEngineTest.
+ */
+- (int64_t)engineIdentifier;
+
+/**
+ * Returns engine for the identifier. The identifier must be valid for an engine
+ * that is currently running, otherwise the behavior is undefined.
+ *
+ * The identifier can be obtained in Dart code through
+ * `PlatformDispatcher.instance.engineId`.
+ *
+ * This function must be called on the main thread.
+ */
++ (nullable FlutterEngine*)engineForIdentifier:(int64_t)identifier;
+
 @end
 
 NS_ASSUME_NONNULL_END

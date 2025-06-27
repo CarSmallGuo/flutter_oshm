@@ -146,7 +146,7 @@ then
   headless_flags="--headless"
 fi
 
-all_gn_args="--fuchsia --fuchsia-cpu="${fuchsia_cpu}" --runtime-mode="${runtime_mode}" ${goma_flags} ${unoptimized_flags} ${extra_gn_args[@]}"
+all_gn_args="--fuchsia --fuchsia-cpu="${fuchsia_cpu}" --runtime-mode="${runtime_mode}" ${unoptimized_flags} ${extra_gn_args[@]}"
 engine-info "Building Flutter test with GN args: ${all_gn_args}"
 
 "$ENGINE_DIR"/flutter/tools/gn ${all_gn_args}

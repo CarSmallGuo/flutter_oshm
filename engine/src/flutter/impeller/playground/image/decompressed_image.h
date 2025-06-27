@@ -6,9 +6,6 @@
 #define FLUTTER_IMPELLER_PLAYGROUND_IMAGE_DECOMPRESSED_IMAGE_H_
 
 #include <memory>
-#include <optional>
-
-#include "flutter/fml/macros.h"
 #include "flutter/fml/mapping.h"
 #include "impeller/geometry/size.h"
 

@@ -7,11 +7,13 @@
 #include <dwmapi.h>
 
 #include <filesystem>
+#include <shared_mutex>
 #include <sstream>
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/paths.h"
 #include "flutter/fml/platform/win/wstring_conversion.h"
+#include "flutter/fml/synchronization/waitable_event.h"
 #include "flutter/shell/platform/common/client_wrapper/binary_messenger_impl.h"
 #include "flutter/shell/platform/common/client_wrapper/include/flutter/standard_message_codec.h"
 #include "flutter/shell/platform/common/path_utils.h"
@@ -24,6 +26,7 @@
 #include "flutter/shell/platform/windows/system_utils.h"
 #include "flutter/shell/platform/windows/task_runner.h"
 #include "flutter/third_party/accessibility/ax/ax_node.h"
+#include "shell/platform/windows/flutter_project_bundle.h"
 
 // winbase.h defines GetCurrentTime as a macro.
 #undef GetCurrentTime
@@ -192,7 +195,8 @@ FlutterWindowsEngine::FlutterWindowsEngine(
   enable_impeller_ = std::find(switches.begin(), switches.end(),
                                "--enable-impeller=true") != switches.end();
 
-  egl_manager_ = egl::Manager::Create(enable_impeller_);
+  egl_manager_ = egl::Manager::Create(
+      static_cast<egl::GpuPreference>(project_->gpu_preference()));
   window_proc_delegate_manager_ = std::make_unique<WindowProcDelegateManager>();
   window_proc_delegate_manager_->RegisterTopLevelWindowProcDelegate(
       [](HWND hwnd, UINT msg, WPARAM wpar, LPARAM lpar, void* user_data,
@@ -227,6 +231,10 @@ FlutterWindowsEngine::FlutterWindowsEngine(
 FlutterWindowsEngine::~FlutterWindowsEngine() {
   messenger_->SetEngine(nullptr);
   Stop();
+}
+
+FlutterWindowsEngine* FlutterWindowsEngine::GetEngineForId(int64_t engine_id) {
+  return reinterpret_cast<FlutterWindowsEngine*>(engine_id);
 }
 
 void FlutterWindowsEngine::SetSwitches(
@@ -291,6 +299,13 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
   custom_task_runners.thread_priority_setter =
       &WindowsPlatformThreadPrioritySetter;
 
+  if (project_->ui_thread_policy() ==
+      FlutterUIThreadPolicy::RunOnPlatformThread) {
+    FML_LOG(WARNING)
+        << "Running with merged platform and UI thread. Experimental.";
+    custom_task_runners.ui_task_runner = &platform_task_runner;
+  }
+
   FlutterProjectArgs args = {};
   args.struct_size = sizeof(FlutterProjectArgs);
   args.shutdown_dart_vm_when_done = true;
@@ -298,6 +313,7 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
   args.icu_data_path = icu_path_string.c_str();
   args.command_line_argc = static_cast<int>(argv.size());
   args.command_line_argv = argv.empty() ? nullptr : argv.data();
+  args.engine_id = reinterpret_cast<int64_t>(this);
 
   // Fail if conflicting non-default entrypoints are specified in the method
   // argument and the project.
@@ -338,9 +354,7 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
                                        void* user_data) {
     auto host = static_cast<FlutterWindowsEngine*>(user_data);
 
-    // TODO(loicsharma): Remove implicit view assumption.
-    // https://github.com/flutter/flutter/issues/142845
-    auto view = host->view(kImplicitViewId);
+    auto view = host->view(update->view_id);
     if (!view) {
       return;
     }
@@ -377,6 +391,11 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
                             SAFE_ACCESS(update, listening, false));
     }
   };
+  args.view_focus_change_request_callback =
+      [](const FlutterViewFocusChangeRequest* request, void* user_data) {
+        auto host = static_cast<FlutterWindowsEngine*>(user_data);
+        host->OnViewFocusChangeRequest(request);
+      };
 
   args.custom_task_runners = &custom_task_runners;
 
@@ -391,9 +410,10 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
 
     // TODO(schectman) Pass the platform view manager to the compositor
     // constructors: https://github.com/flutter/flutter/issues/143375
-    compositor_ = std::make_unique<CompositorOpenGL>(this, resolver);
+    compositor_ =
+        std::make_unique<CompositorOpenGL>(this, resolver, enable_impeller_);
   } else {
-    compositor_ = std::make_unique<CompositorSoftware>(this);
+    compositor_ = std::make_unique<CompositorSoftware>();
   }
 
   FlutterCompositor compositor = {};
@@ -418,8 +438,7 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
       [](const FlutterPresentViewInfo* info) -> bool {
     auto host = static_cast<FlutterWindowsEngine*>(info->user_data);
 
-    return host->compositor_->Present(info->view_id, info->layers,
-                                      info->layers_count);
+    return host->Present(info);
   };
   args.compositor = &compositor;
 
@@ -468,10 +487,11 @@ bool FlutterWindowsEngine::Run(std::string_view entrypoint) {
                                     displays.data(), displays.size());
 
   SendSystemLocales();
-  SetLifecycleState(flutter::AppLifecycleState::kResumed);
 
   settings_plugin_->StartWatching();
   settings_plugin_->SendSettings();
+
+  InitializeKeyboard();
 
   return true;
 }
@@ -491,15 +511,136 @@ bool FlutterWindowsEngine::Stop() {
 
 std::unique_ptr<FlutterWindowsView> FlutterWindowsEngine::CreateView(
     std::unique_ptr<WindowBindingHandler> window) {
-  // TODO(loicsharma): Remove implicit view assumption.
-  // https://github.com/flutter/flutter/issues/142845
+  auto view_id = next_view_id_;
   auto view = std::make_unique<FlutterWindowsView>(
-      kImplicitViewId, this, std::move(window), windows_proc_table_);
+      view_id, this, std::move(window), windows_proc_table_);
 
-  views_[kImplicitViewId] = view.get();
-  InitializeKeyboard();
+  view->CreateRenderSurface();
+  view->UpdateSemanticsEnabled(semantics_enabled_);
+
+  next_view_id_++;
+
+  {
+    // Add the view to the embedder. This must happen before the engine
+    // is notified the view exists and starts presenting to it.
+    std::unique_lock write_lock(views_mutex_);
+    FML_DCHECK(views_.find(view_id) == views_.end());
+    views_[view_id] = view.get();
+  }
+
+  if (!view->IsImplicitView()) {
+    FML_DCHECK(running());
+
+    struct Captures {
+      fml::AutoResetWaitableEvent latch;
+      bool added;
+    };
+    Captures captures = {};
+
+    FlutterWindowMetricsEvent metrics = view->CreateWindowMetricsEvent();
+
+    FlutterAddViewInfo info = {};
+    info.struct_size = sizeof(FlutterAddViewInfo);
+    info.view_id = view_id;
+    info.view_metrics = &metrics;
+    info.user_data = &captures;
+    info.add_view_callback = [](const FlutterAddViewResult* result) {
+      Captures* captures = reinterpret_cast<Captures*>(result->user_data);
+      captures->added = result->added;
+      captures->latch.Signal();
+    };
+
+    FlutterEngineResult result = embedder_api_.AddView(engine_, &info);
+    if (result != kSuccess) {
+      FML_LOG(ERROR)
+          << "Starting the add view operation failed. FlutterEngineAddView "
+             "returned an unexpected result: "
+          << result << ". This indicates a bug in the Windows embedder.";
+      FML_DCHECK(false);
+      return nullptr;
+    }
+
+    // Block the platform thread until the engine has added the view.
+    // TODO(loicsharma): This blocks the platform thread eagerly and can
+    // cause unnecessary delay in input processing. Instead, this should block
+    // lazily only when the app does an operation which needs the view.
+    // https://github.com/flutter/flutter/issues/146248
+    captures.latch.Wait();
+
+    if (!captures.added) {
+      // Adding the view failed. Update the embedder's state to match the
+      // engine's state. This is unexpected and indicates a bug in the Windows
+      // embedder.
+      FML_LOG(ERROR) << "FlutterEngineAddView failed to add view";
+      std::unique_lock write_lock(views_mutex_);
+      views_.erase(view_id);
+      return nullptr;
+    }
+  }
 
   return std::move(view);
+}
+
+void FlutterWindowsEngine::RemoveView(FlutterViewId view_id) {
+  FML_DCHECK(running());
+
+  // Notify the engine to stop rendering to the view if it isn't the implicit
+  // view. The engine and framework assume the implicit view always exists and
+  // can continue presenting.
+  if (view_id != kImplicitViewId) {
+    struct Captures {
+      fml::AutoResetWaitableEvent latch;
+      bool removed;
+    };
+    Captures captures = {};
+
+    FlutterRemoveViewInfo info = {};
+    info.struct_size = sizeof(FlutterRemoveViewInfo);
+    info.view_id = view_id;
+    info.user_data = &captures;
+    info.remove_view_callback = [](const FlutterRemoveViewResult* result) {
+      // This is invoked on an engine thread. If
+      // |FlutterRemoveViewResult.removed| is `true`, the engine guarantees the
+      // view won't be presented.
+      Captures* captures = reinterpret_cast<Captures*>(result->user_data);
+      captures->removed = result->removed;
+      captures->latch.Signal();
+    };
+
+    FlutterEngineResult result = embedder_api_.RemoveView(engine_, &info);
+    if (result != kSuccess) {
+      FML_LOG(ERROR) << "Starting the remove view operation failed. "
+                        "FlutterEngineRemoveView "
+                        "returned an unexpected result: "
+                     << result
+                     << ". This indicates a bug in the Windows embedder.";
+      FML_DCHECK(false);
+      return;
+    }
+
+    // Block the platform thread until the engine has removed the view.
+    // TODO(loicsharma): This blocks the platform thread eagerly and can
+    // cause unnecessary delay in input processing. Instead, this should block
+    // lazily only when an operation needs the view.
+    // https://github.com/flutter/flutter/issues/146248
+    captures.latch.Wait();
+
+    if (!captures.removed) {
+      // Removing the view failed. This is unexpected and indicates a bug in the
+      // Windows embedder.
+      FML_LOG(ERROR) << "FlutterEngineRemoveView failed to remove view";
+      return;
+    }
+  }
+
+  {
+    // The engine no longer presents to the view. Remove the view from the
+    // embedder.
+    std::unique_lock write_lock(views_mutex_);
+
+    FML_DCHECK(views_.find(view_id) != views_.end());
+    views_.erase(view_id);
+  }
 }
 
 void FlutterWindowsEngine::OnVsync(intptr_t baton) {
@@ -531,6 +672,8 @@ std::chrono::nanoseconds FlutterWindowsEngine::FrameInterval() {
 }
 
 FlutterWindowsView* FlutterWindowsEngine::view(FlutterViewId view_id) const {
+  std::shared_lock read_lock(views_mutex_);
+
   auto iterator = views_.find(view_id);
   if (iterator == views_.end()) {
     return nullptr;
@@ -568,6 +711,13 @@ void FlutterWindowsEngine::SendKeyEvent(const FlutterKeyEvent& event,
                                         void* user_data) {
   if (engine_) {
     embedder_api_.SendKeyEvent(engine_, &event, callback, user_data);
+  }
+}
+
+void FlutterWindowsEngine::SendViewFocusEvent(
+    const FlutterViewFocusEvent& event) {
+  if (engine_) {
+    embedder_api_.SendViewFocusEvent(engine_, &event);
   }
 }
 
@@ -650,10 +800,42 @@ void FlutterWindowsEngine::SetNextFrameCallback(fml::closure callback) {
       this);
 }
 
-void FlutterWindowsEngine::SetLifecycleState(flutter::AppLifecycleState state) {
-  if (lifecycle_manager_) {
-    lifecycle_manager_->SetLifecycleState(state);
+HCURSOR FlutterWindowsEngine::GetCursorByName(
+    const std::string& cursor_name) const {
+  static auto* cursors = new std::map<std::string, const wchar_t*>{
+      {"allScroll", IDC_SIZEALL},
+      {"basic", IDC_ARROW},
+      {"click", IDC_HAND},
+      {"forbidden", IDC_NO},
+      {"help", IDC_HELP},
+      {"move", IDC_SIZEALL},
+      {"none", nullptr},
+      {"noDrop", IDC_NO},
+      {"precise", IDC_CROSS},
+      {"progress", IDC_APPSTARTING},
+      {"text", IDC_IBEAM},
+      {"resizeColumn", IDC_SIZEWE},
+      {"resizeDown", IDC_SIZENS},
+      {"resizeDownLeft", IDC_SIZENESW},
+      {"resizeDownRight", IDC_SIZENWSE},
+      {"resizeLeft", IDC_SIZEWE},
+      {"resizeLeftRight", IDC_SIZEWE},
+      {"resizeRight", IDC_SIZEWE},
+      {"resizeRow", IDC_SIZENS},
+      {"resizeUp", IDC_SIZENS},
+      {"resizeUpDown", IDC_SIZENS},
+      {"resizeUpLeft", IDC_SIZENWSE},
+      {"resizeUpRight", IDC_SIZENESW},
+      {"resizeUpLeftDownRight", IDC_SIZENWSE},
+      {"resizeUpRightDownLeft", IDC_SIZENESW},
+      {"wait", IDC_WAIT},
+  };
+  const wchar_t* idc_name = IDC_ARROW;
+  auto it = cursors->find(cursor_name);
+  if (it != cursors->end()) {
+    idc_name = it->second;
   }
+  return windows_proc_table_->LoadCursor(nullptr, idc_name);
 }
 
 void FlutterWindowsEngine::SendSystemLocales() {
@@ -675,10 +857,6 @@ void FlutterWindowsEngine::SendSystemLocales() {
 }
 
 void FlutterWindowsEngine::InitializeKeyboard() {
-  if (views_.empty()) {
-    FML_LOG(ERROR) << "Cannot initialize keyboard on Windows headless mode.";
-  }
-
   auto internal_plugin_messenger = internal_plugin_registrar_->messenger();
   KeyboardKeyEmbedderHandler::GetKeyStateHandler get_key_state = GetKeyState;
   KeyboardKeyEmbedderHandler::MapVirtualKeyToScanCode map_vk_to_scan =
@@ -753,16 +931,25 @@ bool FlutterWindowsEngine::PostRasterThreadTask(fml::closure callback) const {
 }
 
 bool FlutterWindowsEngine::DispatchSemanticsAction(
+    FlutterViewId view_id,
     uint64_t target,
     FlutterSemanticsAction action,
     fml::MallocMapping data) {
-  return (embedder_api_.DispatchSemanticsAction(engine_, target, action,
-                                                data.GetMapping(),
-                                                data.GetSize()) == kSuccess);
+  FlutterSendSemanticsActionInfo info{
+      .struct_size = sizeof(FlutterSendSemanticsActionInfo),
+      .view_id = view_id,
+      .node_id = target,
+      .action = action,
+      .data = data.GetMapping(),
+      .data_length = data.GetSize(),
+  };
+  return (embedder_api_.SendSemanticsAction(engine_, &info));
 }
 
 void FlutterWindowsEngine::UpdateSemanticsEnabled(bool enabled) {
   if (engine_ && semantics_enabled_ != enabled) {
+    std::shared_lock read_lock(views_mutex_);
+
     semantics_enabled_ = enabled;
     embedder_api_.UpdateSemanticsEnabled(engine_, enabled);
     for (auto iterator = views_.begin(); iterator != views_.end(); iterator++) {
@@ -773,9 +960,7 @@ void FlutterWindowsEngine::UpdateSemanticsEnabled(bool enabled) {
 
 void FlutterWindowsEngine::OnPreEngineRestart() {
   // Reset the keyboard's state on hot restart.
-  if (!views_.empty()) {
-    InitializeKeyboard();
-  }
+  InitializeKeyboard();
 }
 
 std::string FlutterWindowsEngine::GetExecutableName() const {
@@ -830,6 +1015,8 @@ void FlutterWindowsEngine::OnQuit(std::optional<HWND> hwnd,
 }
 
 void FlutterWindowsEngine::OnDwmCompositionChanged() {
+  std::shared_lock read_lock(views_mutex_);
+
   for (auto iterator = views_.begin(); iterator != views_.end(); iterator++) {
     iterator->second->OnDwmCompositionChanged();
   }
@@ -852,12 +1039,50 @@ std::optional<LRESULT> FlutterWindowsEngine::ProcessExternalWindowMessage(
   return std::nullopt;
 }
 
+void FlutterWindowsEngine::UpdateFlutterCursor(
+    const std::string& cursor_name) const {
+  SetFlutterCursor(GetCursorByName(cursor_name));
+}
+
+void FlutterWindowsEngine::SetFlutterCursor(HCURSOR cursor) const {
+  windows_proc_table_->SetCursor(cursor);
+}
+
 void FlutterWindowsEngine::OnChannelUpdate(std::string name, bool listening) {
   if (name == "flutter/platform" && listening) {
     lifecycle_manager_->BeginProcessingExit();
   } else if (name == "flutter/lifecycle" && listening) {
     lifecycle_manager_->BeginProcessingLifecycle();
   }
+}
+
+void FlutterWindowsEngine::OnViewFocusChangeRequest(
+    const FlutterViewFocusChangeRequest* request) {
+  std::shared_lock read_lock(views_mutex_);
+
+  auto iterator = views_.find(request->view_id);
+  if (iterator == views_.end()) {
+    return;
+  }
+
+  FlutterWindowsView* view = iterator->second;
+  view->Focus();
+}
+
+bool FlutterWindowsEngine::Present(const FlutterPresentViewInfo* info) {
+  // This runs on the raster thread. Lock the views map for the entirety of the
+  // present operation to block the platform thread from destroying the
+  // view during the present.
+  std::shared_lock read_lock(views_mutex_);
+
+  auto iterator = views_.find(info->view_id);
+  if (iterator == views_.end()) {
+    return false;
+  }
+
+  FlutterWindowsView* view = iterator->second;
+
+  return compositor_->Present(view, info->layers, info->layers_count);
 }
 
 }  // namespace flutter

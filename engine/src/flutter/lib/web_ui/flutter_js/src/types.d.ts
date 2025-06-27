@@ -8,7 +8,6 @@ type WasmCompileTarget = "dart2wasm";
 export type CompileTarget = JSCompileTarget | WasmCompileTarget;
 
 export type WebRenderer =
-  "html" |
   "canvaskit" |
   "skwasm";
 
@@ -32,6 +31,7 @@ export type ApplicationBuild = JSApplicationBuild | WasmApplicationBuild;
 export interface BuildConfig {
   serviceWorkerVersion: string;
   engineRevision: string;
+  useLocalCanvasKit: bool?;
   builds: ApplicationBuild[];
 }
 
@@ -54,6 +54,8 @@ export interface FlutterConfiguration {
   renderer: WebRenderer?;
   hostElement: HtmlElement?;
   fontFallbackBaseUrl: string?;
+  entryPointBaseUrl: string?;
+  forceSingleThreadedSkwasm: boolean?;
 }
 
 export interface ServiceWorkerSettings {

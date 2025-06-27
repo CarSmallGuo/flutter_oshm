@@ -9,11 +9,7 @@ import 'package:ui/ui.dart' as ui;
 import '../engine.dart';
 
 class EngineFlutterDisplay extends ui.Display {
-  EngineFlutterDisplay({
-    required this.id,
-    required this.size,
-    required this.refreshRate,
-  });
+  EngineFlutterDisplay({required this.id, required this.size, required this.refreshRate});
 
   /// The single [EngineFlutterDisplay] that the web page is rendered on.
   static EngineFlutterDisplay get instance => _instance;
@@ -38,16 +34,22 @@ class EngineFlutterDisplay extends ui.Display {
   final double refreshRate;
 
   @override
-  double get devicePixelRatio =>
-      _debugDevicePixelRatioOverride ?? browserDevicePixelRatio;
+  double get devicePixelRatio => _debugDevicePixelRatioOverride ?? browserDevicePixelRatio;
 
   /// The real device pixel ratio of the browser.
   ///
   /// This value cannot be overriden by tests, for example.
   double get browserDevicePixelRatio {
-    final double ratio = domWindow.devicePixelRatio;
+    double ratio = domWindow.devicePixelRatio;
     // Guard against WebOS returning 0.
-    return (ratio == 0.0) ? 1.0 : ratio;
+    ratio = (ratio == 0.0) ? 1.0 : ratio;
+
+    // The device pixel ratio is also affected by the scale factor of the
+    // viewport. For example, on Chrome for Android, if the page is requested
+    // with "Request Desktop Site" enabled, then the viewport size will be
+    // very large, with the viewport scale less than 1.
+    final double scale = domWindow.visualViewport?.scale ?? 1.0;
+    return ratio * scale;
   }
 
   /// Overrides the default device pixel ratio.
@@ -97,8 +99,7 @@ class ScreenOrientation {
           screenOrientation.unlock();
           return true;
         } else {
-          final String? lockType =
-              _deviceOrientationToLockType(orientations.first as String?);
+          final String? lockType = _deviceOrientationToLockType(orientations.first as String?);
           if (lockType != null) {
             try {
               await screenOrientation.lock(lockType);

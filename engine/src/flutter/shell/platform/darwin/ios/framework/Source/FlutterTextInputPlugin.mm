@@ -12,6 +12,7 @@
 
 #include "flutter/fml/logging.h"
 #include "flutter/fml/platform/darwin/string_range_sanitization.h"
+#import "flutter/shell/platform/darwin/ios/framework/Source/FlutterSharedApplication.h"
 
 FLUTTER_ASSERT_ARC
 
@@ -139,6 +140,12 @@ static UIKeyboardType ToUIKeyboardType(NSDictionary* type) {
   }
   if ([inputType isEqualToString:@"TextInputType.visiblePassword"]) {
     return UIKeyboardTypeASCIICapable;
+  }
+  if ([inputType isEqualToString:@"TextInputType.webSearch"]) {
+    return UIKeyboardTypeWebSearch;
+  }
+  if ([inputType isEqualToString:@"TextInputType.twitter"]) {
+    return UIKeyboardTypeTwitter;
   }
   return UIKeyboardTypeDefault;
 }
@@ -659,6 +666,7 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
 
 @implementation FlutterTextSelectionRect
 
+// Synthesize properties declared readonly in UITextSelectionRect.
 @synthesize rect = _rect;
 @synthesize writingDirection = _writingDirection;
 @synthesize containsStart = _containsStart;
@@ -794,6 +802,8 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
 // This is cleared at the start of each keyboard interaction. (Enter a character, delete a character
 // etc)
 @property(nonatomic, copy) NSString* temporarilyDeletedComposedCharacter;
+@property(nonatomic, assign) CGRect editMenuTargetRect;
+@property(nonatomic, strong) NSArray<NSDictionary*>* editMenuItems;
 
 - (void)setEditableTransform:(NSArray*)matrix;
 @end
@@ -859,7 +869,157 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
     }
   }
 
+  if (@available(iOS 16.0, *)) {
+    _editMenuInteraction = [[UIEditMenuInteraction alloc] initWithDelegate:self];
+    [self addInteraction:_editMenuInteraction];
+  }
+
   return self;
+}
+
+- (void)handleSearchWebAction {
+  [self.textInputDelegate flutterTextInputView:self
+                     searchWebWithSelectedText:[self textInRange:_selectedTextRange]];
+}
+
+- (void)handleLookUpAction {
+  [self.textInputDelegate flutterTextInputView:self
+                            lookUpSelectedText:[self textInRange:_selectedTextRange]];
+}
+
+- (void)handleShareAction {
+  [self.textInputDelegate flutterTextInputView:self
+                             shareSelectedText:[self textInRange:_selectedTextRange]];
+}
+
+// DFS algorithm to search a UICommand from the menu tree.
+- (UICommand*)searchCommandWithSelector:(SEL)selector
+                                element:(UIMenuElement*)element API_AVAILABLE(ios(16.0)) {
+  if ([element isKindOfClass:UICommand.class]) {
+    UICommand* command = (UICommand*)element;
+    return command.action == selector ? command : nil;
+  } else if ([element isKindOfClass:UIMenu.class]) {
+    NSArray<UIMenuElement*>* children = ((UIMenu*)element).children;
+    for (UIMenuElement* child in children) {
+      UICommand* result = [self searchCommandWithSelector:selector element:child];
+      if (result) {
+        return result;
+      }
+    }
+    return nil;
+  } else {
+    return nil;
+  }
+}
+
+- (void)addBasicEditingCommandToItems:(NSMutableArray*)items
+                                 type:(NSString*)type
+                             selector:(SEL)selector
+                        suggestedMenu:(UIMenu*)suggestedMenu {
+  UICommand* command = [self searchCommandWithSelector:selector element:suggestedMenu];
+  if (command) {
+    [items addObject:command];
+  } else {
+    FML_LOG(ERROR) << "Cannot find context menu item of type \"" << type.UTF8String << "\".";
+  }
+}
+
+- (void)addAdditionalBasicCommandToItems:(NSMutableArray*)items
+                                    type:(NSString*)type
+                                selector:(SEL)selector
+                             encodedItem:(NSDictionary<NSString*, id>*)encodedItem {
+  NSString* title = encodedItem[@"title"];
+  if (title) {
+    UICommand* command = [UICommand commandWithTitle:title
+                                               image:nil
+                                              action:selector
+                                        propertyList:nil];
+    [items addObject:command];
+  } else {
+    FML_LOG(ERROR) << "Missing title for context menu item of type \"" << type.UTF8String << "\".";
+  }
+}
+
+- (UIMenu*)editMenuInteraction:(UIEditMenuInteraction*)interaction
+          menuForConfiguration:(UIEditMenuConfiguration*)configuration
+              suggestedActions:(NSArray<UIMenuElement*>*)suggestedActions API_AVAILABLE(ios(16.0)) {
+  UIMenu* suggestedMenu = [UIMenu menuWithChildren:suggestedActions];
+  if (!_editMenuItems) {
+    return suggestedMenu;
+  }
+
+  NSMutableArray* items = [NSMutableArray array];
+  for (NSDictionary<NSString*, id>* encodedItem in _editMenuItems) {
+    NSString* type = encodedItem[@"type"];
+    if ([type isEqualToString:@"copy"]) {
+      [self addBasicEditingCommandToItems:items
+                                     type:type
+                                 selector:@selector(copy:)
+                            suggestedMenu:suggestedMenu];
+    } else if ([type isEqualToString:@"paste"]) {
+      [self addBasicEditingCommandToItems:items
+                                     type:type
+                                 selector:@selector(paste:)
+                            suggestedMenu:suggestedMenu];
+    } else if ([type isEqualToString:@"cut"]) {
+      [self addBasicEditingCommandToItems:items
+                                     type:type
+                                 selector:@selector(cut:)
+                            suggestedMenu:suggestedMenu];
+    } else if ([type isEqualToString:@"delete"]) {
+      [self addBasicEditingCommandToItems:items
+                                     type:type
+                                 selector:@selector(delete:)
+                            suggestedMenu:suggestedMenu];
+    } else if ([type isEqualToString:@"selectAll"]) {
+      [self addBasicEditingCommandToItems:items
+                                     type:type
+                                 selector:@selector(selectAll:)
+                            suggestedMenu:suggestedMenu];
+    } else if ([type isEqualToString:@"searchWeb"]) {
+      [self addAdditionalBasicCommandToItems:items
+                                        type:type
+                                    selector:@selector(handleSearchWebAction)
+                                 encodedItem:encodedItem];
+    } else if ([type isEqualToString:@"share"]) {
+      [self addAdditionalBasicCommandToItems:items
+                                        type:type
+                                    selector:@selector(handleShareAction)
+                                 encodedItem:encodedItem];
+    } else if ([type isEqualToString:@"lookUp"]) {
+      [self addAdditionalBasicCommandToItems:items
+                                        type:type
+                                    selector:@selector(handleLookUpAction)
+                                 encodedItem:encodedItem];
+    }
+  }
+  return [UIMenu menuWithChildren:items];
+}
+
+- (void)editMenuInteraction:(UIEditMenuInteraction*)interaction
+    willDismissMenuForConfiguration:(UIEditMenuConfiguration*)configuration
+                           animator:(id<UIEditMenuInteractionAnimating>)animator
+    API_AVAILABLE(ios(16.0)) {
+  [self.textInputDelegate flutterTextInputView:self
+        willDismissEditMenuWithTextInputClient:_textInputClient];
+}
+
+- (CGRect)editMenuInteraction:(UIEditMenuInteraction*)interaction
+    targetRectForConfiguration:(UIEditMenuConfiguration*)configuration API_AVAILABLE(ios(16.0)) {
+  return _editMenuTargetRect;
+}
+
+- (void)showEditMenuWithTargetRect:(CGRect)targetRect
+                             items:(NSArray<NSDictionary*>*)items API_AVAILABLE(ios(16.0)) {
+  _editMenuTargetRect = targetRect;
+  _editMenuItems = items;
+  UIEditMenuConfiguration* config =
+      [UIEditMenuConfiguration configurationWithIdentifier:nil sourcePoint:CGPointZero];
+  [self.editMenuInteraction presentEditMenuWithConfiguration:config];
+}
+
+- (void)hideEditMenu API_AVAILABLE(ios(16.0)) {
+  [self.editMenuInteraction dismissMenu];
 }
 
 - (void)configureWithDictionary:(NSDictionary*)configuration {
@@ -1148,8 +1308,12 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
   if (action == @selector(paste:)) {
     // Forbid pasting images, memojis, or other non-string content.
     return [UIPasteboard generalPasteboard].hasStrings;
+  } else if (action == @selector(copy:) || action == @selector(cut:) ||
+             action == @selector(delete:)) {
+    return [self textInRange:_selectedTextRange].length > 0;
+  } else if (action == @selector(selectAll:)) {
+    return self.hasText;
   }
-
   return [super canPerformAction:action withSender:sender];
 }
 
@@ -1246,7 +1410,14 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
   NSAssert([range isKindOfClass:[FlutterTextRange class]],
            @"Expected a FlutterTextRange for range (got %@).", [range class]);
   NSRange textRange = ((FlutterTextRange*)range).range;
-  NSAssert(textRange.location != NSNotFound, @"Expected a valid text range.");
+  if (textRange.location == NSNotFound) {
+    // Avoids [crashes](https://github.com/flutter/flutter/issues/138464) from an assertion
+    // against NSNotFound.
+    // TODO(hellohuanlin): This is a temp workaround, but we should look into why
+    // framework is providing NSNotFound to the engine.
+    // https://github.com/flutter/flutter/issues/160100
+    return nil;
+  }
   // Sanitize the range to prevent going out of bounds.
   NSUInteger location = MIN(textRange.location, self.text.length);
   NSUInteger length = MIN(self.text.length - location, textRange.length);
@@ -2487,7 +2658,12 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
 
 - (void)hideKeyboardWithoutAnimationAndAvoidCursorDismissUpdate {
   [UIView setAnimationsEnabled:NO];
-  _cachedFirstResponder = UIApplication.sharedApplication.keyWindow.flutterFirstResponder;
+  UIApplication* flutterApplication = FlutterSharedApplication.application;
+  _cachedFirstResponder =
+      flutterApplication
+          ? flutterApplication.keyWindow.flutterFirstResponder
+          : self.viewController.flutterWindowSceneIfViewLoaded.keyWindow.flutterFirstResponder;
+
   _activeView.preventCursorDismissWhenResignFirstResponder = YES;
   [_cachedFirstResponder resignFirstResponder];
   _activeView.preventCursorDismissWhenResignFirstResponder = NO;
@@ -2504,11 +2680,31 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
   _keyboardView = keyboardSnap;
   [_keyboardViewContainer addSubview:_keyboardView];
   if (_keyboardViewContainer.superview == nil) {
-    [UIApplication.sharedApplication.delegate.window.rootViewController.view
-        addSubview:_keyboardViewContainer];
+    UIApplication* flutterApplication = FlutterSharedApplication.application;
+    UIView* rootView = flutterApplication
+                           ? flutterApplication.delegate.window.rootViewController.view
+                           : self.viewController.viewIfLoaded.window.rootViewController.view;
+    [rootView addSubview:_keyboardViewContainer];
   }
   _keyboardViewContainer.layer.zPosition = NSIntegerMax;
   _keyboardViewContainer.frame = _keyboardRect;
+}
+
+- (BOOL)showEditMenu:(NSDictionary*)args API_AVAILABLE(ios(16.0)) {
+  if (!self.activeView.isFirstResponder) {
+    return NO;
+  }
+  NSDictionary<NSString*, NSNumber*>* encodedTargetRect = args[@"targetRect"];
+  CGRect globalTargetRect = CGRectMake(
+      [encodedTargetRect[@"x"] doubleValue], [encodedTargetRect[@"y"] doubleValue],
+      [encodedTargetRect[@"width"] doubleValue], [encodedTargetRect[@"height"] doubleValue]);
+  CGRect localTargetRect = [self.hostView convertRect:globalTargetRect toView:self.activeView];
+  [self.activeView showEditMenuWithTargetRect:localTargetRect items:args[@"items"]];
+  return YES;
+}
+
+- (void)hideEditMenu {
+  [self.activeView hideEditMenu];
 }
 
 - (void)setEditableSizeAndTransform:(NSDictionary*)dictionary {
@@ -2614,8 +2810,11 @@ static BOOL IsSelectionRectBoundaryCloserToPoint(CGPoint point,
   [self removeEnableFlutterTextInputViewAccessibilityTimer];
   _activeView.accessibilityEnabled = NO;
   [_activeView resignFirstResponder];
-  [_activeView removeFromSuperview];
-  [_inputHider removeFromSuperview];
+  // Removes the focus from the `_activeView` (UIView<UITextInput>)
+  // when the user stops typing (keyboard is hidden).
+  // For more details, refer to the discussion at:
+  // https://github.com/flutter/engine/pull/57209#discussion_r1905942577
+  [self cleanUpViewHierarchy:YES clearText:YES delayRemoval:NO];
 }
 
 - (void)triggerAutofillSave:(BOOL)saveEntries {

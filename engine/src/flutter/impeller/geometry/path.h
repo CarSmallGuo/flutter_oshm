@@ -6,11 +6,14 @@
 #define FLUTTER_IMPELLER_GEOMETRY_PATH_H_
 
 #include <functional>
+#include <memory>
 #include <optional>
+#include <ostream>
 #include <tuple>
 #include <vector>
 
 #include "impeller/geometry/path_component.h"
+#include "impeller/geometry/rect.h"
 
 namespace impeller {
 
@@ -53,9 +56,58 @@ class Path {
   enum class ComponentType {
     kLinear,
     kQuadratic,
+    kConic,
     kCubic,
     kContour,
   };
+
+  class ComponentIterator {
+   public:
+    ComponentType type() const;
+
+    // Return pointer to path component or null if the type is wrong or
+    // the iterator is past the end of the path.
+    const LinearPathComponent* linear() const;
+    const QuadraticPathComponent* quadratic() const;
+    const ConicPathComponent* conic() const;
+    const CubicPathComponent* cubic() const;
+    const ContourComponent* contour() const;
+
+    ComponentIterator& operator++();
+    bool operator==(const ComponentIterator& other) const {
+      return component_index_ == other.component_index_;
+    }
+    bool operator!=(const ComponentIterator& other) const {
+      return component_index_ != other.component_index_;
+    }
+
+   private:
+    ComponentIterator(const Path& path, size_t index, size_t offset)
+        : path_(path), component_index_(index), storage_offset_(offset) {}
+
+    const Path& path_;
+    size_t component_index_ = 0u;
+    size_t storage_offset_ = 0u;
+
+    friend class Path;
+  };
+
+  static constexpr size_t VerbToOffset(Path::ComponentType verb) {
+    switch (verb) {
+      case Path::ComponentType::kLinear:
+        return 2u;
+      case Path::ComponentType::kQuadratic:
+        return 3u;
+      case Path::ComponentType::kConic:
+        return 4u;
+      case Path::ComponentType::kCubic:
+        return 4u;
+      case Path::ComponentType::kContour:
+        return 2u;
+        break;
+    }
+    FML_UNREACHABLE();
+  }
 
   struct PolylineContour {
     struct Component {
@@ -131,30 +183,19 @@ class Path {
 
   size_t GetComponentCount(std::optional<ComponentType> type = {}) const;
 
+  size_t GetPointCount() const;
+
   FillType GetFillType() const;
 
   bool IsConvex() const;
 
   bool IsEmpty() const;
 
-  template <class T>
-  using Applier = std::function<void(size_t index, const T& component)>;
-  void EnumerateComponents(
-      const Applier<LinearPathComponent>& linear_applier,
-      const Applier<QuadraticPathComponent>& quad_applier,
-      const Applier<CubicPathComponent>& cubic_applier,
-      const Applier<ContourComponent>& contour_applier) const;
+  /// @brief Whether the line contains a single contour.
+  bool IsSingleContour() const;
 
-  bool GetLinearComponentAtIndex(size_t index,
-                                 LinearPathComponent& linear) const;
-
-  bool GetQuadraticComponentAtIndex(size_t index,
-                                    QuadraticPathComponent& quadratic) const;
-
-  bool GetCubicComponentAtIndex(size_t index, CubicPathComponent& cubic) const;
-
-  bool GetContourComponentAtIndex(size_t index,
-                                  ContourComponent& contour) const;
+  ComponentIterator begin() const;
+  ComponentIterator end() const;
 
   /// Callers must provide the scale factor for how this path will be
   /// transformed.
@@ -168,22 +209,28 @@ class Path {
           std::make_unique<std::vector<Point>>(),
       Polyline::ReclaimPointBufferCallback reclaim = nullptr) const;
 
+  void EndContour(
+      size_t storage_offset,
+      Polyline& polyline,
+      size_t component_index,
+      std::vector<PolylineContour::Component>& poly_components) const;
+
   std::optional<Rect> GetBoundingBox() const;
 
   std::optional<Rect> GetTransformedBoundingBox(const Matrix& transform) const;
 
+  /// Generate a polyline into the temporary storage held by the [writer].
+  ///
+  /// It is suitable to use the max basis length of the matrix used to transform
+  /// the path. If the provided scale is 0, curves will revert to straight
+  /// lines.
+  void WritePolyline(Scalar scale, VertexWriter& writer) const;
+
+  /// Determine required storage for points and number of contours.
+  std::pair<size_t, size_t> CountStorage(Scalar scale) const;
+
  private:
   friend class PathBuilder;
-
-  struct ComponentIndexPair {
-    ComponentType type = ComponentType::kLinear;
-    size_t index = 0;
-
-    ComponentIndexPair() {}
-
-    ComponentIndexPair(ComponentType a_type, size_t a_index)
-        : type(a_type), index(a_index) {}
-  };
 
   // All of the data for the path is stored in this structure which is
   // held by a shared_ptr. Since they all share the structure, the
@@ -205,11 +252,10 @@ class Path {
 
     FillType fill = FillType::kNonZero;
     Convexity convexity = Convexity::kUnknown;
-    std::vector<ComponentIndexPair> components;
-    std::vector<Point> points;
-    std::vector<ContourComponent> contours;
-
+    bool single_contour = true;
     std::optional<Rect> bounds;
+    std::vector<Point> points;
+    std::vector<ComponentType> components;
   };
 
   explicit Path(Data data);

@@ -15,7 +15,7 @@ FLUTTER_ASSERT_ARC
 
 @interface FlutterAppDelegateTest : XCTestCase
 @property(strong) FlutterAppDelegate* appDelegate;
-
+@property(strong) FlutterViewController* viewController;
 @property(strong) id mockMainBundle;
 @property(strong) id mockNavigationChannel;
 
@@ -37,6 +37,8 @@ FLUTTER_ASSERT_ARC
   self.appDelegate = appDelegate;
 
   FlutterViewController* viewController = OCMClassMock([FlutterViewController class]);
+  self.viewController = viewController;
+
   FlutterMethodChannel* navigationChannel = OCMClassMock([FlutterMethodChannel class]);
   self.mockNavigationChannel = navigationChannel;
 
@@ -62,26 +64,36 @@ FLUTTER_ASSERT_ARC
   OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
       .andReturn(@YES);
 
+  OCMStub([self.mockNavigationChannel
+              invokeMethod:@"pushRouteInformation"
+                 arguments:@{@"location" : @"http://myApp/custom/route?query=test"}])
+      .andReturn(@YES);
+
   BOOL result =
       [self.appDelegate application:[UIApplication sharedApplication]
                             openURL:[NSURL URLWithString:@"http://myApp/custom/route?query=test"]
                             options:@{}];
+
   XCTAssertTrue(result);
-  OCMVerify([self.mockNavigationChannel
-      invokeMethod:@"pushRouteInformation"
-         arguments:@{@"location" : @"http://myApp/custom/route?query=test"}]);
+  OCMVerifyAll(self.mockNavigationChannel);
 }
 
 - (void)testLaunchUrlWithDeepLinkingNotSet {
   OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
       .andReturn(nil);
 
+  OCMStub([self.mockNavigationChannel
+              invokeMethod:@"pushRouteInformation"
+                 arguments:@{@"location" : @"http://myApp/custom/route?query=test"}])
+      .andReturn(@YES);
+
   BOOL result =
       [self.appDelegate application:[UIApplication sharedApplication]
                             openURL:[NSURL URLWithString:@"http://myApp/custom/route?query=test"]
                             options:@{}];
-  XCTAssertFalse(result);
-  OCMReject([self.mockNavigationChannel invokeMethod:OCMOCK_ANY arguments:OCMOCK_ANY]);
+
+  XCTAssertTrue(result);
+  OCMVerifyAll(self.mockNavigationChannel);
 }
 
 - (void)testLaunchUrlWithDeepLinkingDisabled {
@@ -99,29 +111,31 @@ FLUTTER_ASSERT_ARC
 - (void)testLaunchUrlWithQueryParameterAndFragment {
   OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
       .andReturn(@YES);
-
+  OCMStub([self.mockNavigationChannel
+              invokeMethod:@"pushRouteInformation"
+                 arguments:@{@"location" : @"http://myApp/custom/route?query=test#fragment"}])
+      .andReturn(@YES);
   BOOL result = [self.appDelegate
       application:[UIApplication sharedApplication]
           openURL:[NSURL URLWithString:@"http://myApp/custom/route?query=test#fragment"]
           options:@{}];
   XCTAssertTrue(result);
-  OCMVerify([self.mockNavigationChannel
-      invokeMethod:@"pushRouteInformation"
-         arguments:@{@"location" : @"http://myApp/custom/route?query=test#fragment"}]);
+  OCMVerifyAll(self.mockNavigationChannel);
 }
 
 - (void)testLaunchUrlWithFragmentNoQueryParameter {
   OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
       .andReturn(@YES);
-
+  OCMStub([self.mockNavigationChannel
+              invokeMethod:@"pushRouteInformation"
+                 arguments:@{@"location" : @"http://myApp/custom/route#fragment"}])
+      .andReturn(@YES);
   BOOL result =
       [self.appDelegate application:[UIApplication sharedApplication]
                             openURL:[NSURL URLWithString:@"http://myApp/custom/route#fragment"]
                             options:@{}];
   XCTAssertTrue(result);
-  OCMVerify([self.mockNavigationChannel
-      invokeMethod:@"pushRouteInformation"
-         arguments:@{@"location" : @"http://myApp/custom/route#fragment"}]);
+  OCMVerifyAll(self.mockNavigationChannel);
 }
 
 - (void)testReleasesWindowOnDealloc {
@@ -145,7 +159,10 @@ FLUTTER_ASSERT_ARC
 - (void)testUniversalLinkPushRouteInformation {
   OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
       .andReturn(@YES);
-
+  OCMStub([self.mockNavigationChannel
+              invokeMethod:@"pushRouteInformation"
+                 arguments:@{@"location" : @"http://myApp/custom/route?query=test"}])
+      .andReturn(@YES);
   NSUserActivity* userActivity = [[NSUserActivity alloc] initWithActivityType:@"com.example.test"];
   userActivity.webpageURL = [NSURL URLWithString:@"http://myApp/custom/route?query=test"];
   BOOL result = [self.appDelegate
@@ -154,9 +171,31 @@ FLUTTER_ASSERT_ARC
         restorationHandler:^(NSArray<id<UIUserActivityRestoring>>* __nullable restorableObjects){
         }];
   XCTAssertTrue(result);
-  OCMVerify([self.mockNavigationChannel
-      invokeMethod:@"pushRouteInformation"
-         arguments:@{@"location" : @"http://myApp/custom/route?query=test"}]);
+  OCMVerifyAll(self.mockNavigationChannel);
+}
+
+- (void)testUseNonDeprecatedOpenURLAPI {
+  OCMStub([self.mockMainBundle objectForInfoDictionaryKey:@"FlutterDeepLinkingEnabled"])
+      .andReturn(@YES);
+  NSUserActivity* userActivity = [[NSUserActivity alloc] initWithActivityType:@"com.example.test"];
+  userActivity.webpageURL = [NSURL URLWithString:@"http://myApp/custom/route?query=nonexist"];
+  OCMStub([self.viewController sendDeepLinkToFramework:[OCMArg any] completionHandler:[OCMArg any]])
+      .andDo(^(NSInvocation* invocation) {
+        void (^handler)(BOOL success);
+        [invocation getArgument:&handler atIndex:3];
+        handler(NO);
+      });
+  id mockApplication = OCMClassMock([UIApplication class]);
+  OCMStub([mockApplication sharedApplication]).andReturn(mockApplication);
+  BOOL result = [self.appDelegate
+               application:[UIApplication sharedApplication]
+      continueUserActivity:userActivity
+        restorationHandler:^(NSArray<id<UIUserActivityRestoring>>* __nullable restorableObjects){
+        }];
+  XCTAssertTrue(result);
+  OCMVerify([mockApplication openURL:[OCMArg any]
+                             options:[OCMArg any]
+                   completionHandler:[OCMArg any]]);
 }
 
 @end

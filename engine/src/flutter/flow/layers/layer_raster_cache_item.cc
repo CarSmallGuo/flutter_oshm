@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#if !SLIMPELLER
+
 #include "flutter/flow/layers/layer_raster_cache_item.h"
 #include "flutter/flow/layers/container_layer.h"
 #include "flutter/flow/raster_cache_item.h"
@@ -22,12 +24,12 @@ LayerRasterCacheItem::LayerRasterCacheItem(Layer* layer,
       can_cache_children_(can_cache_children) {}
 
 void LayerRasterCacheItem::PrerollSetup(PrerollContext* context,
-                                        const SkMatrix& matrix) {
+                                        const DlMatrix& matrix) {
   cache_state_ = CacheState::kNone;
   if (context->raster_cache && context->raster_cached_entries) {
     context->raster_cached_entries->push_back(this);
     child_items_ = context->raster_cached_entries->size();
-    matrix_ = matrix;
+    set_matrix(matrix);
   }
 }
 
@@ -40,7 +42,7 @@ std::unique_ptr<LayerRasterCacheItem> LayerRasterCacheItem::Make(
 }
 
 void LayerRasterCacheItem::PrerollFinalize(PrerollContext* context,
-                                           const SkMatrix& matrix) {
+                                           const DlMatrix& matrix) {
   if (!context->raster_cache || !context->raster_cached_entries) {
     return;
   }
@@ -89,10 +91,10 @@ std::optional<RasterCacheKeyID> LayerRasterCacheItem::GetId() const {
 const SkRect* LayerRasterCacheItem::GetPaintBoundsFromLayer() const {
   switch (cache_state_) {
     case CacheState::kCurrent:
-      return &(layer_->paint_bounds());
+      return &ToSkRect(layer_->paint_bounds());
     case CacheState::kChildren:
       FML_DCHECK(layer_->as_container_layer());
-      return &(layer_->as_container_layer()->child_paint_bounds());
+      return &ToSkRect(layer_->as_container_layer()->child_paint_bounds());
     default:
       FML_DCHECK(cache_state_ != CacheState::kNone);
       return nullptr;
@@ -106,8 +108,6 @@ bool Rasterize(RasterCacheItem::CacheState cache_state,
   FML_DCHECK(cache_state != RasterCacheItem::CacheState::kNone);
   LayerStateStack state_stack;
   state_stack.set_delegate(canvas);
-  state_stack.set_checkerboard_func(
-      paint_context.state_stack.checkerboard_func());
   PaintContext context = {
       // clang-format off
       .state_stack                   = state_stack,
@@ -198,3 +198,5 @@ bool LayerRasterCacheItem::Draw(const PaintContext& context,
 }
 
 }  // namespace flutter
+
+#endif  //  !SLIMPELLER

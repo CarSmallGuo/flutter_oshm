@@ -19,18 +19,14 @@
 #include "flutter/lib/ui/semantics/semantics_node.h"
 #include "flutter/lib/ui/snapshot_delegate.h"
 #include "flutter/lib/ui/text/font_collection.h"
-#include "flutter/lib/ui/volatile_path_tracker.h"
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/lib/ui/window/viewport_metrics.h"
 #include "flutter/runtime/dart_vm.h"
 #include "flutter/runtime/runtime_controller.h"
 #include "flutter/runtime/runtime_delegate.h"
 #include "flutter/shell/common/animator.h"
-#include "flutter/shell/common/display_manager.h"
-#include "flutter/shell/common/platform_view.h"
 #include "flutter/shell/common/pointer_data_dispatcher.h"
 #include "flutter/shell/common/run_configuration.h"
-#include "flutter/shell/common/shell_io_manager.h"
 
 namespace flutter {
 
@@ -154,12 +150,14 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
     ///             `CustomAccessibilityActionUpdates`,
     ///             `PlatformView::UpdateSemantics`
     ///
+    /// @param[in]  view_id  The ID of the view that this update is for
     /// @param[in]  updates  A map with the stable semantics node identifier as
     ///                      key and the node properties as the value.
     /// @param[in]  actions  A map with the stable semantics node identifier as
     ///                      key and the custom node action as the value.
     ///
     virtual void OnEngineUpdateSemantics(
+        int64_t view_id,
         SemanticsNodeUpdates updates,
         CustomAccessibilityActionUpdates actions) = 0;
 
@@ -327,6 +325,14 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
     ///
     virtual double GetScaledFontSize(double unscaled_font_size,
                                      int configuration_id) const = 0;
+
+    //--------------------------------------------------------------------------
+    /// @brief      Notifies the client that the Flutter view focus state has
+    ///             changed and the platform view should be updated.
+    ///
+    /// @param[in]  request  The request to change the focus state of the view.
+    virtual void RequestViewFocusChange(
+        const ViewFocusChangeRequest& request) = 0;
   };
 
   //----------------------------------------------------------------------------
@@ -399,7 +405,6 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
          fml::WeakPtr<IOManager> io_manager,
          const fml::RefPtr<SkiaUnrefQueue>& unref_queue,
          fml::TaskRunnerAffineWeakPtr<SnapshotDelegate> snapshot_delegate,
-         std::shared_ptr<VolatilePathTracker> volatile_path_tracker,
          const std::shared_ptr<fml::SyncSwitch>& gpu_disabled_switch,
          impeller::RuntimeStageBackend runtime_stage_type =
              impeller::RuntimeStageBackend::kSkSL);
@@ -684,6 +689,15 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   ///
   bool UIIsolateHasLivePorts();
 
+  /// @brief      Another signal of liveness is the presence of microtasks that
+  ///             have been queued by the application but have not yet been
+  ///             executed.  Embedders may want to check for pending microtasks
+  ///             and ensure that the microtask queue has been drained before
+  ///             the embedder terminates.
+  ///
+  /// @return     Check if the root isolate has any pending microtasks.
+  bool UIIsolateHasPendingMicrotasks();
+
   //----------------------------------------------------------------------------
   /// @brief      Errors that are unhandled on the Dart message loop are kept
   ///             for further inspection till the next unhandled error comes
@@ -721,8 +735,12 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   ///
   /// @param[in]  view_id           The ID of the new view.
   /// @param[in]  viewport_metrics  The initial viewport metrics for the view.
+  /// @param[in]  callback          Callback that will be invoked once
+  ///                               the engine attempts to add the view.
   ///
-  void AddView(int64_t view_id, const ViewportMetrics& view_metrics);
+  void AddView(int64_t view_id,
+               const ViewportMetrics& view_metrics,
+               std::function<void(bool added)> callback);
 
   //----------------------------------------------------------------------------
   /// @brief      Notify the Flutter application that a view is no
@@ -738,6 +756,13 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   /// @return     Whether the view was removed.
   ///
   bool RemoveView(int64_t view_id);
+
+  //----------------------------------------------------------------------------
+  /// @brief      Notify the Flutter application that the focus state of a
+  ///             native view has changed.
+  ///
+  /// @param[in]  event  The focus event describing the change.
+  bool SendViewFocusEvent(const ViewFocusEvent& event);
 
   //----------------------------------------------------------------------------
   /// @brief      Updates the viewport metrics for a view. The viewport metrics
@@ -796,12 +821,14 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   ///             originates on the platform view and has been forwarded to the
   ///             engine here on the UI task runner by the shell.
   ///
+  /// @param[in]  view_id The identifier of the view.
   /// @param[in]  node_id The identifier of the accessibility node.
   /// @param[in]  action  The accessibility related action performed on the
   ///                     node of the specified ID.
   /// @param[in]  args    Optional data that applies to the specified action.
   ///
-  void DispatchSemanticsAction(int node_id,
+  void DispatchSemanticsAction(int64_t view_id,
+                               int node_id,
                                SemanticsAction action,
                                fml::MallocMapping args);
 
@@ -970,6 +997,11 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   ///
   void ShutdownPlatformIsolates();
 
+  //--------------------------------------------------------------------------
+  /// @brief      Flushes the microtask queue of the root isolate.
+  ///
+  void FlushMicrotaskQueue();
+
  private:
   // |RuntimeDelegate|
   std::string DefaultRouteName() override;
@@ -980,7 +1012,8 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
               float device_pixel_ratio) override;
 
   // |RuntimeDelegate|
-  void UpdateSemantics(SemanticsNodeUpdates update,
+  void UpdateSemantics(int64_t view_id,
+                       SemanticsNodeUpdates update,
                        CustomAccessibilityActionUpdates actions) override;
 
   // |RuntimeDelegate|
@@ -1010,6 +1043,9 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   // |RuntimeDelegate|
   double GetScaledFontSize(double unscaled_font_size,
                            int configuration_id) const override;
+
+  // |RuntimeDelegate|
+  void RequestViewFocusChange(const ViewFocusChangeRequest& request) override;
 
   void SetNeedsReportTimings(bool value) override;
 
@@ -1044,6 +1080,7 @@ class Engine final : public RuntimeDelegate, PointerDataDispatcher::Delegate {
   std::string initial_route_;
   std::shared_ptr<AssetManager> asset_manager_;
   std::shared_ptr<FontCollection> font_collection_;
+  std::shared_ptr<NativeAssetsManager> native_assets_manager_;
   const std::unique_ptr<ImageDecoder> image_decoder_;
   ImageGeneratorRegistry image_generator_registry_;
   TaskRunners task_runners_;

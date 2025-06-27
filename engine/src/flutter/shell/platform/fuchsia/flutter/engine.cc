@@ -27,7 +27,7 @@
 #include "flutter/shell/common/thread_host.h"
 #include "third_party/skia/include/core/SkPicture.h"
 #include "third_party/skia/include/core/SkSerialProcs.h"
-#include "third_party/skia/include/gpu/GrTypes.h"
+#include "third_party/skia/include/gpu/ganesh/GrTypes.h"
 #include "third_party/skia/include/ports/SkFontMgr_fuchsia.h"
 
 #include "../runtime/dart/utils/files.h"
@@ -42,6 +42,7 @@
 
 namespace flutter_runner {
 namespace {
+constexpr static int64_t kImplicitViewId = 0;
 
 zx_koid_t GetKoid(const fuchsia::ui::views::ViewRef& view_ref) {
   zx_handle_t handle = view_ref.reference.get();
@@ -393,7 +394,10 @@ void Engine::Initialize(
             auto platform_view = shell_->GetPlatformView();
 
             if (platform_view) {
-              platform_view->DispatchSemanticsAction(node_id, action, {});
+              // TODO(fuchsia): Remove implicit view assumption.
+              // https://github.com/flutter/flutter/issues/142845
+              platform_view->DispatchSemanticsAction(kImplicitViewId, node_id,
+                                                     action, {});
             }
           };
 

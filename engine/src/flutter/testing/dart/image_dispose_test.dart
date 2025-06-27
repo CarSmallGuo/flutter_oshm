@@ -6,20 +6,15 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui';
 
-import 'package:litetest/litetest.dart';
 import 'package:path/path.dart' as path;
+import 'package:test/test.dart';
 
 void main() {
-  bool assertsEnabled = false;
-  assert(() {
-    assertsEnabled = true;
-    return true;
-  }());
-
   test('Handles are distinct', () async {
     final Uint8List bytes = await _readFile('2x2.png');
     final Codec codec = await instantiateImageCodec(bytes);
     final FrameInfo frame = await codec.getNextFrame();
+    codec.dispose();
 
     expect(frame.image.width, 2);
     expect(frame.image.height, 2);
@@ -39,6 +34,7 @@ void main() {
     final Uint8List bytes = await _readFile('2x2.png');
     final Codec codec = await instantiateImageCodec(bytes);
     final FrameInfo frame = await codec.getNextFrame();
+    codec.dispose();
 
     expect(frame.image.width, 2);
     expect(frame.image.height, 2);
@@ -52,7 +48,15 @@ void main() {
     canvas.drawImageRect(handle1, rect, rect, Paint());
     canvas.drawImageNine(handle1, rect, rect, Paint());
     canvas.drawAtlas(handle1, <RSTransform>[], <Rect>[], <Color>[], BlendMode.src, rect, Paint());
-    canvas.drawRawAtlas(handle1, Float32List(0), Float32List(0), Int32List(0), BlendMode.src, rect, Paint());
+    canvas.drawRawAtlas(
+      handle1,
+      Float32List(0),
+      Float32List(0),
+      Int32List(0),
+      BlendMode.src,
+      rect,
+      Paint(),
+    );
 
     final Picture picture = recorder.endRecording();
 
@@ -69,6 +73,7 @@ void main() {
     final Uint8List bytes = await _readFile('2x2.png');
     final Codec codec = await instantiateImageCodec(bytes);
     final FrameInfo frame = await codec.getNextFrame();
+    codec.dispose();
 
     final Image handle1 = frame.image.clone();
     final Image handle2 = handle1.clone();
@@ -89,12 +94,13 @@ void main() {
 
     frame.image.dispose();
     expect(frame.image.debugGetOpenHandleStackTraces(), isEmpty);
-  }, skip: !assertsEnabled);
+  });
 
   test('Clones can be compared', () async {
     final Uint8List bytes = await _readFile('2x2.png');
     final Codec codec = await instantiateImageCodec(bytes);
     final FrameInfo frame = await codec.getNextFrame();
+    codec.dispose();
 
     final Image handle1 = frame.image.clone();
     final Image handle2 = handle1.clone();
@@ -110,6 +116,7 @@ void main() {
 
     final Codec codec2 = await instantiateImageCodec(bytes);
     final FrameInfo frame2 = await codec2.getNextFrame();
+    codec2.dispose();
 
     expect(frame2.image.isCloneOf(frame.image), false);
   });
@@ -118,28 +125,16 @@ void main() {
     final Uint8List bytes = await _readFile('2x2.png');
     final Codec codec = await instantiateImageCodec(bytes);
     final FrameInfo frame = await codec.getNextFrame();
+    codec.dispose();
 
-    if (assertsEnabled) {
-      expect(frame.image.debugDisposed, false);
-    } else {
-      expect(() => frame.image.debugDisposed, throwsStateError);
-    }
+    expect(frame.image.debugDisposed, false);
 
     frame.image.dispose();
-    if (assertsEnabled) {
-      expect(frame.image.debugDisposed, true);
-    } else {
-      expect(() => frame.image.debugDisposed, throwsStateError);
-    }
+    expect(frame.image.debugDisposed, true);
   });
 }
 
 Future<Uint8List> _readFile(String fileName) async {
-  final File file = File(path.join(
-    'flutter',
-    'testing',
-    'resources',
-    fileName,
-  ));
+  final File file = File(path.join('flutter', 'testing', 'resources', fileName));
   return file.readAsBytes();
 }

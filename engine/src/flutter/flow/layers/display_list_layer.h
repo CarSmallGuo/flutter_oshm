@@ -7,6 +7,7 @@
 
 #include <memory>
 
+#include "flutter/common/macros.h"
 #include "flutter/display_list/display_list.h"
 #include "flutter/flow/layers/display_list_raster_cache_item.h"
 #include "flutter/flow/layers/layer.h"
@@ -18,7 +19,7 @@ class DisplayListLayer : public Layer {
  public:
   static constexpr size_t kMaxBytesToCompare = 10000;
 
-  DisplayListLayer(const SkPoint& offset,
+  DisplayListLayer(const DlPoint& offset,
                    sk_sp<DisplayList> display_list,
                    bool is_complex,
                    bool will_change);
@@ -37,6 +38,7 @@ class DisplayListLayer : public Layer {
 
   void Paint(PaintContext& context) const override;
 
+#if !SLIMPELLER
   const DisplayListRasterCacheItem* raster_cache_item() const {
     return display_list_raster_cache_item_.get();
   }
@@ -45,12 +47,14 @@ class DisplayListLayer : public Layer {
     return RasterCacheKeyID(display_list()->unique_id(),
                             RasterCacheKeyType::kDisplayList);
   }
+#endif  //  !SLIMPELLER
 
  private:
-  std::unique_ptr<DisplayListRasterCacheItem> display_list_raster_cache_item_;
+  NOT_SLIMPELLER(std::unique_ptr<DisplayListRasterCacheItem>
+                     display_list_raster_cache_item_);
 
-  SkPoint offset_;
-  SkRect bounds_;
+  DlPoint offset_;
+  DlRect bounds_;
 
   sk_sp<DisplayList> display_list_;
 

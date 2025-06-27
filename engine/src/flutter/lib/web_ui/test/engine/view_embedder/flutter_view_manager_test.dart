@@ -10,7 +10,6 @@ import 'package:test/test.dart';
 import 'package:ui/src/engine.dart';
 
 import '../../common/matchers.dart';
-import '../../html/image_test.dart';
 
 void main() {
   internalBootstrapBrowserTest(() => doTests);
@@ -23,7 +22,10 @@ Future<void> doTests() async {
 
     group('registerView', () {
       test('can register view', () {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
+        final EngineFlutterView view = EngineFlutterView(
+          platformDispatcher,
+          createDomElement('div'),
+        );
         final int viewId = view.viewId;
 
         viewManager.registerView(view);
@@ -32,19 +34,27 @@ Future<void> doTests() async {
       });
 
       test('fails if the same viewId is already registered', () {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
+        final EngineFlutterView view = EngineFlutterView(
+          platformDispatcher,
+          createDomElement('div'),
+        );
 
         viewManager.registerView(view);
 
-        expect(() { viewManager.registerView(view); }, throwsAssertionError);
+        expect(() {
+          viewManager.registerView(view);
+        }, throwsAssertionError);
       });
 
       test('stores JSOptions that getOptions can retrieve', () {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
+        final EngineFlutterView view = EngineFlutterView(
+          platformDispatcher,
+          createDomElement('div'),
+        );
         final int viewId = view.viewId;
-        final JsFlutterViewOptions expectedOptions = jsify(<String, Object?>{
-          'hostElement': createDomElement('div'),
-        }) as JsFlutterViewOptions;
+        final JsFlutterViewOptions expectedOptions =
+            jsify(<String, Object?>{'hostElement': createDomElement('div')})
+                as JsFlutterViewOptions;
 
         viewManager.registerView(view, jsViewOptions: expectedOptions);
 
@@ -55,7 +65,10 @@ Future<void> doTests() async {
 
     group('unregisterView', () {
       test('unregisters a view', () {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
+        final EngineFlutterView view = EngineFlutterView(
+          platformDispatcher,
+          createDomElement('div'),
+        );
         final int viewId = view.viewId;
 
         viewManager.registerView(view);
@@ -71,17 +84,24 @@ Future<void> doTests() async {
       // can't hang "forever" waiting for this to complete. This stream will close
       // after 100ms of inactivity, regardless of what the test or the code do.
       final Stream<int> onViewCreated = viewManager.onViewCreated.timeout(
-          const Duration(milliseconds: 100), onTimeout: (EventSink<int> sink) {
-        sink.close();
-      });
+        const Duration(milliseconds: 100),
+        onTimeout: (EventSink<int> sink) {
+          sink.close();
+        },
+      );
 
       final Stream<int> onViewDisposed = viewManager.onViewDisposed.timeout(
-          const Duration(milliseconds: 100), onTimeout: (EventSink<int> sink) {
-        sink.close();
-      });
+        const Duration(milliseconds: 100),
+        onTimeout: (EventSink<int> sink) {
+          sink.close();
+        },
+      );
 
       test('on view registered/unregistered - fires event', () async {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
+        final EngineFlutterView view = EngineFlutterView(
+          platformDispatcher,
+          createDomElement('div'),
+        );
         final int viewId = view.viewId;
 
         final Future<List<void>> viewCreatedEvents = onViewCreated.toList();
@@ -95,20 +115,87 @@ Future<void> doTests() async {
         final List<void> createdViewsList = await viewCreatedEvents;
         final List<void> disposedViewsList = await viewCreatedEvents;
 
-        expect(createdViewsList, listEqual(<int>[viewId]),
-            reason: 'Should fire creation event for view');
-        expect(disposedViewsList, listEqual(<int>[viewId]),
-            reason: 'Should fire dispose event for view');
+        expect(
+          createdViewsList,
+          listEqual(<int>[viewId]),
+          reason: 'Should fire creation event for view',
+        );
+        expect(
+          disposedViewsList,
+          listEqual(<int>[viewId]),
+          reason: 'Should fire dispose event for view',
+        );
       });
     });
 
-    group('viewIdForRootElement', () {
-      test('works', () {
-        final EngineFlutterView view = EngineFlutterView(platformDispatcher, createDomElement('div'));
-        final int viewId = view.viewId;
+    group('findViewForElement', () {
+      test('finds view for root and descendant elements', () {
+        final DomElement host = createDomElement('div');
+        final EngineFlutterView view = EngineFlutterView(platformDispatcher, host);
+
         viewManager.registerView(view);
 
-        expect(viewManager.viewIdForRootElement(view.dom.rootElement), viewId);
+        final DomElement rootElement = view.dom.rootElement;
+        final DomElement child1 = createDomElement('div');
+        final DomElement child2 = createDomElement('div');
+        final DomElement child3 = createDomElement('div');
+        rootElement.append(child1);
+        rootElement.append(child2);
+        child2.append(child3);
+
+        expect(viewManager.findViewForElement(rootElement), view);
+        expect(viewManager.findViewForElement(child1), view);
+        expect(viewManager.findViewForElement(child2), view);
+        expect(viewManager.findViewForElement(child3), view);
+      });
+
+      test('returns null for host element', () {
+        final DomElement host = createDomElement('div');
+        final EngineFlutterView view = EngineFlutterView(platformDispatcher, host);
+        viewManager.registerView(view);
+
+        expect(viewManager.findViewForElement(host), isNull);
+      });
+
+      test("returns null for elements that don't belong to any view", () {
+        final DomElement host = createDomElement('div');
+        final EngineFlutterView view = EngineFlutterView(platformDispatcher, host);
+        viewManager.registerView(view);
+
+        final DomElement disconnectedElement = createDomElement('div');
+        final DomElement childOfBody = createDomElement('div');
+
+        domDocument.body!.append(childOfBody);
+
+        expect(viewManager.findViewForElement(disconnectedElement), isNull);
+        expect(viewManager.findViewForElement(childOfBody), isNull);
+        expect(viewManager.findViewForElement(domDocument.body), isNull);
+      });
+
+      test('does not recognize elements from unregistered views', () {
+        final DomElement host = createDomElement('div');
+        final EngineFlutterView view = EngineFlutterView(platformDispatcher, host);
+        viewManager.registerView(view);
+
+        final DomElement rootElement = view.dom.rootElement;
+        final DomElement child1 = createDomElement('div');
+        final DomElement child2 = createDomElement('div');
+        final DomElement child3 = createDomElement('div');
+        rootElement.append(child1);
+        rootElement.append(child2);
+        child2.append(child3);
+
+        expect(viewManager.findViewForElement(rootElement), view);
+        expect(viewManager.findViewForElement(child1), view);
+        expect(viewManager.findViewForElement(child2), view);
+        expect(viewManager.findViewForElement(child3), view);
+
+        viewManager.unregisterView(view.viewId);
+
+        expect(viewManager.findViewForElement(rootElement), isNull);
+        expect(viewManager.findViewForElement(child1), isNull);
+        expect(viewManager.findViewForElement(child2), isNull);
+        expect(viewManager.findViewForElement(child3), isNull);
       });
     });
   });

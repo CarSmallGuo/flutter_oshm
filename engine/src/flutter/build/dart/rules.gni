@@ -401,3 +401,7 @@ template("application_snapshot") {
     }
   }
 }
+import("//flutter/build/dart/internal/application_snapshot.gni")
+import("//flutter/build/dart/internal/dart_test.gni")
+import("//flutter/build/dart/internal/flutter_frontend_server.gni")
+import("//flutter/build/dart/internal/flutter_snapshot.gni")

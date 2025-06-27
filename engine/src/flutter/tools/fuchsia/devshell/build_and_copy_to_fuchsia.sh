@@ -92,7 +92,7 @@ then
   engine-warning "If you have already checked out Fuchsia's Flutter Engine commit and then committed some additional changes, please ignore the above warning."
 fi
 
-all_gn_args="--fuchsia --fuchsia-cpu="${fuchsia_cpu}" --runtime-mode="${runtime_mode}" ${goma_flags} ${unoptimized_flags} ${extra_gn_args[@]}"
+all_gn_args="--fuchsia --fuchsia-cpu="${fuchsia_cpu}" --runtime-mode="${runtime_mode}" ${unoptimized_flags} ${extra_gn_args[@]}"
 engine-info "GN args: ${all_gn_args}"
 
 "$ENGINE_DIR"/flutter/tools/gn ${all_gn_args}

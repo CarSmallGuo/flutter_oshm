@@ -13,12 +13,12 @@
 #include "flutter/lib/ui/text/font_collection.h"
 #include "flutter/lib/ui/ui_dart_state.h"
 #include "flutter/lib/ui/window/platform_configuration.h"
-#include "flutter/third_party/txt/src/txt/font_style.h"
-#include "flutter/third_party/txt/src/txt/font_weight.h"
-#include "flutter/third_party/txt/src/txt/paragraph_style.h"
-#include "flutter/third_party/txt/src/txt/text_baseline.h"
-#include "flutter/third_party/txt/src/txt/text_decoration.h"
-#include "flutter/third_party/txt/src/txt/text_style.h"
+#include "flutter/txt/src/txt/font_style.h"
+#include "flutter/txt/src/txt/font_weight.h"
+#include "flutter/txt/src/txt/paragraph_style.h"
+#include "flutter/txt/src/txt/text_baseline.h"
+#include "flutter/txt/src/txt/text_decoration.h"
+#include "flutter/txt/src/txt/text_style.h"
 #include "third_party/icu/source/common/unicode/ustring.h"
 #include "third_party/skia/include/core/SkColor.h"
 #include "third_party/tonic/converter/dart_converter.h"
@@ -29,6 +29,8 @@
 
 namespace flutter {
 namespace {
+
+const double kTextHeightNone = 0.0;
 
 // TextStyle
 
@@ -445,7 +447,7 @@ void ParagraphBuilder::pushStyle(const tonic::Int32List& encoded,
 
   if (mask & kTSHeightMask) {
     style.height = height;
-    style.has_height_override = true;
+    style.has_height_override = style.height != kTextHeightNone;
   }
 
   if (mask & kTSLocaleMask) {
@@ -456,7 +458,7 @@ void ParagraphBuilder::pushStyle(const tonic::Int32List& encoded,
     Paint background(background_objects, background_data);
     if (background.isNotNull()) {
       DlPaint dl_paint;
-      background.toDlPaint(dl_paint);
+      background.toDlPaint(dl_paint, DlTileMode::kDecal);
       style.background = dl_paint;
     }
   }
@@ -465,7 +467,7 @@ void ParagraphBuilder::pushStyle(const tonic::Int32List& encoded,
     Paint foreground(foreground_objects, foreground_data);
     if (foreground.isNotNull()) {
       DlPaint dl_paint;
-      foreground.toDlPaint(dl_paint);
+      foreground.toDlPaint(dl_paint, DlTileMode::kDecal);
       style.foreground = dl_paint;
     }
   }

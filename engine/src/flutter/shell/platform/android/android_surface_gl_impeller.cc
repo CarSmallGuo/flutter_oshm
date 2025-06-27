@@ -78,14 +78,32 @@ bool AndroidSurfaceGLImpeller::ResourceContextClearCurrent() {
 
 // |AndroidSurface|
 bool AndroidSurfaceGLImpeller::SetNativeWindow(
-    fml::RefPtr<AndroidNativeWindow> window) {
+    fml::RefPtr<AndroidNativeWindow> window,
+    const std::shared_ptr<PlatformViewAndroidJNI>& jni_facade) {
   native_window_ = std::move(window);
   return RecreateOnscreenSurfaceAndMakeOnscreenContextCurrent();
 }
 
 // |AndroidSurface|
 std::unique_ptr<Surface> AndroidSurfaceGLImpeller::CreateSnapshotSurface() {
-  FML_UNREACHABLE();
+  if (!onscreen_surface_ || !onscreen_surface_->IsValid()) {
+    onscreen_surface_ = android_context_->CreateOffscreenSurface();
+    if (!onscreen_surface_) {
+      FML_DLOG(ERROR) << "Could not create offscreen surface for snapshot.";
+      return nullptr;
+    }
+  }
+  // Make the snapshot surface current because constucting a
+  // GPUSurfaceGLImpeller and its AiksContext may invoke graphics APIs.
+  if (!android_context_->OnscreenContextMakeCurrent(onscreen_surface_.get())) {
+    FML_DLOG(ERROR) << "Could not make snapshot surface current.";
+    return nullptr;
+  }
+  return std::make_unique<GPUSurfaceGLImpeller>(
+      this,                                    // delegate
+      android_context_->GetImpellerContext(),  // context
+      true                                     // render to surface
+  );
 }
 
 // |AndroidSurface|

@@ -31,8 +31,7 @@ import 'dart:collection';
 import 'dart:convert' hide Codec;
 import 'dart:developer' as developer;
 import 'dart:js_util' as js_util;
-import 'dart:_js_annotations';
-import 'dart:js_interop' hide JS;
+import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -49,10 +48,8 @@ part 'engine/file3.dart';
 
     final String result = processSource(
       source,
-      (String source) => validateApiFile(
-        '/path/to/lib/web_ui/lib/src/engine.dart',
-        source,
-        'engine'),
+      (String source) =>
+          validateApiFile('/path/to/lib/web_ui/lib/src/engine.dart', source, 'engine'),
       generateApiFilePatterns('engine', false, <String>["import 'dart:extra';"]),
     );
     expect(result, expected);
@@ -72,8 +69,7 @@ import 'dart:collection';
 import 'dart:convert' hide Codec;
 import 'dart:developer' as developer;
 import 'dart:js_util' as js_util;
-import 'dart:_js_annotations';
-import 'dart:js_interop' hide JS;
+import 'dart:js_interop';
 import 'dart:js_interop_unsafe';
 import 'dart:math' as math;
 import 'dart:typed_data';
@@ -84,10 +80,8 @@ import 'dart:extra';
 
     final String result = processSource(
       source,
-      (String source) => validateApiFile(
-        '/path/to/lib/web_ui/lib/src/engine.dart',
-        source,
-        'engine'),
+      (String source) =>
+          validateApiFile('/path/to/lib/web_ui/lib/src/engine.dart', source, 'engine'),
       generateApiFilePatterns('engine', true, <String>["import 'dart:extra';"]),
     );
     expect(result, expected);
@@ -106,24 +100,21 @@ export 'engine/file3.dart';
     try {
       processSource(
         source,
-        (String source) => validateApiFile(
-          '/path/to/lib/web_ui/lib/src/engine.dart',
-          source,
-          'engine'),
+        (String source) =>
+            validateApiFile('/path/to/lib/web_ui/lib/src/engine.dart', source, 'engine'),
         generateApiFilePatterns('engine', false, <String>[]),
       );
-    } catch(error) {
+    } catch (error) {
       caught = error;
     }
     expect(caught, isA<Exception>());
     expect(
       '$caught',
       'Exception: on line 3: unexpected code in /path/to/lib/web_ui/lib/src/engine.dart. '
-      'This file may only contain comments and exports. Found:\n'
-      "import 'dart:something';",
+          'This file may only contain comments and exports. Found:\n'
+          "import 'dart:something';",
     );
   });
-
 
   test('removes imports/exports from engine files', () {
     const String source = '''
@@ -165,7 +156,7 @@ void printSomething() {
   test('gets correct extra imports', () {
     // Root libraries.
     expect(getExtraImportsForLibrary('engine'), <String>[
-      "import 'dart:_skwasm_stub' if (dart.library.ffi) 'dart:_skwasm_impl';",
+      "import 'dart:_skwasm_impl' if (dart.library.html) 'dart:_skwasm_stub';",
       "import 'dart:ui_web' as ui_web;",
       "import 'dart:_web_unicode';",
       "import 'dart:_web_test_fonts';",
@@ -191,5 +182,35 @@ void printSomething() {
     expect(getExtraImportsForLibrary('web_unicode'), isEmpty);
     expect(getExtraImportsForLibrary('web_test_fonts'), isEmpty);
     expect(getExtraImportsForLibrary('web_locale_keymap'), isEmpty);
+  });
+
+  test('allows imports to line-break', () {
+    const String source = '''
+import 'package:some_package/some_package.dart';
+import 'package:ui/src/engine/skwasm/skwasm_impl.dart'
+    if (dart.library.html) 'package:ui/src/engine/skwasm/skwasm_stub.dart';
+import 'package:ui/src/engine/skwasm/skwasm_impl.dart'
+    if (dart.library.js_interop) 'package:ui/src/engine/skwasm/skwasm_stub.dart';
+import 'package:some_package/some_package' as some_package;
+
+void printSomething() {
+  print('something');
+}
+''';
+
+    const String expected = '''
+part of dart._engine;
+
+void printSomething() {
+  print('something');
+}
+''';
+
+    final String result = processSource(
+      source,
+      (String source) => preprocessPartFile(source, 'engine'),
+      generatePartsPatterns('engine', false),
+    );
+    expect(result, expected);
   });
 }

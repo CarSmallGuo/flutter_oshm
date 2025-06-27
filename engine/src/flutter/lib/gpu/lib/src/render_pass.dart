@@ -10,17 +10,54 @@ base class ColorAttachment {
   ColorAttachment({
     this.loadAction = LoadAction.clear,
     this.storeAction = StoreAction.store,
-    this.clearValue = const ui.Color(0x00000000),
+    vm.Vector4? clearValue = null,
     required this.texture,
     this.resolveTexture = null,
-  });
+  }) : clearValue = clearValue ?? vm.Vector4.zero();
 
   LoadAction loadAction;
   StoreAction storeAction;
-  ui.Color clearValue;
+  vm.Vector4 clearValue;
 
   Texture texture;
   Texture? resolveTexture;
+
+  void _validate() {
+    if (resolveTexture != null) {
+      if (resolveTexture!.format != texture.format) {
+        throw Exception(
+          "ColorAttachment MSAA resolve texture must have the same format as the texture",
+        );
+      }
+      if (resolveTexture!.width != texture.width ||
+          resolveTexture!.height != texture.height) {
+        throw Exception(
+          "ColorAttachment MSAA resolve texture must have the same dimensions as the texture",
+        );
+      }
+      if (resolveTexture!.sampleCount != 1) {
+        throw Exception(
+          "ColorAttachment MSAA resolve texture must have a sample count of 1",
+        );
+      }
+      if (texture.sampleCount <= 1) {
+        throw Exception(
+          "ColorAttachment must have a sample count greater than 1 when a MSAA resolve texture is set",
+        );
+      }
+      if (storeAction != StoreAction.multisampleResolve &&
+          storeAction != StoreAction.storeAndMultisampleResolve) {
+        throw Exception(
+          "ColorAttachment StoreAction must be multisampleResolve or storeAndMultisampleResolve when a resolve texture is set",
+        );
+      }
+      if (resolveTexture!.storageMode == StorageMode.deviceTransient) {
+        throw Exception(
+          "ColorAttachment MSAA resolve texture must not have a storage mode of deviceTransient",
+        );
+      }
+    }
+  }
 }
 
 base class DepthStencilAttachment {
@@ -43,7 +80,44 @@ base class DepthStencilAttachment {
   int stencilClearValue;
 
   Texture texture;
+
+  void _validate() {
+    if (texture.storageMode == StorageMode.deviceTransient) {
+      if (depthLoadAction == LoadAction.load) {
+        throw Exception(
+          "DepthStencilAttachment depthLoadAction must not be load when the texture has a storage mode of deviceTransient",
+        );
+      }
+      if (stencilLoadAction == LoadAction.load) {
+        throw Exception(
+          "DepthStencilAttachment stencilLoadAction must not be load when the texture has a storage mode of deviceTransient",
+        );
+      }
+    }
+  }
 }
+
+base class StencilConfig {
+  StencilConfig({
+    this.compareFunction = CompareFunction.always,
+    this.stencilFailureOperation = StencilOperation.keep,
+    this.depthFailureOperation = StencilOperation.keep,
+    this.depthStencilPassOperation = StencilOperation.keep,
+    this.readMask = 0xFFFFFFFF,
+    this.writeMask = 0xFFFFFFFF,
+  });
+
+  CompareFunction compareFunction;
+  StencilOperation stencilFailureOperation;
+  StencilOperation depthFailureOperation;
+  StencilOperation depthStencilPassOperation;
+  int readMask;
+  int writeMask;
+}
+
+// Note: When modifying this enum, also update
+//       `InternalFlutterGpu_RenderPass_SetStencilConfig` in `gpu/render_pass.cc`.
+enum StencilFace { both, front, back }
 
 base class ColorBlendEquation {
   ColorBlendEquation({
@@ -80,16 +154,70 @@ base class SamplerOptions {
   SamplerAddressMode heightAddressMode;
 }
 
-base class RenderTarget {
-  const RenderTarget(
-      {this.colorAttachments = const <ColorAttachment>[],
-      this.depthStencilAttachment});
+base class Scissor {
+  Scissor({this.x = 0, this.y = 0, this.width = 0, this.height = 0});
 
-  RenderTarget.singleColor(ColorAttachment colorAttachment,
-      {DepthStencilAttachment? depthStencilAttachment})
-      : this(
-            colorAttachments: [colorAttachment],
-            depthStencilAttachment: depthStencilAttachment);
+  int x, y, width, height;
+
+  void _validate() {
+    if (x < 0 || y < 0 || width < 0 || height < 0) {
+      throw Exception(
+        "Invalid values for scissor. All values should be positive.",
+      );
+    }
+  }
+}
+
+base class DepthRange {
+  DepthRange({this.zNear = 0.0, this.zFar = 1.0});
+
+  double zNear;
+  double zFar;
+}
+
+base class Viewport {
+  Viewport({
+    this.x = 0,
+    this.y = 0,
+    this.width = 0,
+    this.height = 0,
+    DepthRange? depthRange = null,
+  }) : this.depthRange = depthRange ?? DepthRange();
+
+  int x, y, width, height;
+  DepthRange depthRange;
+
+  void _validate() {
+    if (x < 0 || y < 0 || width < 0 || height < 0) {
+      throw Exception(
+        "Invalid values for viewport. All values should be positive.",
+      );
+    }
+  }
+}
+
+base class RenderTarget {
+  const RenderTarget({
+    this.colorAttachments = const <ColorAttachment>[],
+    this.depthStencilAttachment,
+  });
+
+  RenderTarget.singleColor(
+    ColorAttachment colorAttachment, {
+    DepthStencilAttachment? depthStencilAttachment,
+  }) : this(
+         colorAttachments: [colorAttachment],
+         depthStencilAttachment: depthStencilAttachment,
+       );
+
+  _validate() {
+    for (final color in colorAttachments) {
+      color._validate();
+    }
+    if (depthStencilAttachment != null) {
+      depthStencilAttachment!._validate();
+    }
+  }
 
   final List<ColorAttachment> colorAttachments;
   final DepthStencilAttachment? depthStencilAttachment;
@@ -97,17 +225,31 @@ base class RenderTarget {
 
 base class RenderPass extends NativeFieldWrapperClass1 {
   /// Creates a new RenderPass.
-  RenderPass._(CommandBuffer commandBuffer, RenderTarget renderTarget) {
+  RenderPass._(
+    GpuContext gpuContext,
+    CommandBuffer commandBuffer,
+    RenderTarget renderTarget,
+  ) {
+    assert(() {
+      renderTarget._validate();
+      return true;
+    }());
+
     _initialize();
     String? error;
     for (final (index, color) in renderTarget.colorAttachments.indexed) {
       error = _setColorAttachment(
-          index,
-          color.loadAction.index,
-          color.storeAction.index,
-          color.clearValue.value,
-          color.texture,
-          color.resolveTexture);
+        gpuContext,
+        index,
+        color.loadAction.index,
+        color.storeAction.index,
+        color.clearValue.r,
+        color.clearValue.g,
+        color.clearValue.b,
+        color.clearValue.a,
+        color.texture,
+        color.resolveTexture,
+      );
       if (error != null) {
         throw Exception(error);
       }
@@ -115,13 +257,14 @@ base class RenderPass extends NativeFieldWrapperClass1 {
     if (renderTarget.depthStencilAttachment != null) {
       final ds = renderTarget.depthStencilAttachment!;
       error = _setDepthStencilAttachment(
-          ds.depthLoadAction.index,
-          ds.depthStoreAction.index,
-          ds.depthClearValue,
-          ds.stencilLoadAction.index,
-          ds.stencilStoreAction.index,
-          ds.stencilClearValue,
-          ds.texture);
+        ds.depthLoadAction.index,
+        ds.depthStoreAction.index,
+        ds.depthClearValue,
+        ds.stencilLoadAction.index,
+        ds.stencilStoreAction.index,
+        ds.stencilClearValue,
+        ds.texture,
+      );
       if (error != null) {
         throw Exception(error);
       }
@@ -138,38 +281,67 @@ base class RenderPass extends NativeFieldWrapperClass1 {
 
   void bindVertexBuffer(BufferView bufferView, int vertexCount) {
     bufferView.buffer._bindAsVertexBuffer(
-        this, bufferView.offsetInBytes, bufferView.lengthInBytes, vertexCount);
+      this,
+      bufferView.offsetInBytes,
+      bufferView.lengthInBytes,
+      vertexCount,
+    );
   }
 
   void bindIndexBuffer(
-      BufferView bufferView, IndexType indexType, int indexCount) {
-    bufferView.buffer._bindAsIndexBuffer(this, bufferView.offsetInBytes,
-        bufferView.lengthInBytes, indexType, indexCount);
+    BufferView bufferView,
+    IndexType indexType,
+    int indexCount,
+  ) {
+    bufferView.buffer._bindAsIndexBuffer(
+      this,
+      bufferView.offsetInBytes,
+      bufferView.lengthInBytes,
+      indexType,
+      indexCount,
+    );
   }
 
   void bindUniform(UniformSlot slot, BufferView bufferView) {
     bool success = bufferView.buffer._bindAsUniform(
-        this, slot, bufferView.offsetInBytes, bufferView.lengthInBytes);
+      this,
+      slot,
+      bufferView.offsetInBytes,
+      bufferView.lengthInBytes,
+    );
     if (!success) {
       throw Exception("Failed to bind uniform");
     }
   }
 
-  void bindTexture(UniformSlot slot, Texture texture,
-      {SamplerOptions? sampler}) {
+  void bindTexture(
+    UniformSlot slot,
+    Texture texture, {
+    SamplerOptions? sampler,
+  }) {
     if (sampler == null) {
       sampler = SamplerOptions();
     }
 
+    assert(() {
+      if (texture.storageMode == StorageMode.deviceTransient) {
+        throw Exception(
+          "Textures with StorageMode.deviceTransient cannot be bound to a RenderPass",
+        );
+      }
+      return true;
+    }());
+
     bool success = _bindTexture(
-        slot.shader,
-        slot.uniformName,
-        texture,
-        sampler.minFilter.index,
-        sampler.magFilter.index,
-        sampler.mipFilter.index,
-        sampler.widthAddressMode.index,
-        sampler.heightAddressMode.index);
+      slot.shader,
+      slot.uniformName,
+      texture,
+      sampler.minFilter.index,
+      sampler.magFilter.index,
+      sampler.mipFilter.index,
+      sampler.widthAddressMode.index,
+      sampler.heightAddressMode.index,
+    );
     if (!success) {
       throw Exception("Failed to bind texture");
     }
@@ -183,24 +355,96 @@ base class RenderPass extends NativeFieldWrapperClass1 {
     _setColorBlendEnable(colorAttachmentIndex, enable);
   }
 
-  void setColorBlendEquation(ColorBlendEquation equation,
-      {int colorAttachmentIndex = 0}) {
+  void setColorBlendEquation(
+    ColorBlendEquation equation, {
+    int colorAttachmentIndex = 0,
+  }) {
     _setColorBlendEquation(
-        colorAttachmentIndex,
-        equation.colorBlendOperation.index,
-        equation.sourceColorBlendFactor.index,
-        equation.destinationColorBlendFactor.index,
-        equation.alphaBlendOperation.index,
-        equation.sourceAlphaBlendFactor.index,
-        equation.destinationAlphaBlendFactor.index);
+      colorAttachmentIndex,
+      equation.colorBlendOperation.index,
+      equation.sourceColorBlendFactor.index,
+      equation.destinationColorBlendFactor.index,
+      equation.alphaBlendOperation.index,
+      equation.sourceAlphaBlendFactor.index,
+      equation.destinationAlphaBlendFactor.index,
+    );
   }
 
   void setDepthWriteEnable(bool enable) {
     _setDepthWriteEnable(enable);
   }
 
+  void setViewport(Viewport viewport) {
+    assert(() {
+      viewport._validate();
+      return true;
+    }());
+    _setViewport(
+      viewport.x,
+      viewport.y,
+      viewport.width,
+      viewport.height,
+      viewport.depthRange.zNear,
+      viewport.depthRange.zFar,
+    );
+  }
+
   void setDepthCompareOperation(CompareFunction compareFunction) {
     _setDepthCompareOperation(compareFunction.index);
+  }
+
+  void setStencilReference(int referenceValue) {
+    if (referenceValue < 0 || referenceValue > 0xFFFFFFFF) {
+      throw Exception(
+        "The stencil reference value must be in the range [0, 2^32 - 1]",
+      );
+    }
+    _setStencilReference(referenceValue);
+  }
+
+  void setStencilConfig(
+    StencilConfig configuration, {
+    StencilFace targetFace = StencilFace.both,
+  }) {
+    if (configuration.readMask < 0 || configuration.readMask > 0xFFFFFFFF) {
+      throw Exception("The stencil read mask must be in the range [0, 255]");
+    }
+    if (configuration.writeMask < 0 || configuration.writeMask > 0xFFFFFFFF) {
+      throw Exception("The stencil write mask must be in the range [0, 255]");
+    }
+    _setStencilConfig(
+      configuration.compareFunction.index,
+      configuration.stencilFailureOperation.index,
+      configuration.depthFailureOperation.index,
+      configuration.depthStencilPassOperation.index,
+      configuration.readMask,
+      configuration.writeMask,
+      targetFace.index,
+    );
+  }
+
+  void setScissor(Scissor scissor) {
+    assert(() {
+      scissor._validate();
+      return true;
+    }());
+    _setScissor(scissor.x, scissor.y, scissor.width, scissor.height);
+  }
+
+  void setCullMode(CullMode cullMode) {
+    _setCullMode(cullMode.index);
+  }
+
+  void setPolygonMode(PolygonMode polygonMode) {
+    _setPolygonMode(polygonMode.index);
+  }
+
+  void setPrimitiveType(PrimitiveType primitiveType) {
+    _setPrimitiveType(primitiveType.index);
+  }
+
+  void setWindingOrder(WindingOrder windingOrder) {
+    _setWindingOrder(windingOrder.index);
   }
 
   void draw() {
@@ -211,122 +455,216 @@ base class RenderPass extends NativeFieldWrapperClass1 {
 
   /// Wrap with native counterpart.
   @Native<Void Function(Handle)>(
-      symbol: 'InternalFlutterGpu_RenderPass_Initialize')
+    symbol: 'InternalFlutterGpu_RenderPass_Initialize',
+  )
   external void _initialize();
 
   @Native<
-      Handle Function(Pointer<Void>, Int, Int, Int, Int, Pointer<Void>,
-          Handle)>(symbol: 'InternalFlutterGpu_RenderPass_SetColorAttachment')
+    Handle Function(
+      Pointer<Void>,
+      Pointer<Void>,
+      Int,
+      Int,
+      Int,
+      Float,
+      Float,
+      Float,
+      Float,
+      Pointer<Void>,
+      Handle,
+    )
+  >(symbol: 'InternalFlutterGpu_RenderPass_SetColorAttachment')
   external String? _setColorAttachment(
-      int colorAttachmentIndex,
-      int loadAction,
-      int storeAction,
-      int clearColor,
-      Texture texture,
-      Texture? resolveTexture);
+    GpuContext context,
+    int colorAttachmentIndex,
+    int loadAction,
+    int storeAction,
+    double clearColorR,
+    double clearColorG,
+    double clearColorB,
+    double clearColorA,
+    Texture texture,
+    Texture? resolveTexture,
+  );
 
   @Native<
-          Handle Function(
-              Pointer<Void>, Int, Int, Float, Int, Int, Int, Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_RenderPass_SetDepthStencilAttachment')
+    Handle Function(
+      Pointer<Void>,
+      Int,
+      Int,
+      Float,
+      Int,
+      Int,
+      Int,
+      Pointer<Void>,
+    )
+  >(symbol: 'InternalFlutterGpu_RenderPass_SetDepthStencilAttachment')
   external String? _setDepthStencilAttachment(
-      int depthLoadAction,
-      int depthStoreAction,
-      double depthClearValue,
-      int stencilLoadAction,
-      int stencilStoreAction,
-      int stencilClearValue,
-      Texture texture);
+    int depthLoadAction,
+    int depthStoreAction,
+    double depthClearValue,
+    int stencilLoadAction,
+    int stencilStoreAction,
+    int stencilClearValue,
+    Texture texture,
+  );
 
   @Native<Handle Function(Pointer<Void>, Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_RenderPass_Begin')
+    symbol: 'InternalFlutterGpu_RenderPass_Begin',
+  )
   external String? _begin(CommandBuffer commandBuffer);
 
   @Native<Void Function(Pointer<Void>, Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_RenderPass_BindPipeline')
+    symbol: 'InternalFlutterGpu_RenderPass_BindPipeline',
+  )
   external void _bindPipeline(RenderPipeline pipeline);
 
   @Native<Void Function(Pointer<Void>, Pointer<Void>, Int, Int, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_BindVertexBufferDevice')
-  external void _bindVertexBufferDevice(DeviceBuffer buffer, int offsetInBytes,
-      int lengthInBytes, int vertexCount);
-
-  @Native<Void Function(Pointer<Void>, Pointer<Void>, Int, Int, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_BindVertexBufferHost')
-  external void _bindVertexBufferHost(
-      HostBuffer buffer, int offsetInBytes, int lengthInBytes, int vertexCount);
-
-  @Native<Void Function(Pointer<Void>, Pointer<Void>, Int, Int, Int, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_BindIndexBufferDevice')
-  external void _bindIndexBufferDevice(DeviceBuffer buffer, int offsetInBytes,
-      int lengthInBytes, int indexType, int indexCount);
+    symbol: 'InternalFlutterGpu_RenderPass_BindVertexBufferDevice',
+  )
+  external void _bindVertexBufferDevice(
+    DeviceBuffer buffer,
+    int offsetInBytes,
+    int lengthInBytes,
+    int vertexCount,
+  );
 
   @Native<Void Function(Pointer<Void>, Pointer<Void>, Int, Int, Int, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_BindIndexBufferHost')
-  external void _bindIndexBufferHost(HostBuffer buffer, int offsetInBytes,
-      int lengthInBytes, int indexType, int indexCount);
+    symbol: 'InternalFlutterGpu_RenderPass_BindIndexBufferDevice',
+  )
+  external void _bindIndexBufferDevice(
+    DeviceBuffer buffer,
+    int offsetInBytes,
+    int lengthInBytes,
+    int indexType,
+    int indexCount,
+  );
 
   @Native<
-      Bool Function(Pointer<Void>, Pointer<Void>, Handle, Pointer<Void>, Int,
-          Int)>(symbol: 'InternalFlutterGpu_RenderPass_BindUniformDevice')
-  external bool _bindUniformDevice(Shader shader, String uniformName,
-      DeviceBuffer buffer, int offsetInBytes, int lengthInBytes);
+    Bool Function(Pointer<Void>, Pointer<Void>, Handle, Pointer<Void>, Int, Int)
+  >(symbol: 'InternalFlutterGpu_RenderPass_BindUniformDevice')
+  external bool _bindUniformDevice(
+    Shader shader,
+    String uniformName,
+    DeviceBuffer buffer,
+    int offsetInBytes,
+    int lengthInBytes,
+  );
+
+  @Native<Void Function(Pointer<Void>, Int, Int, Int, Int, Float, Float)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetViewport',
+  )
+  external void _setViewport(
+    int x,
+    int y,
+    int width,
+    int height,
+    double depthRangeZNear,
+    double depthRangeZFar,
+  );
 
   @Native<
-      Bool Function(Pointer<Void>, Pointer<Void>, Handle, Pointer<Void>, Int,
-          Int)>(symbol: 'InternalFlutterGpu_RenderPass_BindUniformHost')
-  external bool _bindUniformHost(Shader shader, String uniformName,
-      HostBuffer buffer, int offsetInBytes, int lengthInBytes);
-
-  @Native<
-      Bool Function(
-          Pointer<Void>,
-          Pointer<Void>,
-          Handle,
-          Pointer<Void>,
-          Int,
-          Int,
-          Int,
-          Int,
-          Int)>(symbol: 'InternalFlutterGpu_RenderPass_BindTexture')
+    Bool Function(
+      Pointer<Void>,
+      Pointer<Void>,
+      Handle,
+      Pointer<Void>,
+      Int,
+      Int,
+      Int,
+      Int,
+      Int,
+    )
+  >(symbol: 'InternalFlutterGpu_RenderPass_BindTexture')
   external bool _bindTexture(
-      Shader shader,
-      String uniformName,
-      Texture texture,
-      int minFilter,
-      int magFilter,
-      int mipFilter,
-      int widthAddressMode,
-      int heightAddressMode);
+    Shader shader,
+    String uniformName,
+    Texture texture,
+    int minFilter,
+    int magFilter,
+    int mipFilter,
+    int widthAddressMode,
+    int heightAddressMode,
+  );
 
   @Native<Void Function(Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_RenderPass_ClearBindings')
+    symbol: 'InternalFlutterGpu_RenderPass_ClearBindings',
+  )
   external void _clearBindings();
 
   @Native<Void Function(Pointer<Void>, Int, Bool)>(
-      symbol: 'InternalFlutterGpu_RenderPass_SetColorBlendEnable')
+    symbol: 'InternalFlutterGpu_RenderPass_SetColorBlendEnable',
+  )
   external void _setColorBlendEnable(int colorAttachmentIndex, bool enable);
 
   @Native<Void Function(Pointer<Void>, Int, Int, Int, Int, Int, Int, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_SetColorBlendEquation')
+    symbol: 'InternalFlutterGpu_RenderPass_SetColorBlendEquation',
+  )
   external void _setColorBlendEquation(
-      int colorAttachmentIndex,
-      int colorBlendOperation,
-      int sourceColorBlendFactor,
-      int destinationColorBlendFactor,
-      int alphaBlendOperation,
-      int sourceAlphaBlendFactor,
-      int destinationAlphaBlendFactor);
+    int colorAttachmentIndex,
+    int colorBlendOperation,
+    int sourceColorBlendFactor,
+    int destinationColorBlendFactor,
+    int alphaBlendOperation,
+    int sourceAlphaBlendFactor,
+    int destinationAlphaBlendFactor,
+  );
 
   @Native<Void Function(Pointer<Void>, Bool)>(
-      symbol: 'InternalFlutterGpu_RenderPass_SetDepthWriteEnable')
+    symbol: 'InternalFlutterGpu_RenderPass_SetDepthWriteEnable',
+  )
   external void _setDepthWriteEnable(bool enable);
 
   @Native<Void Function(Pointer<Void>, Int)>(
-      symbol: 'InternalFlutterGpu_RenderPass_SetDepthCompareOperation')
+    symbol: 'InternalFlutterGpu_RenderPass_SetDepthCompareOperation',
+  )
   external void _setDepthCompareOperation(int compareOperation);
 
+  @Native<Void Function(Pointer<Void>, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetStencilReference',
+  )
+  external void _setStencilReference(int referenceValue);
+
+  @Native<Void Function(Pointer<Void>, Int, Int, Int, Int, Int, Int, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetStencilConfig',
+  )
+  external void _setStencilConfig(
+    int compareFunction,
+    int stencilFailureOperation,
+    int depthFailureOperation,
+    int depthStencilPassOperation,
+    int readMask,
+    int writeMask,
+    int target_face,
+  );
+
+  @Native<Void Function(Pointer<Void>, Int, Int, Int, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetScissor',
+  )
+  external void _setScissor(int x, int y, int width, int height);
+
+  @Native<Void Function(Pointer<Void>, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetCullMode',
+  )
+  external void _setCullMode(int cullMode);
+
+  @Native<Void Function(Pointer<Void>, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetPrimitiveType',
+  )
+  external void _setPrimitiveType(int primitiveType);
+
+  @Native<Void Function(Pointer<Void>, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetWindingOrder',
+  )
+  external void _setWindingOrder(int windingOrder);
+
+  @Native<Void Function(Pointer<Void>, Int)>(
+    symbol: 'InternalFlutterGpu_RenderPass_SetPolygonMode',
+  )
+  external void _setPolygonMode(int polygonMode);
+
   @Native<Bool Function(Pointer<Void>)>(
-      symbol: 'InternalFlutterGpu_RenderPass_Draw')
+    symbol: 'InternalFlutterGpu_RenderPass_Draw',
+  )
   external bool _draw();
 }

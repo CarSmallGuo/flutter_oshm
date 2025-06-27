@@ -21,7 +21,28 @@ generated_file("artifacts_entitlement_config") {
   }
 }
 
-if (build_engine_artifacts && !is_android && !is_ohos) {
+# This target is used to build a zip archive (artifacts.zip) of host tools such
+# as flutter_tester, the Dart kernel compiler, the impellerc shader compiler,
+# and other tooling that is bundled in debug-mode host builds.
+#
+# For historical reasons, this bundle also includes gen_snapshot (which is a
+# target-platform-specific binary) for desktop platforms, though the
+# un-suffixed gen_snapshot is unused on macOS (gen_snapshot_arm64 and
+# gen_snapshot_x64 are used in its place).
+#
+# Target-specific iOS artifacts.zip are produced in:
+# //flutter/sky/tools/create_ios_framework.py
+#
+# Target-specific Android archives are produced in:
+# //flutter/shell/platform/android:gen_snapshot
+#
+# macOS-specific gen_snapshot_arm64 and gen_snapshot_x64 are produced in:
+# //flutter/sky/tools/create_macos_gen_snapshots.py
+#
+# TODO: https://github.com/flutter/flutter/issues/38935
+# Target-specific binaries such as gen_snapshot should be separated into a
+# separate archive target from host binaries such as flutter_tester.
+if (build_engine_artifacts) {
   zip_bundle("artifacts") {
     deps = [
       "$dart_src/runtime/bin:gen_snapshot",
@@ -37,14 +58,17 @@ if (build_engine_artifacts && !is_android && !is_ohos) {
       # Mac artifacts sometimes use mac and sometimes darwin. Standardizing the
       # names will require changes in the list of artifacts the tool is downloading.
       if (flutter_runtime_mode == "debug") {
-        prefix = "darwin-$target_cpu/"
+        prefix = "darwin-$target_cpu"
       } else {
-        prefix = "darwin-$target_cpu-$flutter_runtime_mode/"
+        prefix = "darwin-$target_cpu-$flutter_runtime_mode"
       }
     } else if (flutter_runtime_mode != "debug") {
-      prefix = "$full_target_platform_name-$flutter_runtime_mode/"
+      prefix = "$full_target_platform_name-$flutter_runtime_mode"
     } else {
-      prefix = "$full_target_platform_name/"
+      prefix = "$full_target_platform_name"
+    }
+    if (dart_dynamic_modules) {
+      prefix = "$prefix-ddm"
     }
     output = "$prefix/artifacts.zip"
 
@@ -53,13 +77,16 @@ if (build_engine_artifacts && !is_android && !is_ohos) {
       exe = ".exe"
     }
 
-    # Only include gen_snapshot for all runtime modes.
+    # gen_snapshot is bundled for all runtime modes.
     files = [
       {
         source = "$root_out_dir/gen_snapshot$exe"
         destination = "gen_snapshot$exe"
       },
     ]
+
+    # Host tooling/libraries that are used only in debug builds, or which are
+    # identical across all runtime modes.
     if (flutter_runtime_mode == "debug") {
       dll = ".so"
       lib_prefix = "lib"
@@ -108,11 +135,14 @@ if (build_engine_artifacts && !is_android && !is_ohos) {
           destination = "vm_isolate_snapshot.bin"
         },
         {
-          source = "$root_gen_dir/frontend_server.dart.snapshot"
-          destination = "frontend_server.dart.snapshot"
+          source = "$root_gen_dir/frontend_server_aot.dart.snapshot"
+          destination = "frontend_server_aot.dart.snapshot"
         },
       ]
     }
+
+    # On macOS, add entitlements.txt, which contains filenames of binaries that
+    # need to be code-signed by a later CI stage.
     if (host_os == "mac") {
       deps += [ ":artifacts_entitlement_config" ]
       files += [
@@ -182,7 +212,11 @@ generated_file("dart_sdk_entitlement_config") {
 if (build_engine_artifacts && flutter_prebuilt_dart_sdk) {
   zip_bundle("dart_sdk_archive") {
     deps = [ ":dart_sdk_entitlement_config" ]
-    output = "dart-sdk-$full_target_platform_name.zip"
+    if (dart_dynamic_modules) {
+      output = "dart-sdk-$full_target_platform_name-ddm.zip"
+    } else {
+      output = "dart-sdk-$full_target_platform_name.zip"
+    }
     files = [
       {
         source = prebuilt_dart_sdk
@@ -207,7 +241,11 @@ if (build_engine_artifacts && flutter_prebuilt_dart_sdk) {
 if (build_engine_artifacts && !flutter_prebuilt_dart_sdk) {
   zip_bundle_from_file("dart_sdk_archive") {
     deps = [ "$dart_src:create_sdk" ]
-    output = "dart-sdk-$full_target_platform_name.zip"
+    if (dart_dynamic_modules) {
+      output = "dart-sdk-$full_target_platform_name-ddm.zip"
+    } else {
+      output = "dart-sdk-$full_target_platform_name.zip"
+    }
     files = [
       {
         source = rebase_path("$root_build_dir/dart-sdk")

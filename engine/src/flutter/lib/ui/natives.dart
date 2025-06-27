@@ -3,8 +3,6 @@
 // found in the LICENSE file.
 part of dart.ui;
 
-// ignore_for_file: avoid_classes_with_only_static_members
-
 /// Helper functions for Dart Plugin Registrants.
 abstract final class DartPluginRegistrant {
   static bool _wasInitialized = false;
@@ -53,9 +51,9 @@ Future<developer.ServiceExtensionResponse> _scheduleFrame(
   // Schedule the frame.
   PlatformDispatcher.instance.scheduleFrame();
   // Always succeed.
-  return developer.ServiceExtensionResponse.result(json.encode(<String, String>{
-    'type': 'Success',
-  }));
+  return developer.ServiceExtensionResponse.result(
+    json.encode(<String, String>{'type': 'Success'}),
+  );
 }
 
 Future<developer.ServiceExtensionResponse> _reinitializeShader(
@@ -68,19 +66,18 @@ Future<developer.ServiceExtensionResponse> _reinitializeShader(
   }
 
   // Always succeed.
-  return developer.ServiceExtensionResponse.result(json.encode(<String, String>{
-    'type': 'Success',
-  }));
+  return developer.ServiceExtensionResponse.result(
+    json.encode(<String, String>{'type': 'Success'}),
+  );
 }
 
 Future<developer.ServiceExtensionResponse> _getImpellerEnabled(
   String method,
   Map<String, String> parameters,
 ) async {
-  return developer.ServiceExtensionResponse.result(json.encode(<String, Object>{
-    'type': 'Success',
-    'enabled': _impellerEnabled,
-  }));
+  return developer.ServiceExtensionResponse.result(
+    json.encode(<String, Object>{'type': 'Success', 'enabled': _impellerEnabled}),
+  );
 }
 
 const bool _kReleaseMode = bool.fromEnvironment('dart.vm.product');
@@ -121,3 +118,8 @@ bool _impellerEnabled = false;
 // determine the current implicit view, if any.
 @pragma('vm:entry-point')
 int? _implicitViewId;
+
+// Used internally to indicate whether isolates running on the platform thread
+// are enabled.
+@pragma('vm:entry-point')
+bool _platformIsolatesEnabled = false;

@@ -5,12 +5,7 @@
 import 'package:ui/src/engine.dart';
 import 'package:ui/ui.dart' as ui;
 
-enum ColorFilterType {
-  mode,
-  matrix,
-  linearToSrgbGamma,
-  srgbToLinearGamma,
-}
+enum ColorFilterType { mode, matrix, linearToSrgbGamma, srgbToLinearGamma }
 
 /// A description of a color filter to apply when drawing a shape or compositing
 /// a layer with a particular [Paint]. A color filter is a function that takes
@@ -49,7 +44,7 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
   /// The matrix is in row-major order and the translation column is specified
   /// in unnormalized, 0...255, space. For example, the identity matrix is:
   ///
-  /// ```
+  /// ```dart
   /// const ColorMatrix identity = ColorFilter.matrix(<double>[
   ///   1, 0, 0, 0, 0,
   ///   0, 1, 0, 0, 0,
@@ -62,7 +57,7 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
   ///
   /// An inversion color matrix:
   ///
-  /// ```
+  /// ```dart
   /// const ColorFilter invert = ColorFilter.matrix(<double>[
   ///   -1,  0,  0, 0, 255,
   ///    0, -1,  0, 0, 255,
@@ -73,7 +68,7 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
   ///
   /// A sepia-toned color matrix (values based on the [Filter Effects Spec](https://www.w3.org/TR/filter-effects-1/#sepiaEquivalent)):
   ///
-  /// ```
+  /// ```dart
   /// const ColorFilter sepia = ColorFilter.matrix(<double>[
   ///   0.393, 0.769, 0.189, 0, 0,
   ///   0.349, 0.686, 0.168, 0, 0,
@@ -84,7 +79,7 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
   ///
   /// A greyscale color filter (values based on the [Filter Effects Spec](https://www.w3.org/TR/filter-effects-1/#grayscaleEquivalent)):
   ///
-  /// ```
+  /// ```dart
   /// const ColorFilter greyscale = ColorFilter.matrix(<double>[
   ///   0.2126, 0.7152, 0.0722, 0, 0,
   ///   0.2126, 0.7152, 0.0722, 0, 0,
@@ -93,25 +88,25 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
   /// ]);
   /// ```
   const EngineColorFilter.matrix(List<double> this.matrix)
-      : color = null,
-        blendMode = null,
-        type = ColorFilterType.matrix;
+    : color = null,
+      blendMode = null,
+      type = ColorFilterType.matrix;
 
   /// Construct a color filter that applies the sRGB gamma curve to the RGB
   /// channels.
   const EngineColorFilter.linearToSrgbGamma()
-      : color = null,
-        blendMode = null,
-        matrix = null,
-        type = ColorFilterType.linearToSrgbGamma;
+    : color = null,
+      blendMode = null,
+      matrix = null,
+      type = ColorFilterType.linearToSrgbGamma;
 
   /// Creates a color filter that applies the inverse of the sRGB gamma curve
   /// to the RGB channels.
   const EngineColorFilter.srgbToLinearGamma()
-      : color = null,
-        blendMode = null,
-        matrix = null,
-        type = ColorFilterType.srgbToLinearGamma;
+    : color = null,
+      blendMode = null,
+      matrix = null,
+      type = ColorFilterType.srgbToLinearGamma;
 
   final ui.Color? color;
   final ui.BlendMode? blendMode;
@@ -135,4 +130,7 @@ class EngineColorFilter implements SceneImageFilter, ui.ColorFilter {
         return 'ColorFilter.srgbToLinearGamma()';
     }
   }
+
+  @override
+  Matrix4? get transform => null;
 }

@@ -49,7 +49,7 @@ base class _NativeScene extends NativeFieldWrapperClass1 implements Scene {
     }
 
     final _Image image = _Image._();
-    final String? result =  _toImageSync(width, height, image);
+    final String? result = _toImageSync(width, height, image);
     if (result != null) {
       throw PictureRasterizationException._(result);
     }
@@ -64,7 +64,8 @@ base class _NativeScene extends NativeFieldWrapperClass1 implements Scene {
     if (width <= 0 || height <= 0) {
       throw Exception('Invalid image dimensions.');
     }
-    return _futurize((_Callback<Image?> callback) => _toImage(width, height, (_Image? image) {
+    return _futurize(
+      (_Callback<Image?> callback) => _toImage(width, height, (_Image? image) {
         if (image == null) {
           callback(null);
         } else {
@@ -122,12 +123,13 @@ abstract class _EngineLayerWrapper implements EngineLayer {
   bool _debugCheckNotUsedAsOldLayer() {
     // The hashCode formatting should match shortHash in the framework
     assert(
-        !_debugWasUsedAsOldLayer,
-        'Layer $runtimeType#${hashCode.toUnsigned(20).toRadixString(16).padLeft(5, '0')} was previously used as oldLayer.\n'
-        'Once a layer is used as oldLayer, it may not be used again. Instead, '
-        'after calling one of the SceneBuilder.push* methods and passing an oldLayer '
-        'to it, use the layer returned by the method as oldLayer in subsequent '
-        'frames.');
+      !_debugWasUsedAsOldLayer,
+      'Layer $runtimeType#${hashCode.toUnsigned(20).toRadixString(16).padLeft(5, '0')} was previously used as oldLayer.\n'
+      'Once a layer is used as oldLayer, it may not be used again. Instead, '
+      'after calling one of the SceneBuilder.push* methods and passing an oldLayer '
+      'to it, use the layer returned by the method as oldLayer in subsequent '
+      'frames.',
+    );
     return true;
   }
 }
@@ -170,6 +172,15 @@ class ClipRectEngineLayer extends _EngineLayerWrapper {
 /// {@macro dart.ui.sceneBuilder.oldLayerCompatibility}
 class ClipRRectEngineLayer extends _EngineLayerWrapper {
   ClipRRectEngineLayer._(super.nativeLayer) : super._();
+}
+
+/// An opaque handle to a clip rounded superellipse engine layer.
+///
+/// Instances of this class are created by [SceneBuilder.pushClipRSuperellipse].
+///
+/// {@macro dart.ui.sceneBuilder.oldLayerCompatibility}
+class ClipRSuperellipseEngineLayer extends _EngineLayerWrapper {
+  ClipRSuperellipseEngineLayer._(super.nativeLayer) : super._();
 }
 
 /// An opaque handle to a clip path engine layer.
@@ -233,7 +244,21 @@ class ShaderMaskEngineLayer extends _EngineLayerWrapper {
 /// To draw graphical operations onto a [Scene], first create a
 /// [Picture] using a [PictureRecorder] and a [Canvas], and then add
 /// it to the scene using [addPicture].
+///
+/// ## Use with the Flutter framework
+///
+/// The Flutter framework's [RendererBinding] provides a hook for creating
+/// [SceneBuilder] objects ([RendererBinding.createSceneBuilder]) that allows
+/// tests to hook into the scene creation logic. When creating a [SceneBuilder]
+/// in the context of the Flutter framework, consider calling
+/// [RendererBinding.createSceneBuilder] instead of calling the
+/// [SceneBuilder.new] constructor directly.
+///
+/// This does not apply when using the `dart:ui` API directly, without using the
+/// Flutter framework bindings, `flutter_test` framework, et al.
 abstract class SceneBuilder {
+  // TODO(matanlurey): have original authors document; see https://github.com/flutter/flutter/issues/151917.
+  // ignore: public_member_api_docs
   factory SceneBuilder() = _NativeSceneBuilder;
 
   /// Pushes a transform operation onto the operation stack.
@@ -264,10 +289,7 @@ abstract class SceneBuilder {
   /// {@endtemplate}
   ///
   /// See [pop] for details about the operation stack.
-  TransformEngineLayer pushTransform(
-    Float64List matrix4, {
-    TransformEngineLayer? oldLayer,
-  });
+  TransformEngineLayer pushTransform(Float64List matrix4, {TransformEngineLayer? oldLayer});
 
   /// Pushes an offset operation onto the operation stack.
   ///
@@ -278,11 +300,7 @@ abstract class SceneBuilder {
   /// {@macro dart.ui.sceneBuilder.oldLayerVsRetained}
   ///
   /// See [pop] for details about the operation stack.
-  OffsetEngineLayer pushOffset(
-    double dx,
-    double dy, {
-    OffsetEngineLayer? oldLayer,
-  });
+  OffsetEngineLayer pushOffset(double dx, double dy, {OffsetEngineLayer? oldLayer});
 
   /// Pushes a rectangular clip operation onto the operation stack.
   ///
@@ -314,6 +332,22 @@ abstract class SceneBuilder {
     RRect rrect, {
     Clip clipBehavior = Clip.antiAlias,
     ClipRRectEngineLayer? oldLayer,
+  });
+
+  /// Pushes a rounded-superellipse clip operation onto the operation stack.
+  ///
+  /// Rasterization outside the given rounded superellipse is discarded.
+  ///
+  /// {@macro dart.ui.sceneBuilder.oldLayer}
+  ///
+  /// {@macro dart.ui.sceneBuilder.oldLayerVsRetained}
+  ///
+  /// See [pop] for details about the operation stack, and [Clip] for different clip modes.
+  /// By default, the clip will be anti-aliased (clip = [Clip.antiAlias]).
+  ClipRSuperellipseEngineLayer pushClipRSuperellipse(
+    RSuperellipse rsuperellipse, {
+    Clip clipBehavior = Clip.antiAlias,
+    ClipRSuperellipseEngineLayer? oldLayer,
   });
 
   /// Pushes a path clip operation onto the operation stack.
@@ -360,10 +394,7 @@ abstract class SceneBuilder {
   /// {@macro dart.ui.sceneBuilder.oldLayerVsRetained}
   ///
   /// See [pop] for details about the operation stack.
-  ColorFilterEngineLayer pushColorFilter(
-    ColorFilter filter, {
-    ColorFilterEngineLayer? oldLayer,
-  });
+  ColorFilterEngineLayer pushColorFilter(ColorFilter filter, {ColorFilterEngineLayer? oldLayer});
 
   /// Pushes an image filter operation onto the operation stack.
   ///
@@ -387,6 +418,20 @@ abstract class SceneBuilder {
   /// the most recent save layer and rendered back to the scene using the indicated
   /// [blendMode] prior to rasterizing the child layers.
   ///
+  /// If [backdropId] is provided and not null, then this value is treated
+  /// as a unique identifier for the backdrop. When the first backdrop filter with
+  /// a given id is processed during rasterization, the state of the backdrop is
+  /// recorded and cached. All subsequent backdrop filters with the same identifier
+  /// will apply their filter to the cached backdrop. The correct usage of the
+  /// backdrop id has the benefit of dramatically improving performance for
+  /// applications with multiple backdrop filters. For example, an application
+  /// that uses a backdrop blur filter for each item in a list view should set
+  /// all filters to have the same backdrop id.
+  ///
+  /// If overlapping backdrop filters use the same backdropId, then each filter
+  /// will apply to the backdrop before the overlapping filter components were
+  /// rendered.
+  ///
   /// {@macro dart.ui.sceneBuilder.oldLayer}
   ///
   /// {@macro dart.ui.sceneBuilder.oldLayerVsRetained}
@@ -396,6 +441,7 @@ abstract class SceneBuilder {
     ImageFilter filter, {
     BlendMode blendMode = BlendMode.srcOver,
     BackdropFilterEngineLayer? oldLayer,
+    int? backdropId,
   });
 
   /// Pushes a shader mask operation onto the operation stack.
@@ -533,37 +579,6 @@ abstract class SceneBuilder {
     double height = 0.0,
   });
 
-  /// Sets a threshold after which additional debugging information should be recorded.
-  ///
-  /// Currently this interface is difficult to use by end-developers. If you're
-  /// interested in using this feature, please contact [flutter-dev](https://groups.google.com/forum/#!forum/flutter-dev).
-  /// We'll hopefully be able to figure out how to make this feature more useful
-  /// to you.
-  void setRasterizerTracingThreshold(int frameInterval);
-
-  /// Sets whether the raster cache should checkerboard cached entries. This is
-  /// only useful for debugging purposes.
-  ///
-  /// The compositor can sometimes decide to cache certain portions of the
-  /// widget hierarchy. Such portions typically don't change often from frame to
-  /// frame and are expensive to render. This can speed up overall rendering. However,
-  /// there is certain upfront cost to constructing these cache entries. And, if
-  /// the cache entries are not used very often, this cost may not be worth the
-  /// speedup in rendering of subsequent frames. If the developer wants to be certain
-  /// that populating the raster cache is not causing stutters, this option can be
-  /// set. Depending on the observations made, hints can be provided to the compositor
-  /// that aid it in making better decisions about caching.
-  ///
-  /// Currently this interface is difficult to use by end-developers. If you're
-  /// interested in using this feature, please contact [flutter-dev](https://groups.google.com/forum/#!forum/flutter-dev).
-  void setCheckerboardRasterCacheImages(bool checkerboard);
-
-  /// Sets whether the compositor should checkerboard layers that are rendered
-  /// to offscreen bitmaps.
-  ///
-  /// This is only useful for debugging purposes.
-  void setCheckerboardOffscreenLayers(bool checkerboard);
-
   /// Finishes building the scene.
   ///
   /// Returns a [Scene] containing the objects that have been added to
@@ -594,10 +609,11 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
   bool _debugCheckUsedOnce(EngineLayer layer, String usage) {
     assert(() {
       assert(
-          !_usedLayers.containsKey(layer),
-          'Layer ${layer.runtimeType} already used.\n'
-          'The layer is already being used as ${_usedLayers[layer]} in this scene.\n'
-          'A layer may only be used once in a given scene.');
+        !_usedLayers.containsKey(layer),
+        'Layer ${layer.runtimeType} already used.\n'
+        'The layer is already being used as ${_usedLayers[layer]} in this scene.\n'
+        'A layer may only be used once in a given scene.',
+      );
 
       _usedLayers[layer] = usage;
       return true;
@@ -638,10 +654,7 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
   }
 
   @override
-  TransformEngineLayer pushTransform(
-    Float64List matrix4, {
-    TransformEngineLayer? oldLayer,
-  }) {
+  TransformEngineLayer pushTransform(Float64List matrix4, {TransformEngineLayer? oldLayer}) {
     assert(_matrix4IsValid(matrix4));
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushTransform'));
     final EngineLayer engineLayer = _NativeEngineLayer._();
@@ -651,15 +664,13 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Handle, Handle)>(symbol: 'SceneBuilder::pushTransformHandle')
+  @Native<Void Function(Pointer<Void>, Handle, Handle, Handle)>(
+    symbol: 'SceneBuilder::pushTransformHandle',
+  )
   external void _pushTransform(EngineLayer layer, Float64List matrix4, EngineLayer? oldLayer);
 
   @override
-  OffsetEngineLayer pushOffset(
-    double dx,
-    double dy, {
-    OffsetEngineLayer? oldLayer,
-  }) {
+  OffsetEngineLayer pushOffset(double dx, double dy, {OffsetEngineLayer? oldLayer}) {
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushOffset'));
     final EngineLayer engineLayer = _NativeEngineLayer._();
     _pushOffset(engineLayer, dx, dy, oldLayer?._nativeLayer);
@@ -668,7 +679,9 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Double, Double, Handle)>(symbol: 'SceneBuilder::pushOffset')
+  @Native<Void Function(Pointer<Void>, Handle, Double, Double, Handle)>(
+    symbol: 'SceneBuilder::pushOffset',
+  )
   external void _pushOffset(EngineLayer layer, double dx, double dy, EngineLayer? oldLayer);
 
   @override
@@ -680,22 +693,32 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     assert(clipBehavior != Clip.none);
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushClipRect'));
     final EngineLayer engineLayer = _NativeEngineLayer._();
-    _pushClipRect(engineLayer, rect.left, rect.right, rect.top, rect.bottom, clipBehavior.index,
-        oldLayer?._nativeLayer);
+    _pushClipRect(
+      engineLayer,
+      rect.left,
+      rect.right,
+      rect.top,
+      rect.bottom,
+      clipBehavior.index,
+      oldLayer?._nativeLayer,
+    );
     final ClipRectEngineLayer layer = ClipRectEngineLayer._(engineLayer);
     assert(_debugPushLayer(layer));
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Double, Double, Double, Double, Int32, Handle)>(symbol: 'SceneBuilder::pushClipRect')
+  @Native<Void Function(Pointer<Void>, Handle, Double, Double, Double, Double, Int32, Handle)>(
+    symbol: 'SceneBuilder::pushClipRect',
+  )
   external void _pushClipRect(
-      EngineLayer outEngineLayer,
-      double left,
-      double right,
-      double top,
-      double bottom,
-      int clipBehavior,
-      EngineLayer? oldLayer);
+    EngineLayer outEngineLayer,
+    double left,
+    double right,
+    double top,
+    double bottom,
+    int clipBehavior,
+    EngineLayer? oldLayer,
+  );
 
   @override
   ClipRRectEngineLayer pushClipRRect(
@@ -712,8 +735,45 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Handle, Int32, Handle)>(symbol: 'SceneBuilder::pushClipRRect')
-  external void _pushClipRRect(EngineLayer layer, Float32List rrect, int clipBehavior, EngineLayer? oldLayer);
+  @Native<Void Function(Pointer<Void>, Handle, Handle, Int32, Handle)>(
+    symbol: 'SceneBuilder::pushClipRRect',
+  )
+  external void _pushClipRRect(
+    EngineLayer layer,
+    Float32List rrect,
+    int clipBehavior,
+    EngineLayer? oldLayer,
+  );
+
+  @override
+  ClipRSuperellipseEngineLayer pushClipRSuperellipse(
+    RSuperellipse rsuperellipse, {
+    Clip clipBehavior = Clip.antiAlias,
+    ClipRSuperellipseEngineLayer? oldLayer,
+  }) {
+    assert(clipBehavior != Clip.none);
+    assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushClipRSuperellipse'));
+    final EngineLayer engineLayer = _NativeEngineLayer._();
+    _pushClipRSuperellipse(
+      engineLayer,
+      rsuperellipse._native(),
+      clipBehavior.index,
+      oldLayer?._nativeLayer,
+    );
+    final ClipRSuperellipseEngineLayer layer = ClipRSuperellipseEngineLayer._(engineLayer);
+    assert(_debugPushLayer(layer));
+    return layer;
+  }
+
+  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Int32, Handle)>(
+    symbol: 'SceneBuilder::pushClipRSuperellipse',
+  )
+  external void _pushClipRSuperellipse(
+    EngineLayer layer,
+    _NativeRSuperellipse rsuperellipseParam,
+    int clipBehavior,
+    EngineLayer? oldLayer,
+  );
 
   @override
   ClipPathEngineLayer pushClipPath(
@@ -730,8 +790,15 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Int32, Handle)>(symbol: 'SceneBuilder::pushClipPath')
-  external void _pushClipPath(EngineLayer layer, _NativePath path, int clipBehavior, EngineLayer? oldLayer);
+  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Int32, Handle)>(
+    symbol: 'SceneBuilder::pushClipPath',
+  )
+  external void _pushClipPath(
+    EngineLayer layer,
+    _NativePath path,
+    int clipBehavior,
+    EngineLayer? oldLayer,
+  );
 
   @override
   OpacityEngineLayer pushOpacity(
@@ -747,14 +814,19 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Int32, Double, Double, Handle)>(symbol: 'SceneBuilder::pushOpacity')
-  external void _pushOpacity(EngineLayer layer, int alpha, double dx, double dy, EngineLayer? oldLayer);
+  @Native<Void Function(Pointer<Void>, Handle, Int32, Double, Double, Handle)>(
+    symbol: 'SceneBuilder::pushOpacity',
+  )
+  external void _pushOpacity(
+    EngineLayer layer,
+    int alpha,
+    double dx,
+    double dy,
+    EngineLayer? oldLayer,
+  );
 
   @override
-  ColorFilterEngineLayer pushColorFilter(
-    ColorFilter filter, {
-    ColorFilterEngineLayer? oldLayer,
-  }) {
+  ColorFilterEngineLayer pushColorFilter(ColorFilter filter, {ColorFilterEngineLayer? oldLayer}) {
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushColorFilter'));
     final _ColorFilter nativeFilter = filter._toNativeColorFilter()!;
     final EngineLayer engineLayer = _NativeEngineLayer._();
@@ -764,7 +836,9 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Handle)>(symbol: 'SceneBuilder::pushColorFilter')
+  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Handle)>(
+    symbol: 'SceneBuilder::pushColorFilter',
+  )
   external void _pushColorFilter(EngineLayer layer, _ColorFilter filter, EngineLayer? oldLayer);
 
   @override
@@ -782,25 +856,48 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Double, Double, Handle)>(symbol: 'SceneBuilder::pushImageFilter')
-  external void _pushImageFilter(EngineLayer outEngineLayer, _ImageFilter filter, double dx, double dy, EngineLayer? oldLayer);
+  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Double, Double, Handle)>(
+    symbol: 'SceneBuilder::pushImageFilter',
+  )
+  external void _pushImageFilter(
+    EngineLayer outEngineLayer,
+    _ImageFilter filter,
+    double dx,
+    double dy,
+    EngineLayer? oldLayer,
+  );
 
   @override
   BackdropFilterEngineLayer pushBackdropFilter(
     ImageFilter filter, {
     BlendMode blendMode = BlendMode.srcOver,
+    int? backdropId,
     BackdropFilterEngineLayer? oldLayer,
   }) {
     assert(_debugCheckCanBeUsedAsOldLayer(oldLayer, 'pushBackdropFilter'));
     final EngineLayer engineLayer = _NativeEngineLayer._();
-    _pushBackdropFilter(engineLayer, filter._toNativeImageFilter(), blendMode.index, oldLayer?._nativeLayer);
+    _pushBackdropFilter(
+      engineLayer,
+      filter._toNativeImageFilter(),
+      blendMode.index,
+      backdropId,
+      oldLayer?._nativeLayer,
+    );
     final BackdropFilterEngineLayer layer = BackdropFilterEngineLayer._(engineLayer);
     assert(_debugPushLayer(layer));
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Int32, Handle)>(symbol: 'SceneBuilder::pushBackdropFilter')
-  external void _pushBackdropFilter(EngineLayer outEngineLayer, _ImageFilter filter, int blendMode, EngineLayer? oldLayer);
+  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Int32, Handle, Handle)>(
+    symbol: 'SceneBuilder::pushBackdropFilter',
+  )
+  external void _pushBackdropFilter(
+    EngineLayer outEngineLayer,
+    _ImageFilter filter,
+    int blendMode,
+    int? backdropId,
+    EngineLayer? oldLayer,
+  );
 
   @override
   ShaderMaskEngineLayer pushShaderMask(
@@ -828,17 +925,31 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     return layer;
   }
 
-  @Native<Void Function(Pointer<Void>, Handle, Pointer<Void>, Double, Double, Double, Double, Int32, Int32, Handle)>(symbol: 'SceneBuilder::pushShaderMask')
+  @Native<
+    Void Function(
+      Pointer<Void>,
+      Handle,
+      Pointer<Void>,
+      Double,
+      Double,
+      Double,
+      Double,
+      Int32,
+      Int32,
+      Handle,
+    )
+  >(symbol: 'SceneBuilder::pushShaderMask')
   external void _pushShaderMask(
-      EngineLayer engineLayer,
-      Shader shader,
-      double maskRectLeft,
-      double maskRectRight,
-      double maskRectTop,
-      double maskRectBottom,
-      int blendMode,
-      int filterQualityIndex,
-      EngineLayer? oldLayer);
+    EngineLayer engineLayer,
+    Shader shader,
+    double maskRectLeft,
+    double maskRectRight,
+    double maskRectTop,
+    double maskRectBottom,
+    int blendMode,
+    int filterQualityIndex,
+    EngineLayer? oldLayer,
+  );
 
   @override
   void pop() {
@@ -887,8 +998,17 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     _addPerformanceOverlay(enabledOptions, bounds.left, bounds.right, bounds.top, bounds.bottom);
   }
 
-  @Native<Void Function(Pointer<Void>, Uint64, Double, Double, Double, Double)>(symbol: 'SceneBuilder::addPerformanceOverlay', isLeaf: true)
-  external void _addPerformanceOverlay(int enabledOptions, double left, double right, double top, double bottom);
+  @Native<Void Function(Pointer<Void>, Uint64, Double, Double, Double, Double)>(
+    symbol: 'SceneBuilder::addPerformanceOverlay',
+    isLeaf: true,
+  )
+  external void _addPerformanceOverlay(
+    int enabledOptions,
+    double left,
+    double right,
+    double top,
+    double bottom,
+  );
 
   @override
   void addPicture(
@@ -902,7 +1022,9 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     _addPicture(offset.dx, offset.dy, picture as _NativePicture, hints);
   }
 
-  @Native<Void Function(Pointer<Void>, Double, Double, Pointer<Void>, Int32)>(symbol: 'SceneBuilder::addPicture')
+  @Native<Void Function(Pointer<Void>, Double, Double, Pointer<Void>, Int32)>(
+    symbol: 'SceneBuilder::addPicture',
+  )
   external void _addPicture(double dx, double dy, _NativePicture picture, int hints);
 
   @override
@@ -917,8 +1039,19 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     _addTexture(offset.dx, offset.dy, width, height, textureId, freeze, filterQuality.index);
   }
 
-  @Native<Void Function(Pointer<Void>, Double, Double, Double, Double, Int64, Bool, Int32)>(symbol: 'SceneBuilder::addTexture', isLeaf: true)
-  external void _addTexture(double dx, double dy, double width, double height, int textureId, bool freeze, int filterQuality);
+  @Native<Void Function(Pointer<Void>, Double, Double, Double, Double, Int64, Bool, Int32)>(
+    symbol: 'SceneBuilder::addTexture',
+    isLeaf: true,
+  )
+  external void _addTexture(
+    double dx,
+    double dy,
+    double width,
+    double height,
+    int textureId,
+    bool freeze,
+    int filterQuality,
+  );
 
   @override
   void addPlatformView(
@@ -930,20 +1063,11 @@ base class _NativeSceneBuilder extends NativeFieldWrapperClass1 implements Scene
     _addPlatformView(offset.dx, offset.dy, width, height, viewId);
   }
 
-  @Native<Void Function(Pointer<Void>, Double, Double, Double, Double, Int64)>(symbol: 'SceneBuilder::addPlatformView', isLeaf: true)
+  @Native<Void Function(Pointer<Void>, Double, Double, Double, Double, Int64)>(
+    symbol: 'SceneBuilder::addPlatformView',
+    isLeaf: true,
+  )
   external void _addPlatformView(double dx, double dy, double width, double height, int viewId);
-
-  @override
-  @Native<Void Function(Pointer<Void>, Uint32)>(symbol: 'SceneBuilder::setRasterizerTracingThreshold', isLeaf: true)
-  external void setRasterizerTracingThreshold(int frameInterval);
-
-  @override
-  @Native<Void Function(Pointer<Void>, Bool)>(symbol: 'SceneBuilder::setCheckerboardRasterCacheImages', isLeaf: true)
-  external void setCheckerboardRasterCacheImages(bool checkerboard);
-
-  @override
-  @Native<Void Function(Pointer<Void>, Bool)>(symbol: 'SceneBuilder::setCheckerboardOffscreenLayers', isLeaf: true)
-  external void setCheckerboardOffscreenLayers(bool checkerboard);
 
   @override
   Scene build() {

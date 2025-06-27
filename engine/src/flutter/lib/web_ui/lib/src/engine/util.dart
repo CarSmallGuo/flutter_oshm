@@ -9,8 +9,9 @@ import 'dart:typed_data';
 
 import 'package:meta/meta.dart';
 import 'package:ui/ui.dart' as ui;
+import 'package:ui/ui_web/src/ui_web.dart' as ui_web;
 
-import 'browser_detection.dart';
+import 'browser_detection.dart' show isIOS15, isMacOrIOS;
 import 'dom.dart';
 import 'safe_browser_api.dart';
 import 'services.dart';
@@ -132,7 +133,8 @@ TransformKind transformKindOf(List<double> matrix) {
 
   // If matrix contains scaling, rotation, z translation or
   // perspective transform, it is not considered simple.
-  final bool isSimple2dTransform = m[15] ==
+  final bool isSimple2dTransform =
+      m[15] ==
           1.0 && // start reading from the last element to eliminate range checks in subsequent reads.
       m[14] == 0.0 && // z translation is NOT simple
       // m[13] - y translation is simple
@@ -157,12 +159,8 @@ TransformKind transformKindOf(List<double> matrix) {
   // From this point on we're sure the transform is 2D, but we don't know if
   // it's identity or not. To check, we need to look at the remaining elements
   // that were not checked above.
-  final bool isIdentityTransform = m[0] == 1.0 &&
-      m[1] == 0.0 &&
-      m[4] == 0.0 &&
-      m[5] == 1.0 &&
-      m[12] == 0.0 &&
-      m[13] == 0.0;
+  final bool isIdentityTransform =
+      m[0] == 1.0 && m[1] == 0.0 && m[4] == 0.0 && m[5] == 1.0 && m[12] == 0.0 && m[13] == 0.0;
 
   if (isIdentityTransform) {
     return TransformKind.identity;
@@ -230,12 +228,7 @@ ui.Rect transformRectWithMatrix(Matrix4 transform, ui.Rect rect) {
   _tempRectData[2] = rect.right;
   _tempRectData[3] = rect.bottom;
   transformLTRB(transform, _tempRectData);
-  return ui.Rect.fromLTRB(
-    _tempRectData[0],
-    _tempRectData[1],
-    _tempRectData[2],
-    _tempRectData[3],
-  );
+  return ui.Rect.fromLTRB(_tempRectData[0], _tempRectData[1], _tempRectData[2], _tempRectData[3]);
 }
 
 /// Temporary storage for intermediate data used by [transformLTRB].
@@ -299,25 +292,29 @@ void transformLTRB(Matrix4 transform, Float32List ltrb) {
     w = 1.0;
   }
 
-  ltrb[0] = math.min(
-          math.min(math.min(_tempPointData[0], _tempPointData[1]),
-              _tempPointData[2]),
-          _tempPointData[3]) /
+  ltrb[0] =
+      math.min(
+        math.min(math.min(_tempPointData[0], _tempPointData[1]), _tempPointData[2]),
+        _tempPointData[3],
+      ) /
       w;
-  ltrb[1] = math.min(
-          math.min(math.min(_tempPointData[4], _tempPointData[5]),
-              _tempPointData[6]),
-          _tempPointData[7]) /
+  ltrb[1] =
+      math.min(
+        math.min(math.min(_tempPointData[4], _tempPointData[5]), _tempPointData[6]),
+        _tempPointData[7],
+      ) /
       w;
-  ltrb[2] = math.max(
-          math.max(math.max(_tempPointData[0], _tempPointData[1]),
-              _tempPointData[2]),
-          _tempPointData[3]) /
+  ltrb[2] =
+      math.max(
+        math.max(math.max(_tempPointData[0], _tempPointData[1]), _tempPointData[2]),
+        _tempPointData[3],
+      ) /
       w;
-  ltrb[3] = math.max(
-          math.max(math.max(_tempPointData[4], _tempPointData[5]),
-              _tempPointData[6]),
-          _tempPointData[7]) /
+  ltrb[3] =
+      math.max(
+        math.max(math.max(_tempPointData[4], _tempPointData[5]), _tempPointData[6]),
+        _tempPointData[7],
+      ) /
       w;
 }
 
@@ -348,20 +345,14 @@ String colorValueToCssString(int value) {
   if ((0xff000000 & value) == 0xff000000) {
     final String hexValue = (value & 0xFFFFFF).toRadixString(16);
     final int hexValueLength = hexValue.length;
-    switch (hexValueLength) {
-      case 1:
-        return '#00000$hexValue';
-      case 2:
-        return '#0000$hexValue';
-      case 3:
-        return '#000$hexValue';
-      case 4:
-        return '#00$hexValue';
-      case 5:
-        return '#0$hexValue';
-      default:
-        return '#$hexValue';
-    }
+    return switch (hexValueLength) {
+      1 => '#00000$hexValue',
+      2 => '#0000$hexValue',
+      3 => '#000$hexValue',
+      4 => '#00$hexValue',
+      5 => '#0$hexValue',
+      _ => '#$hexValue',
+    };
   } else {
     final double alpha = ((value >> 24) & 0xFF) / 255.0;
     final StringBuffer sb = StringBuffer();
@@ -495,7 +486,7 @@ Float32List offsetListToFloat32List(List<ui.Offset> offsetList) {
 /// * Use 3D transform instead of 2D: this does not work because it causes text
 ///   blurriness: https://github.com/flutter/flutter/issues/32274
 void applyWebkitClipFix(DomElement? containerElement) {
-  if (browserEngine == BrowserEngine.webkit) {
+  if (ui_web.browser.browserEngine == ui_web.BrowserEngine.webkit) {
     containerElement!.style.zIndex = '0';
   }
 }
@@ -558,6 +549,57 @@ bool listEquals<T>(List<T>? a, List<T>? b) {
     }
   }
   return true;
+}
+
+/// Determines if lists [a] and [b] are deep equivalent, regardless of their
+/// order.
+///
+/// Returns true if the lists are both null, or if they are both non-null, have
+/// the same length, and contain the same elements regardless of their order.
+/// Returns false otherwise.
+bool unorderedListEqual<T>(List<T>? a, List<T>? b) {
+  if (a == b) {
+    return true;
+  }
+  if ((a?.isEmpty ?? true) && (b?.isEmpty ?? true)) {
+    return true;
+  }
+
+  if ((a == null) != (b == null)) {
+    return false;
+  }
+  // They most both be non-null now, and at least one of them is not empty.
+  if (a!.length != b!.length) {
+    return false;
+  }
+
+  if (a.length == 1) {
+    return a.first == b.first;
+  }
+
+  if (a.length == 2) {
+    return (a.first == b.first && a.last == b.last) || (a.last == b.first && a.first == b.last);
+  }
+
+  // Complex cases.
+  final Map<T, int> wordCounts = <T, int>{};
+  for (final T word in a) {
+    final int count = wordCounts[word] ?? 0;
+    wordCounts[word] = count + 1;
+  }
+
+  for (final T otherWord in b) {
+    final int? count = wordCounts[otherWord];
+    if (count == null || count == 0) {
+      return false;
+    }
+    if (count == 1) {
+      wordCounts.remove(otherWord);
+    } else {
+      wordCounts[otherWord] = count - 1;
+    }
+  }
+  return wordCounts.isEmpty;
 }
 
 // HTML only supports a single radius, but Flutter ImageFilter supports separate
@@ -672,9 +714,7 @@ int? tryViewId(Object? arguments) {
 ///     Input: [0, 1, 2, 3]
 ///     Output: 0x00 0x01 0x02 0x03
 String bytesToHexString(List<int> data) {
-  return data
-      .map((int byte) => '0x${byte.toRadixString(16).padLeft(2, '0')}')
-      .join(' ');
+  return data.map((int byte) => '0x${byte.toRadixString(16).padLeft(2, '0')}').join(' ');
 }
 
 /// Sets a style property on [element].
@@ -690,7 +730,7 @@ void setElementStyle(DomElement element, String name, String? value) {
 }
 
 void setClipPath(DomElement element, String? value) {
-  if (browserEngine == BrowserEngine.webkit) {
+  if (ui_web.browser.browserEngine == ui_web.BrowserEngine.webkit) {
     if (value == null) {
       element.style.removeProperty('-webkit-clip-path');
     } else {
@@ -705,14 +745,14 @@ void setClipPath(DomElement element, String? value) {
 }
 
 void setThemeColor(ui.Color? color) {
-  DomHTMLMetaElement? theme =
-      domDocument.querySelector('#flutterweb-theme') as DomHTMLMetaElement?;
+  DomHTMLMetaElement? theme = domDocument.querySelector('#flutterweb-theme') as DomHTMLMetaElement?;
 
   if (color != null) {
     if (theme == null) {
-      theme = createDomHTMLMetaElement()
-        ..id = 'flutterweb-theme'
-        ..name = 'theme-color';
+      theme =
+          createDomHTMLMetaElement()
+            ..id = 'flutterweb-theme'
+            ..name = 'theme-color';
       domDocument.head!.append(theme);
     }
     theme.content = color.toCssString();
@@ -721,24 +761,45 @@ void setThemeColor(ui.Color? color) {
   }
 }
 
+/// Ensure a "meta" tag with [name] and [content] is set on the page.
+void ensureMetaTag(String name, String content) {
+  final DomElement? existingTag = domDocument.querySelector('meta[name=$name][content=$content]');
+
+  if (existingTag == null) {
+    final DomHTMLMetaElement meta =
+        createDomHTMLMetaElement()
+          ..name = name
+          ..content = content;
+    domDocument.head!.append(meta);
+  }
+}
+
 bool? _ellipseFeatureDetected;
 
 /// Draws CanvasElement ellipse with fallback.
 void drawEllipse(
-    DomCanvasRenderingContext2D context,
-    double centerX,
-    double centerY,
-    double radiusX,
-    double radiusY,
-    double rotation,
-    double startAngle,
-    double endAngle,
-    bool antiClockwise) {
-  _ellipseFeatureDetected ??=
-      getJsProperty<Object?>(context, 'ellipse') != null;
+  DomCanvasRenderingContext2D context,
+  double centerX,
+  double centerY,
+  double radiusX,
+  double radiusY,
+  double rotation,
+  double startAngle,
+  double endAngle,
+  bool antiClockwise,
+) {
+  _ellipseFeatureDetected ??= getJsProperty<Object?>(context, 'ellipse') != null;
   if (_ellipseFeatureDetected!) {
-    context.ellipse(centerX, centerY, radiusX, radiusY, rotation, startAngle,
-        endAngle, antiClockwise);
+    context.ellipse(
+      centerX,
+      centerY,
+      radiusX,
+      radiusY,
+      rotation,
+      startAngle,
+      endAngle,
+      antiClockwise,
+    );
   } else {
     context.save();
     context.translate(centerX, centerY);
@@ -873,15 +934,35 @@ class LruCache<K extends Object, V extends Object> {
 }
 
 /// Returns the VM-compatible string for the tile mode.
-String tileModeString(ui.TileMode tileMode) {
-  switch (tileMode) {
-    case ui.TileMode.clamp:
-      return 'clamp';
-    case ui.TileMode.mirror:
-      return 'mirror';
-    case ui.TileMode.repeated:
-      return 'repeated';
-    case ui.TileMode.decal:
-      return 'decal';
+String tileModeString(ui.TileMode? tileMode) => tileMode?.name ?? 'unspecified';
+
+/// A size where both the width and height are integers.
+class BitmapSize {
+  const BitmapSize(this.width, this.height);
+
+  /// Returns a [BitmapSize] by rounding the width and height of a [ui.Size] to
+  /// the nearest integer.
+  BitmapSize.fromSize(ui.Size size) : width = size.width.round(), height = size.height.round();
+
+  final int width;
+  final int height;
+
+  @override
+  bool operator ==(Object other) {
+    return other is BitmapSize && other.width == width && other.height == height;
   }
+
+  @override
+  int get hashCode => Object.hash(width, height);
+
+  @override
+  String toString() => 'BitmapSize($width, $height)';
+
+  ui.Size toSize() {
+    return ui.Size(width.toDouble(), height.toDouble());
+  }
+
+  bool get isEmpty => width == 0 || height == 0;
+
+  static const BitmapSize zero = BitmapSize(0, 0);
 }

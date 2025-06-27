@@ -278,8 +278,8 @@ flutter_runner("aot") {
   product = false
 
   extra_deps = [
-    "$dart_src/runtime:libdart_precompiled_runtime",
-    "$dart_src/runtime/platform:libdart_platform_precompiled_runtime",
+    "$dart_src/runtime:libdart_aotruntime",
+    "$dart_src/runtime/platform:libdart_platform_aotruntime",
   ]
 }
 
@@ -288,8 +288,8 @@ flutter_runner("aot_product") {
   product = true
 
   extra_deps = [
-    "$dart_src/runtime:libdart_precompiled_runtime",
-    "$dart_src/runtime/platform:libdart_platform_precompiled_runtime",
+    "$dart_src/runtime:libdart_aotruntime",
+    "$dart_src/runtime/platform:libdart_platform_aotruntime",
   ]
 }
 
@@ -319,8 +319,6 @@ template("jit_runner") {
     }
 
     binary = "flutter_jit${product_suffix}_runner"
-
-    cml_file = rebase_path("meta/flutter_jit${product_suffix}_runner.cml")
 
     resources = [
       {
@@ -388,8 +386,6 @@ template("aot_runner") {
         observatory_target,
       ]
     }
-
-    cml_file = rebase_path("meta/flutter_aot${product_suffix}_runner.cml")
 
     binary = "flutter_aot${product_suffix}_runner"
 
@@ -524,11 +520,11 @@ if (enable_unittests) {
     ]
 
     deps = [
-             "tests/fakes",
              ":flutter_runner_fixtures",
              ":flutter_runner_sources",
              "${fuchsia_sdk}/pkg/async-testing",
              "${fuchsia_sdk}/pkg/sys_cpp_testing",
+             "tests/fakes",
              "//flutter/shell/platform/common/client_wrapper:client_wrapper_library_stubs",
              "//flutter/testing",
            ] + flutter_deps
@@ -590,9 +586,7 @@ if (enable_unittests) {
 
   fuchsia_test_archive("flutter_runner_tests") {
     deps = [ ":flutter_runner_unittests" ]
-
-    binary = "$target_name"
-
+    gen_cml_file = true
     resources = [
       {
         path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
@@ -603,9 +597,7 @@ if (enable_unittests) {
 
   fuchsia_test_archive("flutter_runner_tzdata_tests") {
     deps = [ ":flutter_runner_tzdata_unittests" ]
-
-    binary = "$target_name"
-
+    gen_cml_file = true
     resources = [
       {
         path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
@@ -631,9 +623,7 @@ if (enable_unittests) {
 
   fuchsia_test_archive("flutter_runner_tzdata_missing_tests") {
     deps = [ ":flutter_runner_tzdata_missing_unittests" ]
-
-    binary = "$target_name"
-
+    gen_cml_file = true
     resources = [
       {
         path = rebase_path("//flutter/third_party/icu/common/icudtl.dat")
@@ -644,19 +634,17 @@ if (enable_unittests) {
 
   fuchsia_test_archive("fml_tests") {
     deps = [ "//flutter/fml:fml_unittests" ]
-
+    gen_cml_file = true
     binary = "fml_unittests"
   }
 
   fuchsia_test_archive("display_list_tests") {
     deps = [ "//flutter/display_list:display_list_unittests" ]
-
+    gen_cml_file = true
     binary = "display_list_unittests"
-
     resources = [
       {
-        path = rebase_path(
-                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        path = rebase_path("//flutter/txt/third_party/fonts/Roboto-Regular.ttf")
         dest = "assets/Roboto-Regular.ttf"
       },
     ]
@@ -664,13 +652,11 @@ if (enable_unittests) {
 
   fuchsia_test_archive("display_list_render_tests") {
     deps = [ "//flutter/display_list:display_list_rendertests" ]
-
+    gen_cml_file = true
     binary = "display_list_rendertests"
-
     resources = [
       {
-        path = rebase_path(
-                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        path = rebase_path("//flutter/txt/third_party/fonts/Roboto-Regular.ttf")
         dest = "assets/Roboto-Regular.ttf"
       },
     ]
@@ -678,9 +664,8 @@ if (enable_unittests) {
 
   fuchsia_test_archive("flow_tests") {
     deps = [ "//flutter/flow:flow_unittests" ]
-
+    gen_cml_file = true
     binary = "flow_unittests"
-
     resources = [
       {
         path = rebase_path(
@@ -698,8 +683,7 @@ if (enable_unittests) {
         dest = "flutter/testing/resources/performance_overlay_gold_120fps.png"
       },
       {
-        path = rebase_path(
-                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        path = rebase_path("//flutter/txt/third_party/fonts/Roboto-Regular.ttf")
         dest = "assets/Roboto-Regular.ttf"
       },
     ]
@@ -710,7 +694,7 @@ if (enable_unittests) {
       "//flutter/runtime:runtime_fixtures",
       "//flutter/runtime:runtime_unittests",
     ]
-
+    gen_cml_file = true
     binary = "runtime_unittests"
 
     # TODO(gw280): https://github.com/flutter/flutter/issues/50294
@@ -729,7 +713,7 @@ if (enable_unittests) {
       "//flutter/shell/common:shell_unittests",
       "//flutter/shell/common:shell_unittests_fixtures",
     ]
-
+    gen_cml_file = true
     binary = "shell_unittests"
 
     # TODO(gw280): https://github.com/flutter/flutter/issues/50294
@@ -746,8 +730,7 @@ if (enable_unittests) {
         dest = "assets/shelltest_screenshot.png"
       },
       {
-        path = rebase_path(
-                "//flutter/third_party/txt/third_party/fonts/Roboto-Regular.ttf")
+        path = rebase_path("//flutter/txt/third_party/fonts/Roboto-Regular.ttf")
         dest = "assets/Roboto-Regular.ttf"
       },
     ]
@@ -756,15 +739,9 @@ if (enable_unittests) {
     resources += vulkan_icds
   }
 
-  fuchsia_test_archive("testing_tests") {
-    deps = [ "//flutter/testing:testing_unittests" ]
-
-    binary = "testing_unittests"
-  }
-
   fuchsia_test_archive("txt_tests") {
-    deps = [ "//flutter/third_party/txt:txt_unittests" ]
-
+    deps = [ "//flutter/txt:txt_unittests" ]
+    gen_cml_file = true
     binary = "txt_unittests"
 
     resources = [
@@ -784,7 +761,7 @@ if (enable_unittests) {
       "//flutter/lib/ui:ui_unittests",
       "//flutter/lib/ui:ui_unittests_fixtures",
     ]
-
+    gen_cml_file = true
     binary = "ui_unittests"
 
     # TODO(gw280): https://github.com/flutter/flutter/issues/50294
@@ -826,7 +803,7 @@ if (enable_unittests) {
       "//flutter/shell/platform/embedder:embedder_unittests",
       "//flutter/shell/platform/embedder:fixtures",
     ]
-
+    gen_cml_file = true
     binary = "embedder_unittests"
 
     # TODO(gw280): https://github.com/flutter/flutter/issues/50294
@@ -904,8 +881,154 @@ if (enable_unittests) {
 
   fuchsia_test_archive("dart_utils_tests") {
     deps = [ "//flutter/shell/platform/fuchsia/runtime/dart/utils:dart_utils_unittests" ]
-
+    gen_cml_file = true
     binary = "dart_utils_unittests"
+  }
+
+  fuchsia_test_archive("assets_unittests") {
+    deps = [ "//flutter/assets:assets_unittests" ]
+    gen_cml_file = true
+    binary = "assets_unittests"
+  }
+
+  fuchsia_test_archive("client_wrapper_unittests") {
+    deps = [
+      "//flutter/shell/platform/common/client_wrapper:client_wrapper_unittests",
+    ]
+    gen_cml_file = true
+    binary = "client_wrapper_unittests"
+  }
+
+  fuchsia_test_archive("common_cpp_core_unittests") {
+    deps = [ "//flutter/shell/platform/common:common_cpp_core_unittests" ]
+    gen_cml_file = true
+    binary = "common_cpp_core_unittests"
+  }
+
+  fuchsia_test_archive("common_cpp_unittests") {
+    deps = [ "//flutter/shell/platform/common:common_cpp_unittests" ]
+    gen_cml_file = true
+    binary = "common_cpp_unittests"
+  }
+
+  fuchsia_test_archive("dart_plugin_registrant_unittests") {
+    deps = [
+      "//flutter/runtime:dart_plugin_registrant_unittests",
+      "//flutter/runtime:plugin_registrant",
+    ]
+    gen_cml_file = true
+    binary = "dart_plugin_registrant_unittests"
+
+    # TODO(gw280): https://github.com/flutter/flutter/issues/50294
+    # Right now we need to manually specify all the fixtures that are
+    # declared in the test_fixtures() call above.
+    resources = [
+      {
+        path = "$root_gen_dir/flutter/runtime/assets/plugin_registrant_kernel_blob.bin"
+        dest = "assets/plugin_registrant_kernel_blob.bin"
+      },
+    ]
+    if (is_aot_test) {
+      resources += [
+        {
+          path = "$root_gen_dir/flutter/runtime/assets/plugin_registrant_app_elf_snapshot.so"
+          dest = "assets/plugin_registrant_app_elf_snapshot.so"
+        },
+      ]
+    }
+  }
+
+  fuchsia_test_archive("no_dart_plugin_registrant_unittests") {
+    deps = [
+      "//flutter/runtime:no_dart_plugin_registrant_unittests",
+      "//flutter/runtime:no_plugin_registrant",
+    ]
+    gen_cml_file = true
+    binary = "no_dart_plugin_registrant_unittests"
+
+    # TODO(gw280): https://github.com/flutter/flutter/issues/50294
+    # Right now we need to manually specify all the fixtures that are
+    # declared in the test_fixtures() call above.
+    resources = [
+      {
+        path = "$root_gen_dir/flutter/runtime/assets/no_plugin_registrant_kernel_blob.bin"
+        dest = "assets/no_plugin_registrant_kernel_blob.bin"
+      },
+    ]
+    if (is_aot_test) {
+      resources += [
+        {
+          path = "$root_gen_dir/flutter/runtime/assets/no_plugin_registrant_app_elf_snapshot.so"
+          dest = "assets/no_plugin_registrant_app_elf_snapshot.so"
+        },
+      ]
+    }
+  }
+
+  fuchsia_test_archive("embedder_a11y_unittests") {
+    deps = [
+      "//flutter/shell/platform/embedder:embedder_a11y_unittests",
+      "//flutter/shell/platform/embedder:fixtures",
+    ]
+    gen_cml_file = true
+    binary = "embedder_a11y_unittests"
+
+    # TODO(gw280): https://github.com/flutter/flutter/issues/50294
+    # Right now we need to manually specify all the fixtures that are
+    # declared in the test_fixtures() call above.
+    resources = [
+      {
+        path = "$root_gen_dir/flutter/shell/platform/embedder/assets/kernel_blob.bin"
+        dest = "assets/kernel_blob.bin"
+      },
+    ]
+    if (is_aot_test) {
+      resources += [
+        {
+          path = "$root_gen_dir/flutter/shell/platform/embedder/assets/app_elf_snapshot.so"
+          dest = "assets/app_elf_snapshot.so"
+        },
+      ]
+    }
+  }
+
+  fuchsia_test_archive("embedder_proctable_unittests") {
+    deps = [ "//flutter/shell/platform/embedder:embedder_proctable_unittests" ]
+    gen_cml_file = true
+    binary = "embedder_proctable_unittests"
+  }
+
+  fuchsia_test_archive("testing_unittests") {
+    deps = [ "//flutter/testing:testing_unittests" ]
+    gen_cml_file = true
+    binary = "testing_unittests"
+  }
+
+  fuchsia_test_archive("tonic_unittests") {
+    deps = [
+      "//flutter/third_party/tonic/tests:tonic_fixtures",
+      "//flutter/third_party/tonic/tests:tonic_unittests",
+    ]
+    gen_cml_file = true
+    binary = "tonic_unittests"
+
+    # TODO(gw280): https://github.com/flutter/flutter/issues/50294
+    # Right now we need to manually specify all the fixtures that are
+    # declared in the test_fixtures() call above.
+    resources = [
+      {
+        path = "$root_gen_dir/flutter/third_party/tonic/tests/assets/kernel_blob.bin"
+        dest = "assets/kernel_blob.bin"
+      },
+    ]
+    if (is_aot_test) {
+      resources += [
+        {
+          path = "$root_gen_dir/flutter/third_party/tonic/tests/assets/app_elf_snapshot.so"
+          dest = "assets/app_elf_snapshot.so"
+        },
+      ]
+    }
   }
 
   # When adding a new dep here, please also ensure the dep is added to
@@ -914,18 +1037,27 @@ if (enable_unittests) {
     testonly = true
 
     deps = [
+      ":assets_unittests",
+      ":client_wrapper_unittests",
+      ":common_cpp_core_unittests",
+      ":common_cpp_unittests",
+      ":dart_plugin_registrant_unittests",
       ":dart_utils_tests",
       ":display_list_render_tests",
       ":display_list_tests",
+      ":embedder_a11y_unittests",
+      ":embedder_proctable_unittests",
       ":embedder_tests",
       ":flow_tests",
       ":flutter_runner_tests",
       ":flutter_runner_tzdata_missing_tests",
       ":flutter_runner_tzdata_tests",
       ":fml_tests",
+      ":no_dart_plugin_registrant_unittests",
       ":runtime_tests",
       ":shell_tests",
-      ":testing_tests",
+      ":testing_unittests",
+      ":tonic_unittests",
       ":txt_tests",
       ":ui_tests",
       "tests/integration",

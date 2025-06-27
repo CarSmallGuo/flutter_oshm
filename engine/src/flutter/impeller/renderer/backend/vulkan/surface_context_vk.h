@@ -8,6 +8,7 @@
 #include <memory>
 
 #include "impeller/base/backend_cast.h"
+#include "impeller/core/runtime_types.h"
 #include "impeller/renderer/backend/vulkan/vk.h"
 #include "impeller/renderer/command_queue.h"
 #include "impeller/renderer/context.h"
@@ -23,7 +24,7 @@ namespace impeller {
 
 class ContextVK;
 class Surface;
-class KHRSwapchainVK;
+class SwapchainVK;
 
 /// For Vulkan, there is both a ContextVK that implements Context and a
 /// SurfaceContextVK that also implements Context and takes a ContextVK as its
@@ -74,10 +75,21 @@ class SurfaceContextVK : public Context,
   std::shared_ptr<CommandQueue> GetCommandQueue() const override;
 
   // |Context|
+  std::shared_ptr<const IdleWaiter> GetIdleWaiter() const override;
+
+  // |Context|
+  RuntimeStageBackend GetRuntimeStageBackend() const override;
+
+  // |Context|
+  bool SubmitOnscreen(std::shared_ptr<CommandBuffer> cmd_buffer) override;
+
+  // |Context|
   void Shutdown() override;
 
   [[nodiscard]] bool SetWindowSurface(vk::UniqueSurfaceKHR surface,
                                       const ISize& size);
+
+  [[nodiscard]] bool SetSwapchain(std::shared_ptr<SwapchainVK> swapchain);
 
   void ClearSwapchain();
 
@@ -87,11 +99,19 @@ class SurfaceContextVK : public Context,
 
   void SetRenderArea(std::optional<IRect> area);
 
+  /// @brief Performs frame incrementing processes like AcquireNextSurface but
+  ///        without the surface.
+  ///
+  /// Used by the embedder.h implementations.
+  void MarkFrameEnd();
+
   /// @brief Mark the current swapchain configuration as dirty, forcing it to be
   ///        recreated on the next frame.
   void UpdateSurfaceSize(const ISize& size) const;
 
   // |Context|
+  void TeardownSwapchain();
+
   void InitializeCommonlyUsedShadersIfNeeded() const override;
 
 #ifdef FML_OS_ANDROID
@@ -107,11 +127,16 @@ class SurfaceContextVK : public Context,
 
   const vk::Device& GetDevice() const;
 
-  const ContextVK& GetParent() const;
+  const std::shared_ptr<ContextVK>& GetParent() const;
+
+  bool EnqueueCommandBuffer(
+      std::shared_ptr<CommandBuffer> command_buffer) override;
+
+  bool FlushCommandBuffers() override;
 
  private:
   std::shared_ptr<ContextVK> parent_;
-  std::shared_ptr<KHRSwapchainVK> swapchain_;
+  std::shared_ptr<SwapchainVK> swapchain_;
 };
 
 }  // namespace impeller

@@ -24,6 +24,7 @@
 #include "flutter/testing/test_gl_surface.h"
 #include "flutter/testing/testing.h"
 #include "fml/logging.h"
+#include "impeller/core/runtime_types.h"
 #include "impeller/renderer/command_queue.h"
 #include "third_party/skia/include/codec/SkCodecAnimation.h"
 #include "third_party/skia/include/core/SkData.h"
@@ -34,12 +35,13 @@
 
 // CREATE_NATIVE_ENTRY is leaky by design
 // NOLINTBEGIN(clang-analyzer-core.StackAddressEscape)
+// NOLINTBEGIN(clang-analyzer-cplusplus.NewDeleteLeaks)
 
 namespace impeller {
 
 class TestImpellerContext : public impeller::Context {
  public:
-  TestImpellerContext() = default;
+  TestImpellerContext() : impeller::Context(impeller::Flags{}) {}
 
   BackendType GetBackendType() const override { return BackendType::kMetal; }
 
@@ -77,15 +79,40 @@ class TestImpellerContext : public impeller::Context {
     return nullptr;
   }
 
-  void Shutdown() override {}
+  void StoreTaskForGPU(const std::function<void()>& task,
+                       const std::function<void()>& failure) override {
+    tasks_.push_back(PendingTask{task, failure});
+  }
+
+  void FlushTasks(bool fail = false) {
+    for (auto& task : tasks_) {
+      if (fail) {
+        task.task();
+      } else {
+        task.failure();
+      }
+    }
+    tasks_.clear();
+  }
 
   void DisposeThreadLocalCachedResources() override { did_dispose_ = true; }
+
+  void Shutdown() override {}
+
+  RuntimeStageBackend GetRuntimeStageBackend() const override {
+    return RuntimeStageBackend::kVulkan;
+  }
 
   bool DidDisposeResources() const { return did_dispose_; }
 
   mutable size_t command_buffer_count_ = 0;
 
  private:
+  struct PendingTask {
+    std::function<void()> task;
+    std::function<void()> failure;
+  };
+  std::vector<PendingTask> tasks_;
   std::shared_ptr<const Capabilities> capabilities_;
   bool did_dispose_ = false;
 };
@@ -342,18 +369,71 @@ TEST_F(ImageDecoderFixtureTest, ImpellerUploadToSharedNoGpu) {
   desc.size = bitmap->computeByteSize();
   auto buffer = std::make_shared<impeller::TestImpellerDeviceBuffer>(desc);
 
-  auto result = ImageDecoderImpeller::UploadTextureToPrivate(
-      no_gpu_access_context, buffer, info, bitmap, gpu_disabled_switch);
-  ASSERT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
-  ASSERT_EQ(result.second, "");
+  bool invoked = false;
+  auto cb = [&invoked](const sk_sp<DlImage>& image,
+                       const std::string& message) { invoked = true; };
+
+  ImageDecoderImpeller::UploadTextureToPrivate(
+      cb, no_gpu_access_context, buffer, info, bitmap, std::nullopt,
+      gpu_disabled_switch);
+
+  EXPECT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
+  EXPECT_FALSE(invoked);
   EXPECT_EQ(no_gpu_access_context->DidDisposeResources(), false);
 
-  result = ImageDecoderImpeller::UploadTextureToStorage(
-      no_gpu_access_context, bitmap, gpu_disabled_switch,
-      impeller::StorageMode::kHostVisible, true);
+  auto result = ImageDecoderImpeller::UploadTextureToStorage(
+      no_gpu_access_context, bitmap);
+
   ASSERT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
   ASSERT_EQ(result.second, "");
   EXPECT_EQ(no_gpu_access_context->DidDisposeResources(), true);
+  EXPECT_EQ(
+      result.first->impeller_texture()->GetTextureDescriptor().storage_mode,
+      impeller::StorageMode::kHostVisible);
+
+  no_gpu_access_context->FlushTasks(/*fail=*/true);
+}
+
+TEST_F(ImageDecoderFixtureTest,
+       ImpellerUploadToSharedNoGpuTaskFlushingFailure) {
+#if !IMPELLER_SUPPORTS_RENDERING
+  GTEST_SKIP() << "Impeller only test.";
+#endif  // IMPELLER_SUPPORTS_RENDERING
+
+  auto no_gpu_access_context =
+      std::make_shared<impeller::TestImpellerContext>();
+  auto gpu_disabled_switch = std::make_shared<fml::SyncSwitch>(true);
+
+  auto info = SkImageInfo::Make(10, 10, SkColorType::kRGBA_8888_SkColorType,
+                                SkAlphaType::kPremul_SkAlphaType);
+  auto bitmap = std::make_shared<SkBitmap>();
+  bitmap->allocPixels(info, 10 * 4);
+  impeller::DeviceBufferDescriptor desc;
+  desc.size = bitmap->computeByteSize();
+  auto buffer = std::make_shared<impeller::TestImpellerDeviceBuffer>(desc);
+
+  sk_sp<DlImage> image;
+  std::string message;
+  bool invoked = false;
+  auto cb = [&invoked, &image, &message](sk_sp<DlImage> p_image,
+                                         std::string p_message) {
+    invoked = true;
+    image = std::move(p_image);
+    message = std::move(p_message);
+  };
+
+  ImageDecoderImpeller::UploadTextureToPrivate(
+      cb, no_gpu_access_context, buffer, info, bitmap, std::nullopt,
+      gpu_disabled_switch);
+
+  EXPECT_EQ(no_gpu_access_context->command_buffer_count_, 0ul);
+  EXPECT_FALSE(invoked);
+
+  no_gpu_access_context->FlushTasks(/*fail=*/true);
+
+  EXPECT_TRUE(invoked);
+  // Creation of the dl image will still fail with the mocked context.
+  EXPECT_NE(message, "");
 }
 
 TEST_F(ImageDecoderFixtureTest, ImpellerNullColorspace) {
@@ -371,12 +451,16 @@ TEST_F(ImageDecoderFixtureTest, ImpellerNullColorspace) {
       std::move(data), image->imageInfo(), 10 * 4);
 
 #if IMPELLER_SUPPORTS_RENDERING
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
   std::shared_ptr<impeller::Allocator> allocator =
       std::make_shared<impeller::TestImpellerAllocator>();
   std::optional<DecompressResult> decompressed =
       ImageDecoderImpeller::DecompressTexture(
           descriptor.get(), SkISize::Make(100, 100), {100, 100},
-          /*supports_wide_gamut=*/true, allocator);
+          /*supports_wide_gamut=*/true, capabilities, allocator);
   ASSERT_TRUE(decompressed.has_value());
   ASSERT_EQ(decompressed->image_info.colorType(), kRGBA_8888_SkColorType);
   ASSERT_EQ(decompressed->image_info.colorSpace(), nullptr);
@@ -398,12 +482,16 @@ TEST_F(ImageDecoderFixtureTest, ImpellerPixelConversion32F) {
       std::move(data), image->imageInfo(), 10 * 16);
 
 #if IMPELLER_SUPPORTS_RENDERING
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
   std::shared_ptr<impeller::Allocator> allocator =
       std::make_shared<impeller::TestImpellerAllocator>();
   std::optional<DecompressResult> decompressed =
       ImageDecoderImpeller::DecompressTexture(
           descriptor.get(), SkISize::Make(100, 100), {100, 100},
-          /*supports_wide_gamut=*/true, allocator);
+          /*supports_wide_gamut=*/true, capabilities, allocator);
 
   ASSERT_TRUE(decompressed.has_value());
   ASSERT_EQ(decompressed->image_info.colorType(), kRGBA_F16_SkColorType);
@@ -426,12 +514,16 @@ TEST_F(ImageDecoderFixtureTest, ImpellerWideGamutDisplayP3Opaque) {
                                                          std::move(generator));
 
 #if IMPELLER_SUPPORTS_RENDERING
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
   std::shared_ptr<impeller::Allocator> allocator =
       std::make_shared<impeller::TestImpellerAllocator>();
   std::optional<DecompressResult> wide_result =
       ImageDecoderImpeller::DecompressTexture(
           descriptor.get(), SkISize::Make(100, 100), {100, 100},
-          /*supports_wide_gamut=*/true, allocator);
+          /*supports_wide_gamut=*/true, capabilities, allocator);
 
   ASSERT_TRUE(wide_result.has_value());
   ASSERT_EQ(wide_result->image_info.colorType(), kBGR_101010x_XR_SkColorType);
@@ -456,7 +548,7 @@ TEST_F(ImageDecoderFixtureTest, ImpellerWideGamutDisplayP3Opaque) {
   std::optional<DecompressResult> narrow_result =
       ImageDecoderImpeller::DecompressTexture(
           descriptor.get(), SkISize::Make(100, 100), {100, 100},
-          /*supports_wide_gamut=*/false, allocator);
+          /*supports_wide_gamut=*/false, capabilities, allocator);
 
   ASSERT_TRUE(narrow_result.has_value());
   ASSERT_EQ(narrow_result->image_info.colorType(), kRGBA_8888_SkColorType);
@@ -478,12 +570,16 @@ TEST_F(ImageDecoderFixtureTest, ImpellerNonWideGamut) {
                                                          std::move(generator));
 
 #if IMPELLER_SUPPORTS_RENDERING
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
   std::shared_ptr<impeller::Allocator> allocator =
       std::make_shared<impeller::TestImpellerAllocator>();
   std::optional<DecompressResult> result =
       ImageDecoderImpeller::DecompressTexture(
           descriptor.get(), SkISize::Make(600, 200), {600, 200},
-          /*supports_wide_gamut=*/true, allocator);
+          /*supports_wide_gamut=*/true, capabilities, allocator);
 
   ASSERT_TRUE(result.has_value());
   ASSERT_EQ(result->image_info.colorType(), kRGBA_8888_SkColorType);
@@ -715,8 +811,8 @@ TEST(ImageDecoderTest, VerifySimpleDecoding) {
   auto data = flutter::testing::OpenFixtureAsSkData("Horizontal.jpg");
   auto image = SkImages::DeferredFromEncodedData(data);
   ASSERT_TRUE(image != nullptr);
-  ASSERT_EQ(600, image->width());
-  ASSERT_EQ(200, image->height());
+  EXPECT_EQ(600, image->width());
+  EXPECT_EQ(200, image->height());
 
   ImageGeneratorRegistry registry;
   std::shared_ptr<ImageGenerator> generator =
@@ -727,24 +823,51 @@ TEST(ImageDecoderTest, VerifySimpleDecoding) {
                                                          std::move(generator));
   auto compressed_image = ImageDecoderSkia::ImageFromCompressedData(
       descriptor.get(), 6, 2, fml::tracing::TraceFlow(""));
-  ASSERT_EQ(compressed_image->width(), 6);
-  ASSERT_EQ(compressed_image->height(), 2);
-  ASSERT_EQ(compressed_image->alphaType(), kOpaque_SkAlphaType);
+  EXPECT_EQ(compressed_image->width(), 6);
+  EXPECT_EQ(compressed_image->height(), 2);
+  EXPECT_EQ(compressed_image->alphaType(), kOpaque_SkAlphaType);
 
 #if IMPELLER_SUPPORTS_RENDERING
+  std::shared_ptr<impeller::Capabilities> capabilities =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(true)
+          .Build();
+  std::shared_ptr<impeller::Capabilities> capabilities_no_blit =
+      impeller::CapabilitiesBuilder()
+          .SetSupportsTextureToTextureBlits(false)
+          .Build();
+  // Bitmap sizes reflect the original image size as resizing is done on the
+  // GPU if the src size is smaller than the max texture size.
   std::shared_ptr<impeller::Allocator> allocator =
       std::make_shared<impeller::TestImpellerAllocator>();
   auto result_1 = ImageDecoderImpeller::DecompressTexture(
-      descriptor.get(), SkISize::Make(6, 2), {100, 100},
-      /*supports_wide_gamut=*/false, allocator);
-  ASSERT_EQ(result_1.sk_bitmap->width(), 6);
-  ASSERT_EQ(result_1.sk_bitmap->height(), 2);
+      descriptor.get(), SkISize::Make(6, 2), {1000, 1000},
+      /*supports_wide_gamut=*/false, capabilities, allocator);
+  EXPECT_EQ(result_1.sk_bitmap->width(), 75);
+  EXPECT_EQ(result_1.sk_bitmap->height(), 25);
 
+  // Bitmap sizes reflect the scaled size if the source size is larger than
+  // max texture size even if destination size isn't max texture size.
   auto result_2 = ImageDecoderImpeller::DecompressTexture(
+      descriptor.get(), SkISize::Make(6, 2), {10, 10},
+      /*supports_wide_gamut=*/false, capabilities, allocator);
+  EXPECT_EQ(result_2.sk_bitmap->width(), 6);
+  EXPECT_EQ(result_2.sk_bitmap->height(), 2);
+
+  // If the destination size is larger than the max texture size the image
+  // is scaled down.
+  auto result_3 = ImageDecoderImpeller::DecompressTexture(
       descriptor.get(), SkISize::Make(60, 20), {10, 10},
-      /*supports_wide_gamut=*/false, allocator);
-  ASSERT_EQ(result_2.sk_bitmap->width(), 10);
-  ASSERT_EQ(result_2.sk_bitmap->height(), 10);
+      /*supports_wide_gamut=*/false, capabilities, allocator);
+  EXPECT_EQ(result_3.sk_bitmap->width(), 10);
+  EXPECT_EQ(result_3.sk_bitmap->height(), 10);
+
+  // CPU resize is forced.
+  auto result_4 = ImageDecoderImpeller::DecompressTexture(
+      descriptor.get(), SkISize::Make(6, 2), {1000, 1000},
+      /*supports_wide_gamut=*/false, capabilities_no_blit, allocator);
+  EXPECT_EQ(result_4.sk_bitmap->width(), 6);
+  EXPECT_EQ(result_4.sk_bitmap->height(), 2);
 #endif  // IMPELLER_SUPPORTS_RENDERING
 }
 
@@ -889,175 +1012,6 @@ TEST_F(ImageDecoderFixtureTest,
   PostTaskSync(runners.GetIOTaskRunner(), [&]() { io_manager.reset(); });
 }
 
-TEST_F(ImageDecoderFixtureTest, MultiFrameCodecDidAccessGpuDisabledSyncSwitch) {
-  auto settings = CreateSettingsForFixture();
-  auto vm_ref = DartVMRef::Create(settings);
-  auto vm_data = vm_ref.GetVMData();
-
-  auto gif_mapping = flutter::testing::OpenFixtureAsSkData("hello_loop_2.gif");
-
-  ASSERT_TRUE(gif_mapping);
-
-  ImageGeneratorRegistry registry;
-  std::shared_ptr<ImageGenerator> gif_generator =
-      registry.CreateCompatibleGenerator(gif_mapping);
-  ASSERT_TRUE(gif_generator);
-
-  TaskRunners runners(GetCurrentTestName(),         // label
-                      CreateNewThread("platform"),  // platform
-                      CreateNewThread("raster"),    // raster
-                      CreateNewThread("ui"),        // ui
-                      CreateNewThread("io")         // io
-  );
-
-  std::unique_ptr<TestIOManager> io_manager;
-  fml::RefPtr<MultiFrameCodec> codec;
-  fml::AutoResetWaitableEvent latch;
-
-  auto validate_frame_callback = [&latch](Dart_NativeArguments args) {
-    EXPECT_FALSE(Dart_IsNull(Dart_GetNativeArgument(args, 0)));
-    latch.Signal();
-  };
-
-  AddNativeCallback("ValidateFrameCallback",
-                    CREATE_NATIVE_ENTRY(validate_frame_callback));
-  // Setup the IO manager.
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() {
-    io_manager = std::make_unique<TestIOManager>(runners.GetIOTaskRunner());
-  });
-
-  auto isolate = RunDartCodeInIsolate(vm_ref, settings, runners, "main", {},
-                                      GetDefaultKernelFilePath(),
-                                      io_manager->GetWeakIOManager());
-
-  PostTaskSync(runners.GetUITaskRunner(), [&]() {
-    fml::AutoResetWaitableEvent isolate_latch;
-
-    EXPECT_TRUE(isolate->RunInIsolateScope([&]() -> bool {
-      Dart_Handle library = Dart_RootLibrary();
-      if (Dart_IsError(library)) {
-        isolate_latch.Signal();
-        return false;
-      }
-      Dart_Handle closure =
-          Dart_GetField(library, Dart_NewStringFromCString("frameCallback"));
-      if (Dart_IsError(closure) || !Dart_IsClosure(closure)) {
-        isolate_latch.Signal();
-        return false;
-      }
-
-      EXPECT_FALSE(io_manager->did_access_is_gpu_disabled_sync_switch_);
-      codec = fml::MakeRefCounted<MultiFrameCodec>(std::move(gif_generator));
-      codec->getNextFrame(closure);
-      isolate_latch.Signal();
-      return true;
-    }));
-    isolate_latch.Wait();
-  });
-
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() {
-    EXPECT_TRUE(io_manager->did_access_is_gpu_disabled_sync_switch_);
-  });
-
-  latch.Wait();
-
-  // Destroy the Isolate
-  isolate = nullptr;
-
-  // Destroy the MultiFrameCodec
-  PostTaskSync(runners.GetUITaskRunner(), [&]() { codec = nullptr; });
-
-  // Destroy the IO manager
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() { io_manager.reset(); });
-}
-
-TEST_F(ImageDecoderFixtureTest,
-       MultiFrameCodecProducesATextureEvenIfGPUIsDisabledOnImpeller) {
-  auto settings = CreateSettingsForFixture();
-  settings.enable_impeller = true;
-  auto vm_ref = DartVMRef::Create(settings);
-  auto vm_data = vm_ref.GetVMData();
-
-  auto gif_mapping = flutter::testing::OpenFixtureAsSkData("hello_loop_2.gif");
-
-  ASSERT_TRUE(gif_mapping);
-
-  ImageGeneratorRegistry registry;
-  std::shared_ptr<ImageGenerator> gif_generator =
-      registry.CreateCompatibleGenerator(gif_mapping);
-  ASSERT_TRUE(gif_generator);
-
-  TaskRunners runners(GetCurrentTestName(),         // label
-                      CreateNewThread("platform"),  // platform
-                      CreateNewThread("raster"),    // raster
-                      CreateNewThread("ui"),        // ui
-                      CreateNewThread("io")         // io
-  );
-
-  std::unique_ptr<TestIOManager> io_manager;
-  fml::RefPtr<MultiFrameCodec> codec;
-  fml::AutoResetWaitableEvent latch;
-
-  auto validate_frame_callback = [&latch](Dart_NativeArguments args) {
-    EXPECT_FALSE(Dart_IsNull(Dart_GetNativeArgument(args, 0)));
-    latch.Signal();
-  };
-
-  AddNativeCallback("ValidateFrameCallback",
-                    CREATE_NATIVE_ENTRY(validate_frame_callback));
-
-  // Setup the IO manager.
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() {
-    io_manager = std::make_unique<TestIOManager>(runners.GetIOTaskRunner());
-    // Mark GPU disabled.
-    io_manager->SetGpuDisabled(true);
-  });
-
-  auto isolate = RunDartCodeInIsolate(vm_ref, settings, runners, "main", {},
-                                      GetDefaultKernelFilePath(),
-                                      io_manager->GetWeakIOManager());
-
-  PostTaskSync(runners.GetUITaskRunner(), [&]() {
-    fml::AutoResetWaitableEvent isolate_latch;
-
-    EXPECT_TRUE(isolate->RunInIsolateScope([&]() -> bool {
-      Dart_Handle library = Dart_RootLibrary();
-      if (Dart_IsError(library)) {
-        isolate_latch.Signal();
-        return false;
-      }
-      Dart_Handle closure =
-          Dart_GetField(library, Dart_NewStringFromCString("frameCallback"));
-      if (Dart_IsError(closure) || !Dart_IsClosure(closure)) {
-        isolate_latch.Signal();
-        return false;
-      }
-
-      EXPECT_FALSE(io_manager->did_access_is_gpu_disabled_sync_switch_);
-      codec = fml::MakeRefCounted<MultiFrameCodec>(std::move(gif_generator));
-      codec->getNextFrame(closure);
-      isolate_latch.Signal();
-      return true;
-    }));
-    isolate_latch.Wait();
-  });
-
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() {
-    EXPECT_TRUE(io_manager->did_access_is_gpu_disabled_sync_switch_);
-  });
-
-  latch.Wait();
-
-  // Destroy the Isolate
-  isolate = nullptr;
-
-  // Destroy the MultiFrameCodec
-  PostTaskSync(runners.GetUITaskRunner(), [&]() { codec = nullptr; });
-
-  // Destroy the IO manager
-  PostTaskSync(runners.GetIOTaskRunner(), [&]() { io_manager.reset(); });
-}
-
 TEST_F(ImageDecoderFixtureTest, NullCheckBuffer) {
   auto context = std::make_shared<impeller::TestImpellerContext>();
   auto allocator = ImpellerAllocator(context->GetResourceAllocator());
@@ -1068,4 +1022,5 @@ TEST_F(ImageDecoderFixtureTest, NullCheckBuffer) {
 }  // namespace testing
 }  // namespace flutter
 
+// NOLINTEND(clang-analyzer-cplusplus.NewDeleteLeaks)
 // NOLINTEND(clang-analyzer-core.StackAddressEscape)
