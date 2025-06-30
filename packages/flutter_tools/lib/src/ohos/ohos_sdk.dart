@@ -15,7 +15,7 @@ const String kOhosSdkRoot = 'OHOS_SDK_HOME';
 // HarmonyOS SDK
 const String kHmosHome = 'HOS_SDK_HOME';
 const String kDevecoSdk = 'DEVECO_SDK_HOME';
-
+// 门禁测试
 // for api11 developer preview
 SplayTreeMap<int, String> sdkVersionMap = SplayTreeMap<int, String>((a, b) => b.compareTo(a));
 
