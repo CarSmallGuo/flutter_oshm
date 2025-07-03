@@ -1,4 +1,10 @@
 # Changelog
+## 6.0.0.401
+- 修正轴事件API版本 (3.27[1a179415](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1a179415b81707f8eb3d649f3197cc6b17159f9d?ref=api&prId=898))
+- 解决ltpo使能下，外接纹理的页面上60和120帧率来回跳变 (3.27[66d4e46c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/66d4e46c7867b17d23b74dcbd334aa9dc89b68e6?ref=oh-3.27.4-dev&prId=907))
+- 新增单独上传flutter.har和symbols.zip的脚本 (3.22[244c6914](https://gitcode.com/openharmony-tpc/flutter_engine/commit/244c691495cab82af9052b4c7b9c4568c5d5fb97?ref=oh-3.22.0&prId=913), 3.27[395ce7a1](https://gitcode.com/openharmony-tpc/flutter_engine/commit/395ce7a1a4a76ca554904f1b2e7b421216acdf6c?ref=oh-3.27.4-dev&prId=912))
+- 修改超大gif图场景的内存泄露问题 (3.22[69593346](https://gitcode.com/openharmony-tpc/flutter_engine/commit/69593346903290f33e709273229dfdd87bd009cf?ref=oh-3.22.0), 3.27[66d4e46c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/66d4e46c7867b17d23b74dcbd334aa9dc89b68e6?ref=oh-3.27.4-dev&prId=907))
+- resolve the memory leaking of webview (3.22:[219f7180](https://gitcode.com/openharmony-tpc/flutter_engine/commit/219f71803ca53ebadd0994a398e9124e38e564e2?ref=oh-3.22.0))
 ## 6.0.0.303
 - 增加查询ltpo开启状态的接口 (3.27[51a1e089](https://gitcode.com/openharmony-tpc/flutter_engine/commit/51a1e08992de33eb15d6374fa855bd65dbcb5a58?ref=oh-3.27.4-dev&prId=884))
 - 更改xcomponentMap_mutex为可重入锁 (3.27[465cfba4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/465cfba41f898730f622c9cfab75265765d39226?ref=oh-3.27.4-dev&prId=883))
