@@ -1,4 +1,9 @@
 # Changelog
+## 6.0.0.401
+- 修正轴事件API版本 (3.27:[1a179415](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1a179415b81707f8eb3d649f3197cc6b17159f9d?ref=api&prId=898))
+- 新增单独上传flutter.har和symbols.zip的脚本 (3.22:[244c6914](https://gitcode.com/openharmony-tpc/flutter_engine/commit/244c691495cab82af9052b4c7b9c4568c5d5fb97?ref=oh-3.22.0&prId=913), 3.27:[395ce7a1](https://gitcode.com/openharmony-tpc/flutter_engine/commit/395ce7a1a4a76ca554904f1b2e7b421216acdf6c?ref=oh-3.27.4-dev&prId=912))
+- 修改超大gif图场景的内存泄露问题 (3.22:[69593346](https://gitcode.com/openharmony-tpc/flutter_engine/commit/69593346903290f33e709273229dfdd87bd009cf?ref=oh-3.22.0), 3.27:[66d4e46c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/66d4e46c7867b17d23b74dcbd334aa9dc89b68e6?ref=oh-3.27.4-dev&prId=907))
+- resolve the memory leaking of webview (3.22:[219f7180](https://gitcode.com/openharmony-tpc/flutter_engine/commit/219f71803ca53ebadd0994a398e9124e38e564e2?ref=oh-3.22.0))
 ## 5.1.0.503
 - 修正 FlutterView 中 routerPageUpdate 监听器的添加和移除 (3.22:[33bc06ac](https://gitcode.com/openharmony-tpc/flutter_engine/commit/33bc06acb9beaf328c5c50b111b7e31107b94d1f?ref=fix/router_page_update_observer&prId=880))
 - 打包，上传dart sdk的脚本添加--arch参数，可以通过这个参数指定上传arm64或x64的dart sdk (3.22:[525076f9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/525076f992ae9a4aad72cf4665fbe2883a282af6?ref=oh-3.22.0&prId=885))
