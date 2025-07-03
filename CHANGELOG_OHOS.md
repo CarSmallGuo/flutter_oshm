@@ -1,9 +1,15 @@
 # Changelog
+## 6.0.0.401
+- 修正轴事件API版本 (3.27:[1a179415](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1a179415b81707f8eb3d649f3197cc6b17159f9d?ref=api&prId=898))
+- 解决ltpo使能下，外接纹理的页面上60和120帧率来回跳变 (3.27:[66d4e46c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/66d4e46c7867b17d23b74dcbd334aa9dc89b68e6?ref=oh-3.27.4-dev&prId=907))
+- 新增单独上传flutter.har和symbols.zip的脚本 (3.22:[244c6914](https://gitcode.com/openharmony-tpc/flutter_engine/commit/244c691495cab82af9052b4c7b9c4568c5d5fb97?ref=oh-3.22.0&prId=913), 3.27:[395ce7a1](https://gitcode.com/openharmony-tpc/flutter_engine/commit/395ce7a1a4a76ca554904f1b2e7b421216acdf6c?ref=oh-3.27.4-dev&prId=912))
+- 修改超大gif图场景的内存泄露问题 (3.22:[69593346](https://gitcode.com/openharmony-tpc/flutter_engine/commit/69593346903290f33e709273229dfdd87bd009cf?ref=oh-3.22.0), 3.27:[66d4e46c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/66d4e46c7867b17d23b74dcbd334aa9dc89b68e6?ref=oh-3.27.4-dev&prId=907))
+- resolve the memory leaking of webview (3.22:[219f7180](https://gitcode.com/openharmony-tpc/flutter_engine/commit/219f71803ca53ebadd0994a398e9124e38e564e2?ref=oh-3.22.0))
 ## 6.0.0.303
-- 增加查询ltpo开启状态的接口 (3.27[51a1e089](https://gitcode.com/openharmony-tpc/flutter_engine/commit/51a1e08992de33eb15d6374fa855bd65dbcb5a58?ref=oh-3.27.4-dev&prId=884))
-- 更改xcomponentMap_mutex为可重入锁 (3.27[465cfba4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/465cfba41f898730f622c9cfab75265765d39226?ref=oh-3.27.4-dev&prId=883))
-- 外接物理键盘,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符 (3.27[73fc9b55](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73fc9b55f0224d8c361c116c4d01e96af5f4458e?ref=oh-3.27.4-dev&prId=865))
-- 添加DEP_ohos，依赖三方库分仓构建 (3.27[091c6562](https://gitcode.com/openharmony-tpc/flutter_engine/commit/091c65622b430469aaaa9de29837ea918a0766eb?ref=deps&prId=854))
+- 增加查询ltpo开启状态的接口 (3.27:[51a1e089](https://gitcode.com/openharmony-tpc/flutter_engine/commit/51a1e08992de33eb15d6374fa855bd65dbcb5a58?ref=oh-3.27.4-dev&prId=884))
+- 更改xcomponentMap_mutex为可重入锁 (3.27:[465cfba4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/465cfba41f898730f622c9cfab75265765d39226?ref=oh-3.27.4-dev&prId=883))
+- 外接物理键盘,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符 (3.27:[73fc9b55](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73fc9b55f0224d8c361c116c4d01e96af5f4458e?ref=oh-3.27.4-dev&prId=865))
+- 添加DEP_ohos，依赖三方库分仓构建 (3.27:[091c6562](https://gitcode.com/openharmony-tpc/flutter_engine/commit/091c65622b430469aaaa9de29837ea918a0766eb?ref=deps&prId=854))
 - 优化帧率投票；新增纹理投票 (3.27:[7c0bf0f7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7c0bf0f7367055e6f325c1f03895d57945d15520?ref=oh-3.27.4-dev))
 ## 6.0.0.302
 - 优化帧率投票；新增纹理投票 (3.22:[22d6147c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/22d6147c5fe71b23f16734652b82d45d65f946e6?ref=ltpo_code_0604&prId=855))
@@ -12,7 +18,7 @@
 ## 6.0.0.301
 - flutter3.27.4适配鸿蒙(engine:[cea23e09](https://gitcode.com/openharmony-tpc/flutter_engine/commit/cea23e09695b1daabf7e01537ef653e2c76ef26e?ref=oh-3.27.4-dev), sdk:[223e96a7](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/223e96a76fe57cc8630ac561de11b99bb8d6427f?ref=oh-3.27.4-dev))
 ## 5.1.0.502
-- 无障碍支持xcomponent多实例/多引擎场景(3.7:[12247ac6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/12247ac613a9e446bd806bc4bc8c1d7fd512401c?ref=dev), 3.22[e7a98130](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7a98130f574f0b0cff0ff73776c085c5a583d43?ref=oh-3.22.0))
+- 无障碍支持xcomponent多实例/多引擎场景(3.7:[12247ac6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/12247ac613a9e446bd806bc4bc8c1d7fd512401c?ref=dev), 3.22:[e7a98130](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7a98130f574f0b0cff0ff73776c085c5a583d43?ref=oh-3.22.0))
 - 修复输入法文本光标位置更新和文本错误替换de问题 （3.7:[8fcb9342](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8fcb93420b80727fde29571fbd3c22d570b5fcc2?ref=fix-input-changeselection-3.7&prId=846), 3.22:[4729b57d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4729b57dec567a345180582670af05fea8624867?ref=fix-input-changeselection_3.22&prId=847)）
 - 修复外接物理键盘时,用中文输入法输入内容后按删除键,导致额外删除输入框中的字符的问题 (3.7:[89d3ce09](https://gitcode.com/openharmony-tpc/flutter_engine/commit/89d3ce097aa21bc79b75db3d85b2975beb93269b?ref=feature-keyevent-3.7&prId=839), 3.22:[0fa997df](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0fa997dfa9b6767bdebc6726284845dbbabdf21c?ref=feature-keyevent-3.22&prId=840))
 - 修改engine编译依赖的仓库管理方式 (3.22:[681fd1f2](https://gitcode.com/openharmony-tpc/flutter_engine/commit/681fd1f2ec188aeadfe9981472379919e0d31522?ref=multi-repos&prId=790))
