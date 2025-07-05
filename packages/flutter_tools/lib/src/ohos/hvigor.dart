@@ -262,8 +262,7 @@ void copyFlutterRuntime(
   final BuildMode buildMode = ohosBuildInfo.buildInfo.mode;
   final String localEngineHarPath = globals.artifacts!.getArtifactPath(
     Artifact.flutterEngineHar,
-    platform: getTargetPlatformForName(
-        getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first)),
+    platform: TargetPlatform.ohos_arm64,
     mode: buildMode,
   );
   final String desHarPath = globals.fs.path.join(
@@ -275,8 +274,39 @@ void copyFlutterRuntime(
   );
   ensureParentExists(desHarPath);
   final File originHarFile = globals.localFileSystem.file(localEngineHarPath);
-  originHarFile.copySync(desHarPath);
-  logger?.printTrace('copy from "$localEngineHarPath" to "$desHarPath"');
+  if (originHarFile.existsSync()) {
+    originHarFile.copySync(desHarPath);
+    logger?.printTrace('copy from "$localEngineHarPath" to "$desHarPath"');
+  } else {
+    logger?.printError('Failed to find flutter har file: $localEngineHarPath');
+  }
+
+  // Copy x86_64_${buildMode.name}.har file if needed
+  if (ohosBuildInfo.targetArchs.length > 1 &&
+      ohosBuildInfo.targetArchs.contains(OhosArch.x86_64)) {
+    final String x64HarPath = globals.artifacts!.getArtifactPath(
+      Artifact.flutterEngineHar,
+      platform: TargetPlatform.ohos_x64,
+      mode: buildMode,
+    );
+    final String arch = getNameForOhosArch(OhosArch.x86_64);
+    final File x64HarFile = globals.fs.file(x64HarPath).parent.childFile(
+          '${arch}_${buildMode.name}.har',
+        );
+    if (x64HarFile.existsSync()) {
+      final String x64DesHarPath = globals.fs.path.join(
+        ohosProject.parent.buildDirectory.path,
+        'ohos',
+        'har',
+        buildMode.name,
+        '${arch}_${buildMode.name}.har',
+      );
+      x64HarFile.copySync(x64DesHarPath);
+      logger?.printTrace('copy from "${x64HarFile.path}" to "$x64DesHarPath"');
+    } else {
+      logger?.printError('Failed to find x86_64 har file: ${x64HarFile.path}');
+    }
+  }
   logger?.printTrace('copy flutter runtime to project end');
 }
 
@@ -480,12 +510,18 @@ class OhosHvigorBuilder implements OhosBuilder {
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
 
     status.stop();
-    printHowToConsumeHar(logger: _logger);
+    _logger.printStatus(
+      '${_logger.terminal.successMark} '
+      'Built ${_fileSystem.path.relative(harOutput)}',
+      color: TerminalColor.green,
+    );
+    printHowToConsumeHar(logger: _logger, mode: ohosBuildInfo.buildInfo.mode);
   }
 
   /// Prints how to consume the har from a host app.
   void printHowToConsumeHar({
     Logger? logger,
+    BuildMode mode = BuildMode.release,
   }) {
     logger?.printStatus('\nConsuming the Module', emphasis: true);
     logger?.printStatus('''
@@ -494,6 +530,8 @@ class OhosHvigorBuilder implements OhosBuilder {
 
       "overrides" {
         "@ohos/flutter_ohos": "file:path/to/flutter.har",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "file:path/to/x86_64_${mode.name}.har",
         "@ohos/flutter_module": "file:path/to/flutter_module.har",
         "plugin_x": "file:path/to/plugin_x.har",
         ...
@@ -504,6 +542,8 @@ class OhosHvigorBuilder implements OhosBuilder {
 
       "dependencies": {
         "@ohos/flutter_ohos": "",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "",
         "@ohos/flutter_module": "",
       }
   ''');

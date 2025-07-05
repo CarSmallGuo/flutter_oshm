@@ -55,7 +55,7 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
       const properties = loadProperties(path.join(flutterProjectPath, ohosDir, 'local.properties'))
       const sdkPath = properties['flutter.sdk']
       const productName = appContext.getCurrentProduct().getProductName()
-      const targetPlatforms = getParameters(TARGET_PLATFORM, DEFAULT_PLATFORMS)
+      const targetPlatforms : string[] = getParameters(TARGET_PLATFORM, DEFAULT_PLATFORMS)!
       const buildMode = appContext.getBuildMode()
       rootNode.afterNodeEvaluate(node => {
         // app.json5
@@ -141,13 +141,11 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
   }
 }
 
-function setFlutterHarInDependencies(dependenciesOpt: any, targetPlatforms: string[] | undefined) {
+function setFlutterHarInDependencies(dependenciesOpt: any, targetPlatforms: string[]) {
   dependenciesOpt['@ohos/flutter_ohos'] = ''
-  if (!localEngineSrcPath || !localEngine) {
-    targetPlatforms?.map(platform => PLATFORM_ARCH_MAP[platform].replace('-', '_'))
-      .forEach(arch => {
-        dependenciesOpt[`flutter_native_${arch}`] = ''
-      })
+  if (targetPlatforms.length > 1 && targetPlatforms.indexOf(PLATFORM_X86_64) !== -1) {
+    const arch = PLATFORM_ARCH_MAP[PLATFORM_X86_64]
+    dependenciesOpt[`flutter_native_${arch}`] = ''
   }
 }
 
@@ -156,26 +154,22 @@ function setFlutterHarInOverrides(
   targetPlatforms: string[],
   sdkPath: string,
   buildMode: string) {
-  if (localEngineSrcPath && localEngine) {
-    const flutterHarPath = path.join(localEngineSrcPath, "out", localEngine,
-      'flutter.har')
-    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
-  } else {
-    const buildModeSuffix = buildMode !== 'debug' ? `-${buildMode}` : ''
-    const cacheHarDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
-      `${targetPlatforms[0]}${buildModeSuffix}`)
-    const flutterHarPath = path.join(cacheHarDir,
-      `flutter_embedding_${buildMode}.har`)
-    overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
+  const buildModeSuffix = buildMode !== 'debug' ? `-${buildMode}` : ''
+  const cacheHarDir = localEngineSrcPath && localEngine
+    ? path.join(localEngineSrcPath, 'out', localEngine)
+    : path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
+      `${PLATFORM_ARM64}${buildModeSuffix}`)
+  const flutterHarPath = path.join(cacheHarDir, `flutter.har`)
+  overrides['@ohos/flutter_ohos'] = `file:${realFilePath(flutterHarPath)}`
 
-    // Set flutter_native_${arch} overrides for each target platform
-    targetPlatforms?.forEach(platform => {
-      const arch = PLATFORM_ARCH_MAP[platform].replace('-', '_')
-      const cacheDir = path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine',
-        `${platform}${buildModeSuffix}`)
-      const platformHarPath = path.join(cacheDir, `${arch}_${buildMode}.har`)
-      overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
-    })
+  // Include x86_64_${buildMode} har file if needed
+  if (targetPlatforms.length > 1 && targetPlatforms.indexOf(PLATFORM_X86_64) !== -1) {
+    const arch = PLATFORM_ARCH_MAP[PLATFORM_X86_64]
+    const cacheDir = localEngineSrcPath && localEngine
+      ? path.join(localEngineSrcPath, 'out', localEngine)
+      : path.join(sdkPath, 'bin', 'cache', 'artifacts', 'engine', `${PLATFORM_X86_64}${buildModeSuffix}`)
+    const platformHarPath = path.join(cacheDir, `${arch}_${buildMode}.har`)
+    overrides[`flutter_native_${arch}`] = `file:${realFilePath(platformHarPath)}`
   }
 }
 
