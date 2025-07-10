@@ -1,4 +1,13 @@
 # Changelog
+## 6.0.0.402
+- 修复MediaQuery.of(context).accessibleNavigation状态值异常 (3.27:[97de11b7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/97de11b755fa845fe3096ef3b32affbb19cae4ab?ref=3.27-dev&prId=915))
+- flutter_embedding支持ets产物和native产物分开引用 (3.27:[6ebf1786](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6ebf178696dc32ff42a2914bab5ea48c7c8f55e0?ref=feature-build-3.27&prId=867))
+- 修复nativeShellHolderId变量为null时，执行flutterNapi方法闪退问题 (3.22:[2597ff86](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2597ff860704be905a258ddcfeebe1934762d6c6?ref=fix-a11y-shellholderid-null&prId=911))
+- 修复多FlutterEntry情况下，生命周期异常的问题 (3.22:[e1c4d501](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e1c4d50196f523d6d4b4280430596b941390473c?ref=oh-3.22.0&prId=923))
+- 对hideTextInput方法的优化 (3.7:[970048b7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/970048b717836ef2b51dff7dcebcdb8c843852f0?ref=dev&prId=910))
+- 修复webview关于NodeController的严重内存泄漏问题 (3.7:[f200cc51](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f200cc51b8d28bc73e7dbc876f265ca583625712?ref=fix-webview-memoryleak&prId=886))
+- 修正 FlutterView 中 routerPageUpdate 监听器的添加和移除 (3.7:[ba3bbf52](https://gitcode.com/openharmony-tpc/flutter_engine/commit/ba3bbf52d9efae1de66979faca422f87cd8eef2c?ref=dev&prId=902))
+
 ## 5.1.0.503
 - 修正 FlutterView 中 routerPageUpdate 监听器的添加和移除 (3.22:[33bc06ac](https://gitcode.com/openharmony-tpc/flutter_engine/commit/33bc06acb9beaf328c5c50b111b7e31107b94d1f?ref=fix/router_page_update_observer&prId=880))
 - 打包，上传dart sdk的脚本添加--arch参数，可以通过这个参数指定上传arm64或x64的dart sdk (3.22:[525076f9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/525076f992ae9a4aad72cf4665fbe2883a282af6?ref=oh-3.22.0&prId=885))
