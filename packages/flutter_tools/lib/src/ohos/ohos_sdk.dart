@@ -9,6 +9,7 @@ import 'package:json5/json5.dart';
 import '../base/file_system.dart';
 import '../globals.dart' as globals;
 
+// 门禁测试
 // OpenHarmony SDK
 const String kOhosHome = 'OHOS_HOME';
 const String kOhosSdkRoot = 'OHOS_SDK_HOME';
