@@ -13,6 +13,7 @@ import '../base/file_system.dart';
 import '../base/platform.dart';
 import '../globals.dart' as globals;
 
+// 门禁测试
 // OpenHarmony SDK
 const String kOhosHome = 'OHOS_HOME';
 const String kOhosSdkRoot = 'OHOS_SDK_HOME';
