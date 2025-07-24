@@ -1,4 +1,10 @@
 # Changelog
+## 5.1.0.601
+- 修改flutter外接纹理buffer丢弃策略 (3.22:[7333ba1b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7333ba1bf1c5e1420aa92ced2b5bf3ace0bceec9?ref=oh-3.22.0))
+- 解决长按修饰键跨应用复制粘贴、onKeyEvent回调组合键注入模式的异常情况 (3.22:[5ec3f445](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5ec3f445a257ada55faed46d9cd690293d1aa4a9?ref=feat-keyevent-supplement-3.22&prId=926))
+- 解决api20外接键盘无法输入问题 (3.7:[e5b41e25](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e5b41e25234b2bb611af0e837ba09ad5cba0be38?ref=dev&prId=943), 3.22:[94d2b279](https://gitcode.com/openharmony-tpc/flutter_engine/commit/94d2b2793f8fb6c81fd5282c08ab06b0def693fa?ref=oh-3.22.0&prId=942))
+- 修改模拟器上竖屏视频播放倒转的问题 (3.7:[07318f24](https://gitcode.com/openharmony-tpc/flutter_engine/commit/07318f24da2beb44794fa60a8b0df788027bed79?ref=dev&prId=933), 3.22:[a142a25f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/a142a25fd21d0a7837f64470479eb7e2e705ad34?ref=oh-3.22.0&prId=934))
+- 修复鼠标点击事件导致的hover异常问题 (3.7:[745d585c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/745d585c79c4a0c3375b7a09155332e2f9ace56f?ref=dev2&prId=936), 3.22:[d40b702a](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d40b702a49091e1c06d14eedd4120b46944d5491?ref=oh-3.22.0&prId=938))
 ## 6.0.0.402
 - 修复MediaQuery.of(context).accessibleNavigation状态值异常 (3.27:[97de11b7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/97de11b755fa845fe3096ef3b32affbb19cae4ab?ref=3.27-dev&prId=915))
 - flutter_embedding支持ets产物和native产物分开引用 (3.27:[6ebf1786](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6ebf178696dc32ff42a2914bab5ea48c7c8f55e0?ref=feature-build-3.27&prId=867))
