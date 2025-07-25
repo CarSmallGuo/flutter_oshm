@@ -1,4 +1,10 @@
 # Changelog
+## 6.0.0.501
+- 修改模拟器上竖屏视频播放倒转的问题 (3.27:[98cb51ca](https://gitcode.com/openharmony-tpc/flutter_engine/commit/98cb51ca11cc2b9ad6f652f63599298770acdcfb?ref=oh-3.27.4-dev&prId=935))
+- 修复多FlutterEntry情况下，生命周期异常的问题 (3.27:[921911f9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/921911f9564863c95683321920b490f01ff2ff98?ref=oh-3.27.4-dev&prId=932))
+- 修复鼠标点击事件导致的hover异常问题 (3.27:[42973093](https://gitcode.com/openharmony-tpc/flutter_engine/commit/42973093e067f578b521af816a1853da85cb983e?ref=oh-3.27.4-dev&prId=939))
+- 解决api20外接键盘无法输入问题 (3.27:[4cd36549](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4cd365496b6a9bd59c64fc3af36b4eda0b0804fa?ref=oh-3.27.4-dev&prId=946))
+- 修复ets中void运算符使用方法错误 (3.27:[f51fc662](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f51fc6620506e2501ea06b406b800296b715105f?ref=oh-3.27.4-dev&prId=927))
 ## 6.0.0.402
 - 修复MediaQuery.of(context).accessibleNavigation状态值异常 (3.27:[97de11b7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/97de11b755fa845fe3096ef3b32affbb19cae4ab?ref=3.27-dev&prId=915))
 - flutter_embedding支持ets产物和native产物分开引用 (3.27:[6ebf1786](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6ebf178696dc32ff42a2914bab5ea48c7c8f55e0?ref=feature-build-3.27&prId=867))
