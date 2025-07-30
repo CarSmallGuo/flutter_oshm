@@ -4,6 +4,12 @@
 #define _LIBCPP_ABI_VERSION 1
 #define _LIBCPP_ABI_NAMESPACE _fl
 
+// libcxx version that flutter3.32 depends on is not available, do not
+// apply changes for this version.
+#if 1
+#define _LIBCPP_HAS_NO_VENDOR_AVAILABILITY_ANNOTATIONS
+#endif
+
 #define _LIBCPP_REMOVE_TRANSITIVE_INCLUDES
 
 // This is a workaround for BoringSSL, which is compiled in C11 mode
@@ -13,6 +19,9 @@
 #define _LIBCPP_COMPILER_CLANG_BASED
 #endif
 
+// libcxx version that flutter3.32 depends on is not available, do not
+// apply changes for this version.
+#if 0
 #if defined(__APPLE__)
 #define _LIBCPP_PSTL_BACKEND_LIBDISPATCH 1
 #else
@@ -38,6 +47,7 @@
 #define _LIBCPP_HAS_THREAD_API_PTHREAD 1
 #define _LIBCPP_HAS_THREAD_API_EXTERNAL 0
 #define _LIBCPP_HAS_THREAD_API_WIN32 0
+#endif
 #endif
 
 #endif // _LIBCPP_CONFIG_SITE
