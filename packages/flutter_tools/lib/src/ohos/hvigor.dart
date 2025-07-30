@@ -722,14 +722,6 @@ class OhosHvigorBuilder implements OhosBuilder {
 
   String _moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
     return modules
-        .map((OhosModule module) => OhosModule.fromModulePath(
-              modulePath: module.srcPath,
-              flavor: getFlavor(
-                globals.fs.file(globals.fs.path
-                    .join(module.srcPath, 'build-profile.json5')),
-                flavor,
-              ),
-            ))
         .map((OhosModule module) => '${module.name}@${module.flavor}')
         .join(',');
   }
