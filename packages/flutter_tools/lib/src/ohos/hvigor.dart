@@ -309,14 +309,6 @@ void ensureParentExists(String path) {
 
 String moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
   return modules
-      .map((OhosModule module) => OhosModule.fromModulePath(
-            modulePath: module.srcPath,
-            flavor: getFlavor(
-              globals.fs.file(
-                  globals.fs.path.join(module.srcPath, 'build-profile.json5')),
-              flavor,
-            ),
-          ))
       .map((OhosModule module) => '${module.name}@${module.flavor}')
       .join(',');
 }
@@ -591,7 +583,7 @@ class OhosHvigorBuilder implements OhosBuilder {
         logger: _logger);
     status.stop();
     if (errorCode1 != 0) {
-      throwToolExit('assembleHap error! please check log.');
+      throwToolExit('assembleApp error! please check log.');
     }
 
     if (ohosBuildInfo.shouldCodesign!) {
