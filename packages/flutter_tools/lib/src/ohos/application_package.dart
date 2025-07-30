@@ -68,7 +68,11 @@ class OhosHap extends ApplicationPackage implements PrebuiltApplicationPackage {
       }
     }
     for (final OhosModule element in ohosBuildData.moduleInfo.moduleList) {
-      element.flavor = flavor;
+      // 设置ohos模块的flavor
+      final File buildProfile = globals.fs
+          .directory(element.srcPath)
+          .childFile(OhosProject.kBuildProfileName);
+      element.flavor = getFlavor(buildProfile, flavor);
     }
     return OhosHap(
         id: bundleName,
@@ -233,7 +237,6 @@ class OhosModule {
     required this.isEntry,
     required this.mainElement,
     required this.type,
-    required this.flavor,
   });
 
   final String name;
@@ -241,7 +244,7 @@ class OhosModule {
   final String? mainElement;
   final OhosModuleType type;
   final String srcPath;
-  String flavor;
+  String flavor = FLAVOR_DEFAULT;
 
   static List<OhosModule> fromOhosProject(OhosProject ohosProject) {
     final File buildProfileFile = ohosProject.ohosRoot.childFile('build-profile.json5');
@@ -263,7 +266,6 @@ class OhosModule {
 
   static OhosModule fromModulePath({
     required String modulePath,
-    String? flavor,
   }) {
     modulePath = globals.fs.path.normalize(globals.fs.file(modulePath).resolveSymbolicLinksSync());
     final String moduleJsonPath =
@@ -288,7 +290,6 @@ class OhosModule {
         isEntry: isEntry,
         mainElement: isEntry ? module['mainElement'] as String : null,
         type: OhosModuleType.fromName(type),
-        flavor: flavor ?? FLAVOR_DEFAULT,
       );
     } on Exception catch (e) {
       throwToolExit('parse module.json5 error , $moduleJsonPath . error: $e');
