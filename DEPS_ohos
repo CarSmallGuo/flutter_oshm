@@ -15,6 +15,7 @@ vars = {
   'skia_git': 'https://skia.googlesource.com',
   'llvm_git': 'https://llvm.googlesource.com',
   'ohos_git': 'https://gitcode.com/openharmony-sig',
+  'libcxx_git': 'https://gitcode.com/liujiake',
   'skia_revision': '45597b93eb5915f8b78dc3fda82f8123b3984afb',
 
   # WARNING: DO NOT EDIT canvaskit_cipd_instance MANUALLY
@@ -248,7 +249,7 @@ deps = {
    Var('flutter_git') + '/third_party/harfbuzz' + '@' + 'ea6a172f84f2cbcfed803b5ae71064c7afb6b5c2',
 
   'engine/src/flutter/third_party/libcxx':
-   Var('ohos_git') + '/fluttertpc_libcxx' + '@' + 'd75ca8a5c209744f6084af43be905abe60c8c0cf',
+   Var('libcxx_git') + '/fluttertpc_libcxx' + '@' + 'd02cb5d6ec862db0c8fcd653c61d7192dfae2585',
 
   'engine/src/flutter/third_party/libcxxabi':
    Var('ohos_git') + '/fluttertpc_libcxxabi' + '@' + '0f87c1cbc8bb0cc7e0e21796fec356f99e3dbab4',
