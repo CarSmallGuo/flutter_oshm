@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.502
+- 修正鸿蒙化Encoder遗留问题 (3.27:[51b67bec](https://gitcode.com/openharmony-tpc/flutter_engine/commit/51b67becae5d0457d17b8e233cabd6c912dcca1b?ref=encoder&prId=947))
 ## 6.0.0.501
 - 修改模拟器上竖屏视频播放倒转的问题 (3.27:[98cb51ca](https://gitcode.com/openharmony-tpc/flutter_engine/commit/98cb51ca11cc2b9ad6f652f63599298770acdcfb?ref=oh-3.27.4-dev&prId=935))
 - 修复多FlutterEntry情况下，生命周期异常的问题 (3.27:[921911f9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/921911f9564863c95683321920b490f01ff2ff98?ref=oh-3.27.4-dev&prId=932))
