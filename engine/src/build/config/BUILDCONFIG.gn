@@ -390,12 +390,20 @@ _native_compiler_configs = [
   "//build/config/compiler:no_rtti",
   "//build/config/compiler:runtime_library",
 ]
-
 if (use_flutter_cxx) {
-  _native_compiler_configs += [
-    "//flutter/third_party/libcxxabi:libcxxabi_config",
-    "//flutter/third_party/libcxx:libcxx_config",
-  ]
+  if (is_ohos) {
+    print("jktest _native_compiler_configs ohos")
+    _native_compiler_configs += [
+      "//flutter/third_party/libcxxabi_ohos:libcxxabi_config",
+      "//flutter/third_party/libcxx_ohos:libcxx_config",
+    ]
+  } else {
+    print("jktest _native_compiler_configs no ohos")
+    _native_compiler_configs += [
+      "//flutter/third_party/libcxxabi:libcxxabi_config",
+      "//flutter/third_party/libcxx:libcxx_config",
+    ]
+  }
 }
 
 if (is_win) {
@@ -680,7 +688,11 @@ if (use_flutter_cxx) {
           deps = []
         }
         if (!defined(invoker.no_default_deps) || !invoker.no_default_deps) {
-          deps += [ "//flutter/third_party/libcxx" ]
+          if (is_ohos) {
+            deps += [ "//flutter/third_party/libcxx_ohos" ]
+          } else {
+            deps += [ "//flutter/third_party/libcxx" ]
+          }
         }
       }
     }
