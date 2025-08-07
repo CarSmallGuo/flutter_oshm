@@ -9,6 +9,7 @@ import 'package:meta/meta.dart';
 import 'package:pool/pool.dart';
 import 'package:process/process.dart';
 
+import 'package:usage/usage.dart';
 import '../artifacts.dart';
 import '../base/error_handling_io.dart';
 import '../base/file_system.dart';
