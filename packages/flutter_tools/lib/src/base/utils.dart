@@ -8,8 +8,9 @@ import 'dart:math' as math;
 import 'package:file/file.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as path; // flutter_ignore: package_path_import
-
+import 'package:meta/meta.dart';
 import '../convert.dart';
+import 'platform.dart';
 
 /// A path jointer for URL paths.
 final path.Context urlContext = path.url;
@@ -75,6 +76,16 @@ String getElapsedAsSeconds(Duration duration) {
 
 String getElapsedAsMilliseconds(Duration duration) {
   return '${kMillisecondsFormat.format(duration.inMilliseconds)}ms';
+}
+
+/// Return a platform-appropriate [String] representing the size of the given number of bytes.
+String getSizeAsPlatformMB(int bytesLength, {
+    @visibleForTesting Platform platform = const LocalPlatform()
+  }) {
+  // Because Windows displays 'MB' but actually reports MiB, we calculate MiB
+  // accordingly on Windows.
+  final int bytesInPlatformMB = platform.isWindows ? 1024 * 1024 : 1000 * 1000;
+  return '${(bytesLength / bytesInPlatformMB).toStringAsFixed(1)}MB';
 }
 
 /// Return a String - with units - for the size in MB of the given number of bytes.

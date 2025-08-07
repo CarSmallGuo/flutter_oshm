@@ -391,6 +391,8 @@ class OhosBuildInfo {
       OhosArch.arm64_v8a,
       OhosArch.x86_64,
     ],
+    this.enableImpellerFlag,
+    this.shouldCodesign
   });
 
   // The build info containing the mode and flavor.
@@ -398,6 +400,12 @@ class OhosBuildInfo {
 
   /// The target platforms for the build.
   final Iterable<OhosArch> targetArchs;
+
+  // enable impeller option, default is true
+  final bool? enableImpellerFlag;
+
+  // Whether check codesign while build hap, default is true
+  final bool? shouldCodesign;
 
 }
 
@@ -1149,6 +1157,9 @@ const String kBundleSkSLPath = 'BundleSkSLPath';
 
 /// The define to pass build name
 const String kBuildName = 'BuildName';
+
+/// The app flavor to build.
+const String kFlavor = 'Flavor';
 
 /// The define to pass build number
 const String kBuildNumber = 'BuildNumber';

@@ -131,6 +131,9 @@ class FlutterProject {
   /// The location of this project.
   final Directory directory;
 
+  /// The location of the build folder.
+  Directory get buildDirectory => directory.childDirectory('build');
+
   /// The manifest of this project.
   final FlutterManifest manifest;
 
@@ -912,31 +915,7 @@ class OhosProject extends FlutterProjectPlatform {
 
   Directory get flutterModuleDirectory {
     if (isModule) {
-      final File buildProfileFile =
-          ephemeralDirectory.childFile(kBuildProfileName);
-      final Map<String, dynamic> buildProfile = JSON5
-          .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
-      final List<dynamic> modules = buildProfile['modules'] as List<dynamic>;
-      Map<String, dynamic>? module = modules.firstWhere((item) {
-        final Map<String, dynamic> module = item as Map<String, dynamic>;
-        return module['name'] as String == kFlutterModuleName;
-      }, orElse: () => null) as Map<String, dynamic>?;
-
-      if (module == null) {
-        module = <String, String>{
-          'name': 'flutter_module',
-          'srcPath': './flutter_module',
-        };
-        final List<dynamic> modules = buildProfile['modules'] as List<dynamic>;
-        modules.add(module);
-        final String buildProfileNew =
-            const JsonEncoder.withIndent('  ').convert(buildProfile);
-        buildProfileFile.writeAsStringSync(buildProfileNew, flush: true);
-      }
-
-      final String srcPath = module['srcPath'] as String;
-      return globals.fs
-          .directory(globals.fs.path.join(ephemeralDirectory.path, srcPath));
+      return ephemeralDirectory.childDirectory(kFlutterModuleName);
     }
     return editableHostAppDirectory.childDirectory(mainModuleName);
   }
@@ -1015,9 +994,11 @@ class OhosProject extends FlutterProjectPlatform {
     String flavor = 'default',
     OhosFileType type = OhosFileType.hap,
     bool throwOnMissing = false,
+    bool shouldCodesign = true,
   }) {
     final Directory moduleDir = globals.fs.directory(modulePath);
     File targetFile;
+    final String signedSuffix = shouldCodesign ? 'signed' : 'unsigned';
     if (type != OhosFileType.app) {
       // 从模块级 build-profile.json5 中读取输出文件名
       final String? fileName = _readFromModule(
@@ -1029,7 +1010,7 @@ class OhosProject extends FlutterProjectPlatform {
           .childDirectory(flavor)
           .childFile(fileName != null
               ? '$fileName.${type.name}'
-              : '$moduleName-$flavor-signed.${type.name}');
+              : '$moduleName-$flavor-$signedSuffix.${type.name}');
     } else {
       // 从工程级 build-profile.json5 中读取输出文件名
       final String? fileName = _readFromProject(
@@ -1040,7 +1021,7 @@ class OhosProject extends FlutterProjectPlatform {
           .childDirectory(flavor)
           .childFile(fileName != null
               ? '$fileName.${type.name}'
-              : 'ohos-$flavor-signed.${type.name}');
+              : 'ohos-$flavor-$signedSuffix.${type.name}');
     }
 
     if (throwOnMissing && !targetFile.existsSync()) {
@@ -1050,9 +1031,6 @@ class OhosProject extends FlutterProjectPlatform {
     }
     return targetFile;
   }
-
-  File get flutterModulePackageFile =>
-      flutterModuleDirectory.childFile('oh-package.json5');
 
   File get localPropertiesFile => ohosRoot.childFile('local.properties');
 
@@ -1079,7 +1057,8 @@ class OhosProject extends FlutterProjectPlatform {
             ephemeralDirectory);
       }
     }
-    hvigor.updateLocalProperties(project: parent, requireHarmonySdk: false);
+    hvigor.updateLocalProperties(project: parent);
+    hvigor.installHvigorPlugin(parent.ohos);
   }
 
   Future<void> _regenerateLibrary() async {
@@ -1118,7 +1097,7 @@ class OhosProject extends FlutterProjectPlatform {
       templateRenderer: globals.templateRenderer,
     );
     final String ohosIdentifier =
-        parent.manifest.ohosPackage ?? 'com.example.${parent.manifest.appName}';
+        parent.manifest.ohosBundleName ?? 'com.example.${parent.manifest.appName}';
     template.render(
       target,
       <String, Object>{
