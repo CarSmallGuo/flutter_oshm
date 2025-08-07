@@ -1,4 +1,13 @@
 # Changelog
+## 5.1.0.602
+- 系统字体配置改为先从系统接口获取再从json文件获取 (3.22:[d19d3a2f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d19d3a2f8db11e9e6f0f7e43eaad607e3849f032?ref=font&prId=908))
+- 修复platformview和flutter输入框来回点击导致flutter侧无法输入的问题 (3.22:[5dcef493](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5dcef49354a3d9204395a5cf11fc2f17aeb9b358?ref=oh-3.22.0&prId=958))
+- flutter引擎上游单元测试移植，修复host编译错误 (3.22:[c2fdd5af](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c2fdd5aff3aeebae410364c21f8ebce32e63121b?ref=oh-3.22.0&prId=955))
+- 图片编解码替换不拷贝内存接口 (3.22:[fd7c81f5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fd7c81f5ec9a45e2c164ce3e7d7609bfa56b83a3?ref=oh-3.22.0&prId=950))
+- 修复message loop中对epoll wait的重复调用 (3.22:[e3705299](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e37052993a2005b5bd6130657d27013255b21661?ref=modify-loop&prId=954))
+- 使用LTRB格式描述DisplayFeature的信息 (3.22:[1966a63d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1966a63dafbfc6ce449e4dbbb35483303fb82e76?ref=modify-cutout-info&prId=956))
+- 同步官方仓对impeller过大纹理限制操作 (3.22:[286f1418](https://gitcode.com/openharmony-tpc/flutter_engine/commit/286f1418e7fdf3883f1b6bdb8aeb4f4ec109e548?ref=oh-3.22.0&prId=952))
+- 新增物理键盘的ctrl/alt/shift修饰键模式适配，解决长按修饰键跨应用复制粘贴、onKeyEvent回调组合键注入模式的异常情况 (3.22:[5ec3f445](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5ec3f445a257ada55faed46d9cd690293d1aa4a9?ref=feat-keyevent-supplement-3.22&prId=926))
 ## 5.1.0.601
 - 修改flutter外接纹理buffer丢弃策略 (3.22:[7333ba1b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7333ba1bf1c5e1420aa92ced2b5bf3ace0bceec9?ref=oh-3.22.0))
 - 解决长按修饰键跨应用复制粘贴、onKeyEvent回调组合键注入模式的异常情况 (3.22:[5ec3f445](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5ec3f445a257ada55faed46d9cd690293d1aa4a9?ref=feat-keyevent-supplement-3.22&prId=926))
