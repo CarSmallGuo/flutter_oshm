@@ -339,6 +339,7 @@ class Environment {
     Directory? buildDir,
     Map<String, String> defines = const <String, String>{},
     Map<String, String> inputs = const <String, String>{},
+    Analytics? analytics,
   }) {
     // Compute a unique hash of this build's particular environment.
     // Sort the keys by key so that the result is stable. We always
@@ -378,6 +379,7 @@ class Environment {
       engineVersion: engineVersion,
       inputs: inputs,
       generateDartPluginRegistry: generateDartPluginRegistry,
+      analytics: analytics,
     );
   }
 
@@ -401,6 +403,7 @@ class Environment {
     required Logger logger,
     required Artifacts artifacts,
     required ProcessManager processManager,
+    Analytics? analytics,
   }) {
     return Environment(
       projectDir: projectDir ?? testDirectory,
@@ -418,6 +421,7 @@ class Environment {
       usage: usage ?? TestUsage(),
       engineVersion: engineVersion,
       generateDartPluginRegistry: generateDartPluginRegistry,
+      analytics: analytics ?? AnalyticsMock(),
     );
   }
 
@@ -438,6 +442,7 @@ class Environment {
     this.engineVersion,
     required this.inputs,
     required this.generateDartPluginRegistry,
+    this.analytics,
   });
 
   /// The [Source] value which is substituted with the path to [projectDir].
@@ -516,6 +521,8 @@ class Environment {
   final FileSystem fileSystem;
 
   final Usage usage;
+
+  final Analytics? analytics;
 
   /// The version of the current engine, or `null` if built with a local engine.
   final String? engineVersion;
