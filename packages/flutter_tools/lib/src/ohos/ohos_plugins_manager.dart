@@ -24,7 +24,8 @@ Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
   final List<Plugin> plugins = (await findPlugins(flutterProject))
       .where((Plugin p) => p.platforms.containsKey(OhosPlugin.kConfigKey))
       .toList();
-  final File packageFile = flutterProject.ohos.flutterModulePackageFile;
+  final File packageFile =
+      flutterProject.ohos.flutterModuleDirectory.childFile('oh-package.json5');
   if (!packageFile.existsSync()) {
     globals.logger.printTrace('check if oh-package.json5 file:($packageFile) exist ?');
     return;
@@ -37,6 +38,7 @@ Future<void> checkOhosPluginsDependencies(FlutterProject flutterProject) async {
   final Map<String, dynamic> config = JSON5.parse(packageConfig) as Map<String, dynamic>;
   final Map<String, dynamic> dependencies =
       config['dependencies'] as Map<String, dynamic>;
+  dependencies['@ohos/flutter_ohos'] = "har/flutter.har";
   final List<String> removeList = <String>[];
   for (final Plugin plugin in plugins) {
     for (final String key in dependencies.keys) {
@@ -125,6 +127,7 @@ Future<void> addFlutterModuleAndPluginsSrcOverrides(FlutterProject flutterProjec
   final String relativePath = _relative(flutterProject.ohos.flutterModuleDirectory.path, flutterProject.ohos.ohosRoot.path);
   overrides['@ohos/flutter_module'] = 'file:./$relativePath';
   overrides['@ohos/flutter_ohos'] = 'file:./har/flutter.har';
+  config['overrides'] = overrides;
   final String configNew = const JsonEncoder.withIndent('  ').convert(config);
   packageFile.writeAsStringSync(configNew, flush: true);
 }

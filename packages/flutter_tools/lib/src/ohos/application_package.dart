@@ -4,6 +4,7 @@
 * found in the LICENSE file.
 *
 */
+import 'dart:convert';
 
 import 'package:json5/json5.dart';
 import 'package:process/process.dart';
@@ -103,6 +104,12 @@ class OhosBuildData {
   List<OhosModule> get harModules {
     return moduleInfo.moduleList
         .where((OhosModule e) => e.type == OhosModuleType.har)
+        .toList();
+  }
+
+  List<OhosModule> get hspModules {
+    return moduleInfo.moduleList
+        .where((OhosModule e) => e.type == OhosModuleType.shared)
         .toList();
   }
 
@@ -244,21 +251,44 @@ class OhosModule {
   String flavor;
 
   static List<OhosModule> fromOhosProject(OhosProject ohosProject) {
-    final File buildProfileFile = ohosProject.ohosRoot.childFile('build-profile.json5');
-    if (!buildProfileFile.existsSync()) {
-      return <OhosModule>[];
-    }
-    final Map<String, dynamic> buildProfile = JSON5.parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
-    if (!buildProfile.containsKey('modules')) {
-      return <OhosModule>[];
-    }
-    final List<dynamic> modules = buildProfile['modules'] as List<dynamic>;
-    return modules.map((dynamic e) {
+    final Set<String> modulePathSet = <String>{};
+    // build-profile.json5:modules
+    final File buildProfileFile =
+        ohosProject.ohosRoot.childFile('build-profile.json5');
+    final Map<String, dynamic> buildProfile = JSON5
+        .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
+    for (final dynamic e in buildProfile['modules'] as List<dynamic>) {
       final Map<String, dynamic> module = e as Map<String, dynamic>;
       final String srcPath = module['srcPath'] as String;
-      return OhosModule.fromModulePath(
-          modulePath: globals.fs.path.join(ohosProject.ohosRoot.path, srcPath));
-    }).toList();
+      modulePathSet
+          .add(globals.fs.path.join(ohosProject.ohosRoot.path, srcPath));
+    }
+    // flutter plugin
+    final File flutterPluginsDependenciesFile =
+        ohosProject.parent.flutterPluginsDependenciesFile;
+    if (flutterPluginsDependenciesFile.existsSync()) {
+      final String pluginFileContent =
+          flutterPluginsDependenciesFile.readAsStringSync();
+      final Map<String, dynamic>? pluginInfo =
+          jsonDecode(pluginFileContent) as Map<String, dynamic>?;
+      final Map<String, dynamic>? platformPlugins =
+          pluginInfo?['plugins'] as Map<String, dynamic>?;
+      (platformPlugins?['ohos'] as List<dynamic>?)
+          ?.whereType<Map<String, dynamic>>()
+          .where(
+              (Map<String, dynamic> plugin) => plugin['native_build'] != false)
+          .forEach((Map<String, dynamic> plugin) {
+        modulePathSet.add(globals.fs.path.join('${plugin['path']}', 'ohos'));
+      });
+    }
+    // flutter_module
+    if (ohosProject.isModule) {
+      modulePathSet.add(
+          ohosProject.ephemeralDirectory.childDirectory('flutter_module').path);
+    }
+    return modulePathSet
+        .map((String path) => OhosModule.fromModulePath(modulePath: path))
+        .toList();
   }
 
   static OhosModule fromModulePath({
