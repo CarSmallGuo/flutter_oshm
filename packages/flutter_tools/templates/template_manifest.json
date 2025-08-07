@@ -142,6 +142,7 @@
         "templates/app_shared/ohos.tmpl/.gitignore",
         "templates/app_shared/ohos.tmpl/build-profile.json5.tmpl",
         "templates/app_shared/ohos.tmpl/hvigorfile.ts.tmpl",
+        "templates/app_shared/ohos.tmpl/hvigorconfig.ts.tmpl",
         "templates/app_shared/ohos.tmpl/oh-package.json5.tmpl",
         "templates/app_shared/ohos.tmpl/AppScope/app.json5.tmpl",
         "templates/app_shared/ohos.tmpl/AppScope/resources/base/element/string.json.tmpl",
