@@ -20,18 +20,12 @@ import '../base/process.dart';
 import '../base/terminal.dart';
 import '../base/utils.dart';
 import '../build_info.dart';
-import '../build_system/build_system.dart';
-import '../build_system/targets/ohos.dart';
-import '../cache.dart';
 import '../globals.dart' as globals;
 import '../project.dart';
 import '../reporting/reporting.dart';
 import 'application_package.dart';
 import 'hvigor_utils.dart';
 import 'ohos_builder.dart';
-import 'ohos_plugins_manager.dart';
-
-const String OHOS_DTA_FILE_NAME = 'icudtl.dat';
 
 const String FLUTTER_ASSETS_PATH = 'flutter_assets';
 
@@ -40,6 +34,11 @@ const String APP_SO_ORIGIN = 'app.so';
 const String APP_SO = 'libapp.so';
 
 const String HAR_FILE_NAME = 'flutter.har';
+
+const String BUILD_INFO_JSON_PATH =
+    'src/main/resources/base/profile/buildinfo.json5';
+const String BUILD_INFO_JSON_DES_PATH =
+    'src/main/resources/rawfile/buildinfo.json5';
 
 final bool isWindows = globals.platform.isWindows;
 
@@ -56,30 +55,34 @@ void checkPlatformEnvironment(String environment, Logger? logger) {
   }
 }
 
-void copyFlutterAssets(String orgPath, String desPath, Logger? logger) {
-  logger?.printTrace('copy from "$orgPath" to "$desPath"');
-  final LocalFileSystem localFileSystem = globals.localFileSystem;
-  copyDirectory(
-      localFileSystem.directory(orgPath), localFileSystem.directory(desPath));
-}
+Future<void> setImpellerEnableFlag(
+    OhosProject ohosProject, OhosBuildInfo ohosBuildInfo) async {
+  final String buildinfoFilePath = globals.fs.path
+      .join(ohosProject.flutterModuleDirectory.path, BUILD_INFO_JSON_DES_PATH);
 
-/// eg:entry/src/main/resources/rawfile
-String getProjectAssetsPath(String ohosRootPath, OhosProject ohosProject) {
-  return globals.fs.path.join(ohosProject.flutterModuleDirectory.path,
-      'src/main/resources/rawfile', FLUTTER_ASSETS_PATH);
-}
+  final File file = globals.localFileSystem.file(buildinfoFilePath);
 
-/// eg:entry/src/main/resources/rawfile/flutter_assets/
-String getDatPath(String ohosRootPath, OhosProject ohosProject) {
-  return globals.fs.path.join(
-      getProjectAssetsPath(ohosRootPath, ohosProject), OHOS_DTA_FILE_NAME);
-}
+  if (!await file.exists()) {
+    throw Exception('Failed to find buildinfo.json5 file: $buildinfoFilePath');
+  }
 
-/// eg:entry/libs/arm64-v8a/libapp.so
-String getAppSoPath(
-    String ohosRootPath, OhosArch ohosArch, OhosProject ohosProject) {
-  return globals.fs.path.join(ohosProject.flutterModuleDirectory.path, 'libs',
-      getNameForOhosArch(ohosArch), APP_SO);
+  final String content = await file.readAsString();
+
+  final Map<String, dynamic> json = jsonDecode(content) as Map<String, dynamic>;
+
+  // find "enable_impeller" in json file
+  final List<dynamic> stringList = json['string'] as List<dynamic>;
+  final Map<String, dynamic>? enableImpellerItem = stringList.firstWhere(
+    (dynamic item) =>
+        (item as Map<String, dynamic>)['name'] == 'enable_impeller',
+    orElse: () => null,
+  ) as Map<String, dynamic>?;
+
+  final String updatedContent =
+      const JsonEncoder.withIndent('  ').convert(json);
+
+  // save setting
+  await file.writeAsString(updatedContent);
 }
 
 String getHvigorwPath(String ohosRootPath, {bool checkMod = false}) {
@@ -117,60 +120,15 @@ Future<void> ohpmInstall(
       workingDirectory: workingDirectory, throwOnError: true);
 }
 
-/// 根据来源，替换关键字，输出target文件
-void replaceKey(File file, File target, String key, String value) {
-  String content = file.readAsStringSync();
-  content = content.replaceAll(key, value);
-  target.writeAsStringSync(content);
-}
-
-Future<int> invokeCmd(
-    {required List<String> command,
-    required String workDirectory,
-    required ProcessManager processManager,
-    Logger? logger}) async {
-  final String cmd = command.join(' ');
-  logger?.printTrace('Invoke cmd: $cmd');
-  final Process server =
-      await processManager.start(command, workingDirectory: workDirectory);
-
-  server.stderr
-      .transform<String>(utf8.decoder)
-      .transform<String>(const LineSplitter())
-      .listen((String line) {
-    if (line.toLowerCase().contains('error:')) {
-      logger?.printError(line);
-    } else {
-      logger?.printTrace(line);
-    }
-  });
-  server.stdout
-      .transform<String>(utf8.decoder)
-      .transform<String>(const LineSplitter())
-      .listen((String line) {
-    logger?.printTrace(line);
-  });
-  final int exitCode = await server.exitCode;
-  if (exitCode == 0) {
-    logger?.printTrace('Invoke success: $cmd');
-  } else {
-    logger?.printError('Invoke error: $cmd');
-  }
-  return exitCode;
-}
-
 ///hvigorw任务
 Future<int> hvigorwTask(List<String> taskCommand,
     {required ProcessUtils processUtils,
     required String workPath,
     required String hvigorwPath,
     Logger? logger}) async {
-  final int code = await invokeCmd(
-      command: taskCommand,
-      workDirectory: workPath,
-      processManager: globals.processManager,
-      logger: logger);
-  return code;
+  final RunResult result = processUtils.runSync(taskCommand,
+      workingDirectory: workPath, throwOnError: true);
+  return result.exitCode;
 }
 
 Future<int> assembleHap(
@@ -178,7 +136,8 @@ Future<int> assembleHap(
     required String ohosRootPath,
     required String hvigorwPath,
     required String flavor,
-    required String buildMode,
+    required OhosBuildInfo ohosBuildInfo,
+    required String target,
     Logger? logger}) async {
   final List<String> command = <String>[
     hvigorwPath,
@@ -187,9 +146,10 @@ Future<int> assembleHap(
     '-p',
     'product=$flavor',
     '-p',
-    'buildMode=$buildMode',
+    'buildMode=${ohosBuildInfo.buildInfo.modeName}',
     '--no-daemon',
   ];
+  _appendCommands(command, ohosBuildInfo, target: target, logger: logger);
   return hvigorwTask(command,
       processUtils: processUtils,
       workPath: ohosRootPath,
@@ -202,7 +162,8 @@ Future<int> assembleApp(
     required String ohosRootPath,
     required String hvigorwPath,
     required String flavor,
-    required String buildMode,
+    required OhosBuildInfo ohosBuildInfo,
+    required String target,
     Logger? logger}) async {
   final List<String> command = <String>[
     hvigorwPath,
@@ -211,9 +172,10 @@ Future<int> assembleApp(
     '-p',
     'product=$flavor',
     '-p',
-    'buildMode=$buildMode',
+    'buildMode=${ohosBuildInfo.buildInfo.modeName}',
     '--no-daemon',
   ];
+  _appendCommands(command, ohosBuildInfo, target: target, logger: logger);
   return hvigorwTask(command,
       processUtils: processUtils,
       workPath: ohosRootPath,
@@ -226,7 +188,8 @@ Future<int> assembleHar(
     required String workPath,
     required String hvigorwPath,
     required String moduleName,
-    required String buildMode,
+    required OhosBuildInfo ohosBuildInfo,
+    required String target,
     String product = 'default',
     Logger? logger}) async {
   final List<String> command = <String>[
@@ -238,9 +201,12 @@ Future<int> assembleHar(
     'module=$moduleName',
     '-p',
     'product=$product',
+    '-p',
+    'buildMode=${ohosBuildInfo.buildInfo.modeName}',
     'assembleHar',
     '--no-daemon',
   ];
+  _appendCommands(command, ohosBuildInfo, target: target, logger: logger);
   return hvigorwTask(command,
       processUtils: processUtils,
       workPath: workPath,
@@ -254,7 +220,8 @@ Future<int> assembleHsp(
     required String hvigorwPath,
     required String moduleName,
     required String flavor,
-    required String buildMode,
+    required OhosBuildInfo ohosBuildInfo,
+    required String target,
     Logger? logger}) async {
   final List<String> command = <String>[
     hvigorwPath,
@@ -266,10 +233,11 @@ Future<int> assembleHsp(
     '-p',
     'product=$flavor',
     '-p',
-    'buildMode=$buildMode',
+    'buildMode=${ohosBuildInfo.buildInfo.modeName}',
     'assembleHsp',
     '--no-daemon',
   ];
+  _appendCommands(command, ohosBuildInfo, target: target, logger: logger);
   return hvigorwTask(command,
       processUtils: processUtils,
       workPath: workPath,
@@ -277,163 +245,55 @@ Future<int> assembleHsp(
       logger: logger);
 }
 
-/// flutter构建
-Future<String> flutterAssemble(FlutterProject flutterProject,
-    OhosBuildInfo ohosBuildInfo, String targetFile) async {
-  late String targetName;
-  if (ohosBuildInfo.buildInfo.isDebug) {
-    targetName = 'debug_ohos_application';
-  } else if (ohosBuildInfo.buildInfo.isProfile) {
-    // eg:ohos_aot_bundle_profile_ohos-arm64
-    targetName =
-        'ohos_aot_bundle_profile_${getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first)}';
-  } else {
-    // eg:ohos_aot_bundle_release_ohos-arm64
-    targetName =
-        'ohos_aot_bundle_release_${getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first)}';
-  }
-  final List<Target> selectTarget =
-      ohosTargets.where((Target e) => targetName == e.name).toList();
-  if (selectTarget.isEmpty) {
-    throwToolExit('do not found compare target.');
-  } else if (selectTarget.length > 1) {
-    throwToolExit('more than one target match.');
-  }
-  final Target target = selectTarget[0];
-
-  final Status status =
-      globals.logger.startProgress('Compiling $targetName for the Ohos...');
-  String output = globals.fs.directory(getOhosBuildDirectory()).path;
-  // If path is relative, make it absolute from flutter project.
-  output = getAbsolutePath(flutterProject, output);
-  try {
-    final BuildResult result = await globals.buildSystem.build(
-        target,
-        Environment(
-          projectDir: globals.fs.currentDirectory,
-          outputDir: globals.fs.directory(output),
-          buildDir: flutterProject.directory
-              .childDirectory('.dart_tool')
-              .childDirectory('flutter_build'),
-          defines: <String, String>{
-            ...ohosBuildInfo.buildInfo.toBuildSystemEnvironment(),
-            kTargetFile: targetFile,
-            kTargetPlatform: getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first),
-          },
-          artifacts: globals.artifacts!,
-          fileSystem: globals.fs,
-          logger: globals.logger,
-          processManager: globals.processManager,
-          platform: globals.platform,
-          usage: globals.flutterUsage,
-          cacheDir: globals.cache.getRoot(),
-          engineVersion: globals.artifacts!.isLocalEngine
-              ? null
-              : globals.flutterVersion.engineRevision,
-          flutterRootDir: globals.fs.directory(Cache.flutterRoot),
-          generateDartPluginRegistry: true,
-        ));
-    if (!result.success) {
-      for (final ExceptionMeasurement measurement in result.exceptions.values) {
-        globals.printError(
-          'Target ${measurement.target} failed: ${measurement.exception}',
-          stackTrace: measurement.fatal ? measurement.stackTrace : null,
-        );
-      }
-      throwToolExit('Failed to compile application for the Ohos.');
-    } else {
-      return output;
-    }
-  } on Exception catch (err) {
-    throwToolExit(err.toString());
-  } finally {
-    status.stop();
-  }
-}
-
-/// 清理和拷贝flutter产物和资源
-void cleanAndCopyFlutterAsset(
-    OhosProject ohosProject,
-    OhosBuildInfo ohosBuildInfo,
-    Logger? logger,
-    String ohosRootPath,
-    String output) {
-  logger?.printTrace('copy flutter assets to project start');
-  // clean flutter assets
-  final String desFlutterAssetsPath =
-      getProjectAssetsPath(ohosRootPath, ohosProject);
-  final Directory desAssets = globals.fs.directory(desFlutterAssetsPath);
-  if (desAssets.existsSync()) {
-    desAssets.deleteSync(recursive: true);
-  }
-
-  /// copy flutter assets
-  copyFlutterAssets(globals.fs.path.join(output, FLUTTER_ASSETS_PATH),
-      desFlutterAssetsPath, logger);
-
-  final String desAppSoPath =
-      getAppSoPath(ohosRootPath, ohosBuildInfo.targetArchs.first, ohosProject);
-  if (ohosBuildInfo.buildInfo.isRelease || ohosBuildInfo.buildInfo.isProfile) {
-    // copy app.so
-    final String appSoPath = globals.fs.path.join(output,
-        getNameForOhosArch(ohosBuildInfo.targetArchs.first), APP_SO_ORIGIN);
-    final File appSoFile = globals.localFileSystem.file(appSoPath);
-    ensureParentExists(desAppSoPath);
-    appSoFile.copySync(desAppSoPath);
-  } else {
-    // delete libapp.so
-    final String dir = globals.fs.path.join(ohosProject.flutterModuleDirectory.path, 'libs');
-    if (globals.fs.directory(dir).existsSync()) {
-      final List<FileSystemEntity> files = globals.fs.directory(dir)
-        .listSync(recursive: true);
-      for (final FileSystemEntity item in files) {
-        if (item.basename == APP_SO && item.existsSync()) {
-          item.deleteSync();
-        }
-      }
-    }
-  }
-  logger?.printTrace('copy flutter assets to project end');
-}
-
-/// 清理和拷贝flutter运行时
-void cleanAndCopyFlutterRuntime(
-    OhosProject ohosProject,
-    OhosBuildInfo ohosBuildInfo,
-    Logger? logger,
-    String ohosRootPath,
-    OhosBuildData ohosBuildData) {
+void copyFlutterRuntime(
+  OhosProject ohosProject,
+  OhosBuildInfo ohosBuildInfo,
+  Logger? logger,
+  OhosBuildData ohosBuildData,
+) {
   logger?.printTrace('copy flutter runtime to project start');
-  // copy ohos font-family support
-  if (ohosBuildInfo.buildInfo.isDebug) {
-    final String flutterSdk = globals.fsUtils.escapePath(Cache.flutterRoot!);
-    final File ohosDta = globals.localFileSystem.file(globals.fs.path.join(
-        flutterSdk,
-        'packages',
-        'flutter_tools',
-        'templates',
-        'app_shared',
-        'ohos.tmpl',
-        'dta',
-        OHOS_DTA_FILE_NAME));
-    final String copyDes = getDatPath(ohosRootPath, ohosProject);
-    ohosDta.copySync(copyDes);
-  }
-
-  // 复制 flutter.har
-  final String localEngineHarPath = globals.artifacts!.getArtifactPath(
-    Artifact.flutterEngineHar,
-    platform: getTargetPlatformForName(
-        getPlatformNameForOhosArch(ohosBuildInfo.targetArchs.first)),
-    mode: ohosBuildInfo.buildInfo.mode,
+  final BuildMode buildMode = ohosBuildInfo.buildInfo.mode;
+  final String desHarDir = globals.fs.path.join(
+    ohosProject.parent.buildDirectory.path,
+    'ohos',
+    'har',
+    buildMode.name,
   );
-  final String desHarPath =
-      globals.fs.path.join(ohosRootPath, 'har', HAR_FILE_NAME);
-  ensureParentExists(desHarPath);
-  final File originHarFile = globals.localFileSystem.file(localEngineHarPath);
-  originHarFile.copySync(desHarPath);
-  logger?.printTrace('copy from "$localEngineHarPath" to "$desHarPath"');
+
+  final List<OhosArch> targetArchs =
+      List<OhosArch>.of(ohosBuildInfo.targetArchs);
+  for (int i = 0; i < targetArchs.length; i++) {
+    final OhosArch arch = targetArchs[i];
+    final String flutterHarPath = globals.artifacts!.getArtifactPath(
+      Artifact.flutterEngineHar,
+      platform: getTargetPlatformForName(getPlatformNameForOhosArch(arch)),
+      mode: buildMode,
+    );
+    final String originHarDir = globals.fs.file(flutterHarPath).parent.path;
+    if (i == 0) {
+      // Copy flutter_embedding_${buildMode.name}.har file
+      final String embeddingHarName = 'flutter_embedding_${buildMode.name}.har';
+      _copyFile(originHarDir, desHarDir, embeddingHarName);
+    }
+
+    // Copy ${arch}_${buildMode.name}.har file
+    final String harName = '${arch.name}_${buildMode.name}.har';
+    _copyFile(originHarDir, desHarDir, harName);
+  }
   logger?.printTrace('copy flutter runtime to project end');
+}
+
+void _copyFile(String srcPath, String desPath, String fileName) {
+  final File srcFile = globals.fs.directory(srcPath).childFile(fileName);
+  final String desFilePath = globals.fs.path.join(desPath, fileName);
+  final Logger logger = globals.logger;
+  if (srcFile.existsSync()) {
+    ensureParentExists(desFilePath);
+    srcFile.copySync(desFilePath);
+    logger.printTrace('Copy from "$srcPath" to "$desPath"');
+  } else {
+    throwToolExit('Failed to find har file: $fileName in "$srcPath"');
+  }
 }
 
 void ensureParentExists(String path) {
@@ -443,6 +303,33 @@ void ensureParentExists(String path) {
   }
 }
 
+String moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
+  return modules
+      .map((OhosModule module) => OhosModule.fromModulePath(
+            modulePath: module.srcPath,
+            flavor: getFlavor(
+              globals.fs.file(
+                  globals.fs.path.join(module.srcPath, 'build-profile.json5')),
+              flavor,
+            ),
+          ))
+      .map((OhosModule module) => '${module.name}@${module.flavor}')
+      .join(',');
+}
+
+void checkOhosSignedInfo(OhosProject ohosProject) {
+  final File buildProfile = ohosProject.getBuildProfileFile();
+  final String buildProfileConfig = buildProfile.readAsStringSync();
+  final dynamic obj = JSON5.parse(buildProfileConfig);
+  final dynamic signingConfigs = obj['app']?['signingConfigs'];
+  if (signingConfigs is List && signingConfigs.isEmpty) {
+    throwToolExit(
+        '请通过DevEco Studio打开ohos工程后配置调试签名(File -> Project Structure -> Signing Configs 勾选Automatically generate signature)');
+  }
+}
+
+/// flutter_ohos 编译，有hvigor插件，在插件中调用flutter编译命令
+/// flutter鸿蒙化插件，直接依赖源码
 class OhosHvigorBuilder implements OhosBuilder {
   OhosHvigorBuilder({
     required Logger logger,
@@ -460,7 +347,15 @@ class OhosHvigorBuilder implements OhosBuilder {
         _fileSystemUtils =
             FileSystemUtils(fileSystem: fileSystem, platform: platform),
         _processUtils =
-            ProcessUtils(logger: logger, processManager: processManager);
+            ProcessUtils(logger: logger, processManager: processManager),
+        _ohosDartBuilder = OhosDartBuilder(
+            logger: logger,
+            processManager: processManager,
+            fileSystem: fileSystem,
+            artifacts: artifacts,
+            usage: usage,
+            hvigorUtils: hvigorUtils,
+            platform: platform);
 
   final Logger _logger;
   final ProcessUtils _processUtils;
@@ -470,14 +365,16 @@ class OhosHvigorBuilder implements OhosBuilder {
   final HvigorUtils _hvigorUtils;
   final FileSystemUtils _fileSystemUtils;
 
-  late OhosProject _ohosProject;
-  late String _ohosRootPath;
-  late OhosBuildData _ohosBuildData;
+  late OhosProject ohosProject;
+  late String ohosRootPath;
+  late OhosBuildData ohosBuildData;
+
+  final OhosDartBuilder _ohosDartBuilder;
 
   void parseData(FlutterProject flutterProject, Logger? logger) {
-    _ohosProject = flutterProject.ohos;
-    _ohosRootPath = _ohosProject.ohosRoot.path;
-    _ohosBuildData = OhosBuildData.parseOhosBuildData(_ohosProject, logger);
+    ohosProject = flutterProject.ohos;
+    ohosRootPath = ohosProject.ohosRoot.path;
+    ohosBuildData = OhosBuildData.parseOhosBuildData(ohosProject, logger);
   }
 
   /// build hap
@@ -487,6 +384,11 @@ class OhosHvigorBuilder implements OhosBuilder {
     required OhosBuildInfo ohosBuildInfo,
     required String target,
   }) async {
+    if (useHvigorDartBuilder(project.ohos)) {
+      return _ohosDartBuilder.buildHap(
+          project: project, ohosBuildInfo: ohosBuildInfo, target: target);
+    }
+    installHvigorPlugin(project.ohos);
     _logger.printStatus('start hap build...');
 
     if (!project.ohos.ohosBuildData.moduleInfo.hasEntryModule) {
@@ -496,92 +398,55 @@ class OhosHvigorBuilder implements OhosBuilder {
     final Status status = _logger.startProgress(
       'Running Hvigor task assembleHap...',
     );
+    updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
-    updateProjectVersion(project, ohosBuildInfo.buildInfo);
-    await addPluginsModules(project);
-    await addFlutterModuleAndPluginsSrcOverrides(project);
+    parseData(project, _logger);
 
-    await buildApplicationPipeLine(project, ohosBuildInfo, target: target);
-
-    final String hvigorwPath = getHvigorwPath(_ohosRootPath, checkMod: true);
-
-    /// 生成所有 plugin 的 har
-    await assembleHars(_processUtils, project, ohosBuildInfo, _logger);
-    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger);
-
-    await removePluginsModules(project);
-    await addFlutterModuleAndPluginsOverrides(project);
-    // ohosProject.deleteOhModulesCache();
-    await ohpmInstall(
-      processUtils: _processUtils,
-      workingDirectory: _ohosRootPath,
-      logger: _logger,
-    );
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
+    final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
     final int errorCode = await assembleHap(
         processUtils: _processUtils,
-        ohosRootPath: _ohosRootPath,
+        ohosRootPath: ohosRootPath,
         hvigorwPath: hvigorwPath,
         flavor: getFlavor(
-            _ohosProject.getBuildProfileFile(), ohosBuildInfo.buildInfo.flavor),
-        buildMode: ohosBuildInfo.buildInfo.modeName,
+            ohosProject.getBuildProfileFile(), ohosBuildInfo.buildInfo.flavor),
+        ohosBuildInfo: ohosBuildInfo,
+        target: target,
         logger: _logger);
     status.stop();
     if (errorCode != 0) {
       throwToolExit('assembleHap error! please check log.');
     }
 
-    final File buildProfile = project.ohos.getBuildProfileFile();
-    final String buildProfileConfig = buildProfile.readAsStringSync();
-    final dynamic obj = JSON5.parse(buildProfileConfig);
-    // ignore: avoid_dynamic_calls
-    final dynamic signingConfigs = obj['app']?['signingConfigs'];
-    if (signingConfigs is List && signingConfigs.isEmpty) {
-      _logger.printError(
-          '请通过DevEco Studio打开ohos工程后配置调试签名(File -> Project Structure -> Signing Configs 勾选Automatically generate signature)');
-    } else {
-      final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
-      final File bundleFile = OhosProject.getSignedFile(
-        modulePath: _ohosProject.mainModuleDirectory.path,
-        moduleName: _ohosProject.mainModuleName,
-        flavor: getFlavor(_ohosProject.getBuildProfileFile(), buildInfo.flavor),
-        throwOnMissing: true,
-      );
-      final String appSize = (buildInfo.mode == BuildMode.debug)
-          ? '' // Don't display the size when building a debug variant.
-          : ' (${getSizeAsMB(bundleFile.lengthSync())})';
-      _logger.printStatus(
-        '${_logger.terminal.successMark} Built ${_fileSystem.path.relative(bundleFile.path)}$appSize.',
-        color: TerminalColor.green,
-      );
+    if (ohosBuildInfo.shouldCodesign!) {
+      checkOhosSignedInfo(ohosProject);
     }
-  }
 
-  Future<void> flutterBuildPre(FlutterProject flutterProject,
-      OhosBuildInfo ohosBuildInfo, String target) async {
-    /**
-     * 1. execute flutter assemble
-     * 2. copy flutter asset to flutter module
-     * 3. copy flutter runtime
-     * 4. ohpm install
-     */
-
-    final String output =
-        await flutterAssemble(flutterProject, ohosBuildInfo, target);
-
-    cleanAndCopyFlutterAsset(
-        _ohosProject, ohosBuildInfo, _logger, _ohosRootPath, output);
-
-    cleanAndCopyFlutterRuntime(
-        _ohosProject, ohosBuildInfo, _logger, _ohosRootPath, _ohosBuildData);
-
-    // ohpm install for all modules
-    // ohosProject.deleteOhModulesCache();
-    await ohpmInstall(
-      processUtils: _processUtils,
-      workingDirectory: _ohosRootPath,
-      logger: _logger,
+    final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
+    File bundleFile = OhosProject.getSignedFile(
+      modulePath: ohosProject.mainModuleDirectory.path,
+      moduleName: ohosProject.mainModuleName,
+      flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
+      throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
+    );
+    if (bundleFile.existsSync()) {
+      final String outputPath = globals.fs.path.join(
+        ohosProject.parent.buildDirectory.path,
+        'ohos',
+        'hap',
+        bundleFile.basename,
+      );
+      bundleFile = bundleFile.copySync(outputPath);
+    }
+    final String appSize = (buildInfo.mode == BuildMode.debug)
+        ? '' // Don't display the size when building a debug variant.
+        : ' (${getSizeAsPlatformMB(bundleFile.lengthSync())})';
+    _logger.printStatus(
+      '${_logger.terminal.successMark} Built ${_fileSystem.path.relative(bundleFile.path)}$appSize.',
+      color: TerminalColor.green,
     );
   }
 
@@ -591,6 +456,11 @@ class OhosHvigorBuilder implements OhosBuilder {
     required OhosBuildInfo ohosBuildInfo,
     required String target,
   }) async {
+    if (useHvigorDartBuilder(project.ohos)) {
+      return _ohosDartBuilder.buildHar(
+          project: project, ohosBuildInfo: ohosBuildInfo, target: target);
+    }
+    installHvigorPlugin(project.ohos);
     if (!project.isModule ||
         !project.ohos.flutterModuleDirectory.existsSync()) {
       throwToolExit('current project is not module or has not pub get');
@@ -600,40 +470,64 @@ class OhosHvigorBuilder implements OhosBuilder {
       'Running Hvigor task assembleHar...',
     );
 
-    await addPluginsModules(project);
-    await addFlutterModuleAndPluginsSrcOverrides(project);
-
     parseData(project, _logger);
 
-    await flutterBuildPre(project, ohosBuildInfo, target);
+    // 删除 build/ohos/har 目录
+    final String harOutput = globals.fs.path.join(
+      ohosProject.parent.buildDirectory.path,
+      'ohos',
+      'har',
+      ohosBuildInfo.buildInfo.mode.name,
+    );
+    if (globals.fs.directory(harOutput).existsSync()) {
+      globals.fs.directory(harOutput).deleteSync(recursive: true);
+    }
 
-    /// 生成 module 和所有 plugin 的 har
-    await assembleHars(_processUtils, project, ohosBuildInfo, _logger);
-    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger);
+    // 复制 flutter.har
+    copyFlutterRuntime(ohosProject, ohosBuildInfo, _logger, ohosBuildData);
 
-    await removePluginsModules(project);
-    await addFlutterModuleAndPluginsOverrides(project);
+    // 生成 module 和所有 plugin 的 har
+    await assembleHars(_processUtils, project, ohosBuildInfo, _logger, target);
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
+
     status.stop();
-    printHowToConsumeHar(logger: _logger);
+    _logger.printStatus(
+      '${_logger.terminal.successMark} '
+      'Built ${_fileSystem.path.relative(harOutput)}',
+      color: TerminalColor.green,
+    );
+    printHowToConsumeHar(logger: _logger, mode: ohosBuildInfo.buildInfo.mode);
   }
 
   /// Prints how to consume the har from a host app.
   void printHowToConsumeHar({
     Logger? logger,
+    BuildMode mode = BuildMode.release,
   }) {
     logger?.printStatus('\nConsuming the Module', emphasis: true);
     logger?.printStatus('''
     1. Open ${globals.fs.path.join('<host project>', 'oh-package.json5')}
-    2. Add flutter_module to the dependencies list:
-
-      "dependencies": {
-        "@ohos/flutter_module": "file:path/to/har/flutter_module.har"
-      }
-
-    3. Override flutter and plugins dependencies:
+    2. Override flutter, flutter_module and plugins dependencies:
 
       "overrides" {
-        "@ohos/flutter_ohos": "file:path/to/har/flutter.har",
+        "@ohos/flutter_ohos": "file:path/to/flutter_embedding_${mode.name}.har",
+        "flutter_native_arm64_v8a": "file:path/to/arm64_v8a_${mode.name}.har",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "file:path/to/x86_64_${mode.name}.har",
+        "@ohos/flutter_module": "file:path/to/flutter_module.har",
+        "plugin_x": "file:path/to/plugin_x.har",
+        ...
+      }
+
+    3. Open ${globals.fs.path.join('<host project>', 'entry', 'oh-package.json5')}
+    4. Add flutter and flutter_module to the dependencies list:
+
+      "dependencies": {
+        "@ohos/flutter_ohos": "",
+        "flutter_native_arm64_v8a": "",
+        // Optional, only if you need x86_64 support.
+        "flutter_native_x86_64": "",
+        "@ohos/flutter_module": "",
       }
   ''');
   }
@@ -654,84 +548,65 @@ class OhosHvigorBuilder implements OhosBuilder {
     required OhosBuildInfo ohosBuildInfo,
     required String target,
   }) async {
+    if (useHvigorDartBuilder(project.ohos)) {
+      return _ohosDartBuilder.buildApp(
+          project: project, ohosBuildInfo: ohosBuildInfo, target: target);
+    }
+    installHvigorPlugin(project.ohos);
     final Status status = _logger.startProgress(
       'Running Hvigor task assembleApp...',
     );
-    updateProjectVersion(project, ohosBuildInfo.buildInfo);
-    await buildApplicationPipeLine(project, ohosBuildInfo, target: target);
+    updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
-    final String hvigorwPath = getHvigorwPath(_ohosRootPath, checkMod: true);
+    parseData(project, _logger);
+
+    await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
+    final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
     /// invoke hvigow task generate hap file.
     final int errorCode1 = await assembleApp(
         processUtils: _processUtils,
-        ohosRootPath: _ohosRootPath,
+        ohosRootPath: ohosRootPath,
         flavor: getFlavor(
-            _ohosProject.getBuildProfileFile(), ohosBuildInfo.buildInfo.flavor),
+            ohosProject.getBuildProfileFile(), ohosBuildInfo.buildInfo.flavor),
         hvigorwPath: hvigorwPath,
-        buildMode: ohosBuildInfo.buildInfo.modeName,
+        ohosBuildInfo: ohosBuildInfo,
+        target: target,
         logger: _logger);
     status.stop();
     if (errorCode1 != 0) {
-      throwToolExit('assembleApp error! please check log.');
+      throwToolExit('assembleHap error! please check log.');
     }
+
+    if (ohosBuildInfo.shouldCodesign!) {
+      checkOhosSignedInfo(ohosProject);
+    }
+
     final BuildInfo buildInfo = ohosBuildInfo.buildInfo;
-    final File bundleFile = OhosProject.getSignedFile(
-      modulePath: _ohosProject.mainModuleDirectory.path,
-      moduleName: _ohosProject.mainModuleName,
-      flavor: getFlavor(_ohosProject.getBuildProfileFile(), buildInfo.flavor),
+    File bundleFile = OhosProject.getSignedFile(
+      modulePath: ohosProject.mainModuleDirectory.path,
+      moduleName: ohosProject.mainModuleName,
+      flavor: getFlavor(ohosProject.getBuildProfileFile(), buildInfo.flavor),
       type: OhosFileType.app,
       throwOnMissing: true,
+      shouldCodesign: ohosBuildInfo.shouldCodesign!,
     );
+    if (bundleFile.existsSync()) {
+      final String outputPath = globals.fs.path.join(
+        ohosProject.parent.buildDirectory.path,
+        'ohos',
+        'app',
+        bundleFile.basename,
+      );
+      bundleFile = bundleFile.copySync(outputPath);
+    }
     final String appSize = (buildInfo.mode == BuildMode.debug)
         ? '' // Don't display the size when building a debug variant.
-        : ' (${getSizeAsMB(bundleFile.lengthSync())})';
+        : ' (${getSizeAsPlatformMB(bundleFile.lengthSync())})';
     _logger.printStatus(
       '${_logger.terminal.successMark} Built ${_fileSystem.path.relative(bundleFile.path)}$appSize.',
       color: TerminalColor.green,
     );
-  }
-
-  Future<void> buildApplicationPipeLine(
-      FlutterProject flutterProject, OhosBuildInfo ohosBuildInfo,
-      {required String target}) async {
-    if (!flutterProject.ohos.ohosBuildData.moduleInfo.hasEntryModule) {
-      throwToolExit(
-          "this ohos project don't have a entry module , can't build to a application.");
-    }
-
-    parseData(flutterProject, _logger);
-
-    /// 检查plugin的har构建
-    await checkOhosPluginsDependencies(flutterProject);
-
-    await flutterBuildPre(flutterProject, ohosBuildInfo, target);
-
-    if (_ohosProject.isRunWithModuleHar) {
-      await assembleHars(_processUtils, flutterProject, ohosBuildInfo, _logger);
-      await assembleHsps(_processUtils, flutterProject, ohosBuildInfo, _logger);
-
-      /// har文件拷贝后，需要重新install
-      // ohosProject.deleteOhModulesCache();
-      await ohpmInstall(
-          processUtils: _processUtils,
-          workingDirectory: _ohosProject.mainModuleDirectory.path,
-          logger: _logger);
-    }
-  }
-
-  String _moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
-    return modules
-        .map((OhosModule module) => OhosModule.fromModulePath(
-              modulePath: module.srcPath,
-              flavor: getFlavor(
-                globals.fs.file(globals.fs.path
-                    .join(module.srcPath, 'build-profile.json5')),
-                flavor,
-              ),
-            ))
-        .map((OhosModule module) => '${module.name}@${module.flavor}')
-        .join(',');
   }
 
   /// 生成所有 plugin 的 har
@@ -740,9 +615,10 @@ class OhosHvigorBuilder implements OhosBuilder {
     FlutterProject project,
     OhosBuildInfo ohosBuildInfo,
     Logger? logger,
+    String target,
   ) async {
     final String ohosProjectPath = project.ohos.ohosRoot.path;
-    final List<OhosModule> modules = _ohosBuildData.harModules;
+    final List<OhosModule> modules = ohosBuildData.harModules;
     if (modules.isEmpty) {
       return;
     }
@@ -750,13 +626,14 @@ class OhosHvigorBuilder implements OhosBuilder {
     // compile hars. parallel compilation.
     final String hvigorwPath = getHvigorwPath(ohosProjectPath, checkMod: true);
     final String moduleName =
-        _moduleNameWithFlavor(modules, ohosBuildInfo.buildInfo.flavor);
+        moduleNameWithFlavor(modules, ohosBuildInfo.buildInfo.flavor);
     final int errorCode = await assembleHar(
         processUtils: processUtils,
         workPath: ohosProjectPath,
         moduleName: moduleName,
         hvigorwPath: hvigorwPath,
-        buildMode: ohosBuildInfo.buildInfo.modeName,
+        ohosBuildInfo: ohosBuildInfo,
+        target: target,
         logger: logger);
     if (errorCode != 0) {
       throwToolExit('Oops! assembleHars failed! please check log.');
@@ -774,8 +651,13 @@ class OhosHvigorBuilder implements OhosBuilder {
       if (!originHar.existsSync()) {
         throwToolExit('Oops! Failed to find: ${originHar.path}');
       }
-      final String desPath =
-          globals.fs.path.join(ohosProjectPath, 'har', '${module.name}.har');
+      final String desPath = globals.fs.path.join(
+        ohosProject.parent.buildDirectory.path,
+        'ohos',
+        'har',
+        ohosBuildInfo.buildInfo.mode.name,
+        '${module.name}.har',
+      );
       ensureParentExists(desPath);
       originHar.copySync(desPath);
     }
@@ -786,17 +668,16 @@ class OhosHvigorBuilder implements OhosBuilder {
     FlutterProject project,
     OhosBuildInfo ohosBuildInfo,
     Logger? logger,
+    String target,
   ) async {
     final String ohosProjectPath = project.ohos.ohosRoot.path;
-    final List<OhosModule> modules = _ohosBuildData.moduleInfo.moduleList
-        .where((OhosModule element) => element.type == OhosModuleType.shared)
-        .toList();
+    final List<OhosModule> modules = ohosBuildData.hspModules;
     if (modules.isEmpty) {
       return;
     }
     final String hvigorwPath = getHvigorwPath(ohosProjectPath, checkMod: true);
     final String moduleName =
-        _moduleNameWithFlavor(modules, ohosBuildInfo.buildInfo.flavor);
+        moduleNameWithFlavor(modules, ohosBuildInfo.buildInfo.flavor);
     final int errorCode = await assembleHsp(
         processUtils: processUtils,
         workPath: ohosProjectPath,
@@ -804,10 +685,53 @@ class OhosHvigorBuilder implements OhosBuilder {
         hvigorwPath: hvigorwPath,
         flavor: getFlavor(
             project.ohos.getBuildProfileFile(), ohosBuildInfo.buildInfo.flavor),
-        buildMode: ohosBuildInfo.buildInfo.modeName,
+        ohosBuildInfo: ohosBuildInfo,
+        target: target,
         logger: logger);
     if (errorCode != 0) {
       throwToolExit('Oops! assembleHsps failed! please check log.');
     }
   }
+}
+
+void _appendCommands(List<String> command, OhosBuildInfo ohosBuildInfo,
+    {required String target, Logger? logger}) {
+  command.addAll(<String>['-p', 'FLUTTER_TARGET=$target']);
+  if (logger != null && logger.isVerbose) {
+    command.addAll(<String>['-p', 'VERBOSE_SCRIPT_LOGGING=true']);
+  }
+  if (globals.artifacts is LocalEngineArtifacts) {
+    final LocalEngineArtifacts localEngineArtifacts = globals.artifacts as LocalEngineArtifacts;
+    command.addAll(<String>[
+      '-p',
+      'FLUTTER_ENGINE=${globals.fs.path.dirname(globals.fs.path.dirname(localEngineArtifacts.engineOutPath))}'
+    ]);
+    command.addAll(<String>[
+      '-p',
+      'LOCAL_ENGINE=${localEngineArtifacts.localEngineName}',
+    ]);
+    command.addAll(<String>[
+      '-p',
+      'TARGET_PLATFORM=${_getTargetPlatformByLocalEnginePath(localEngineArtifacts.engineOutPath)}',
+    ]);
+  } else if (ohosBuildInfo.targetArchs.isNotEmpty) {
+    final Iterable<String> targetArchs = ohosBuildInfo.targetArchs
+        .map((OhosArch arch) => getPlatformNameForOhosArch(arch));
+    command.addAll(<String>['-p', 'TARGET_PLATFORM=${targetArchs.join(',')}']);
+  }
+  final Map<String, String> envConfig =
+      ohosBuildInfo.buildInfo.toEnvironmentConfig();
+  for (final MapEntry<String, String> config in envConfig.entries) {
+    command.addAll(<String>['-p', '${config.key}=${config.value}']);
+  }
+}
+
+String _getTargetPlatformByLocalEnginePath(String engineOutPath) {
+  String result = 'ohos-arm';
+  if (engineOutPath.contains('x64')) {
+    result = 'ohos-x64';
+  } else if (engineOutPath.contains('arm64')) {
+    result = 'ohos-arm64';
+  }
+  return result;
 }
