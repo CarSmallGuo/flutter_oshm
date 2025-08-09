@@ -283,7 +283,6 @@ class OhosDevice extends Device {
         ohosBuildInfo: OhosBuildInfo(
           debuggingOptions.buildInfo,
           targetArchs: <OhosArch>[ohosArch],
-          enableImpellerFlag: debuggingOptions.enableImpeller,
         ),
         target: mainPath ?? 'lib/main.dart',
       );

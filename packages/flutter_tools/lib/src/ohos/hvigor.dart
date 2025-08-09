@@ -55,40 +55,6 @@ void checkPlatformEnvironment(String environment, Logger? logger) {
   }
 }
 
-Future<void> setImpellerEnableFlag(
-    OhosProject ohosProject, OhosBuildInfo ohosBuildInfo) async {
-  final String buildinfoFilePath = globals.fs.path
-      .join(ohosProject.flutterModuleDirectory.path, BUILD_INFO_JSON_DES_PATH);
-
-  final File file = globals.localFileSystem.file(buildinfoFilePath);
-
-  if (!await file.exists()) {
-    throw Exception('Failed to find buildinfo.json5 file: $buildinfoFilePath');
-  }
-
-  final String content = await file.readAsString();
-
-  final Map<String, dynamic> json = jsonDecode(content) as Map<String, dynamic>;
-
-  // find "enable_impeller" in json file
-  final List<dynamic> stringList = json['string'] as List<dynamic>;
-  final Map<String, dynamic>? enableImpellerItem = stringList.firstWhere(
-    (dynamic item) =>
-        (item as Map<String, dynamic>)['name'] == 'enable_impeller',
-    orElse: () => null,
-  ) as Map<String, dynamic>?;
-
-  if (enableImpellerItem != null) {
-    enableImpellerItem['value'] = ohosBuildInfo.enableImpellerFlag?.toString();
-  }
-
-  final String updatedContent =
-      const JsonEncoder.withIndent('  ').convert(json);
-
-  // save setting
-  await file.writeAsString(updatedContent);
-}
-
 String getHvigorwPath(String ohosRootPath, {bool checkMod = false}) {
   final String hvigorwPath =
       globals.fs.path.join(ohosRootPath, getHvigorwFile());
@@ -406,10 +372,6 @@ class OhosHvigorBuilder implements OhosBuilder {
 
     parseData(project, _logger);
 
-    if (ohosBuildInfo.enableImpellerFlag != null) {
-      await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
-    }
-
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);
 
@@ -479,10 +441,6 @@ class OhosHvigorBuilder implements OhosBuilder {
     );
 
     parseData(project, _logger);
-
-    if (ohosBuildInfo.enableImpellerFlag != null) {
-      await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
-    }
 
     // 删除 build/ohos/har 目录
     final String harOutput = globals.fs.path.join(
@@ -571,10 +529,6 @@ class OhosHvigorBuilder implements OhosBuilder {
     updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
     parseData(project, _logger);
-
-    if (ohosBuildInfo.enableImpellerFlag != null) {
-      await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
-    }
 
     await assembleHsps(_processUtils, project, ohosBuildInfo, _logger, target);
     final String hvigorwPath = getHvigorwPath(ohosRootPath, checkMod: true);

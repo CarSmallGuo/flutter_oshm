@@ -256,10 +256,6 @@ class OhosDartBuilder implements OhosBuilder {
         desFlutterAssetsPath, logger);
     await copyFlutterBuildInfoFile(ohosProject);
 
-    if (ohosBuildInfo.enableImpellerFlag != null) {
-      await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
-    }
-
     final String desAppSoPath = getAppSoPath(
         ohosRootPath, ohosBuildInfo.targetArchs.first, ohosProject);
     if (ohosBuildInfo.buildInfo.isRelease ||
