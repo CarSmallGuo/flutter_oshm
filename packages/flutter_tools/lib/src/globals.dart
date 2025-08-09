@@ -3,7 +3,7 @@
 // found in the LICENSE file.
 
 import 'package:process/process.dart';
-
+import 'package:usage/usage.dart';
 import 'android/android_sdk.dart';
 import 'android/android_studio.dart';
 import 'android/gradle_utils.dart';
@@ -89,6 +89,10 @@ final BotDetector _defaultBotDetector = BotDetector(
   ),
 );
 Future<bool> get isRunningOnBot => botDetector.isRunningOnBot;
+
+// Analytics instance for package:unified_analytics for analytics
+// reporting for all Flutter and Dart related tooling
+Analytics get analytics => context.get<Analytics>() ?? AnalyticsMock();
 
 /// Currently active implementation of the file system.
 ///
