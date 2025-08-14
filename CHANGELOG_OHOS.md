@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.0.504
+- 图片编解码替换不拷贝内存接口 (3.27:[5973e3ba](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5973e3ba0d5d3899617cac331a102ac494041373?ref=oh-3.27.4-dev&prId=972))
+- 解决使用impeller-vulkan时，放大缩小窗口时偶现花屏的问题 （3.22:[3117a469](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3117a469862889dc8ed6cdc8fc2c31f872850884?ref=oh-3.22.0&prId=970)）
+- 解决DeltaTextInputClient回车和删除操作异常的问题 (3.7:[b3b5deff](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b3b5deff3b35ffa2e8d9e9daac3f4ba2a1f13b98?ref=dev&prId=925))
 ## 6.0.0.503
 - 支持系统字体热重载 （3.7:[42d1d865](https://gitcode.com/openharmony-tpc/flutter_engine/commit/42d1d865edce59bbe6c11cecde4b77c78975bd88?ref=dev&prId=965)）
 - 修复FlutterAbilityAndEntryDelegate.ets中代表页面是否在前台的变量初始值设置错误 （3.7:[6f7aa793](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6f7aa793f08bfb839c9263efd104675f265095a6?ref=dev&prId=964)）
