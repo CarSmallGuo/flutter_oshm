@@ -1,6 +1,15 @@
 # Changelog
+## 6.0.0.504
+- 图片编解码替换不拷贝内存接口 (3.27:[5973e3ba](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5973e3ba0d5d3899617cac331a102ac494041373?ref=oh-3.27.4-dev&prId=972))
+- 解决使用impeller-vulkan时，放大缩小窗口时偶现花屏的问题 （3.22:[3117a469](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3117a469862889dc8ed6cdc8fc2c31f872850884?ref=oh-3.22.0&prId=970)）
+- 解决DeltaTextInputClient回车和删除操作异常的问题 (3.7:[b3b5deff](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b3b5deff3b35ffa2e8d9e9daac3f4ba2a1f13b98?ref=dev&prId=925))
 ## 6.0.0.503
-- 系统字体配置改为先从系统接口获取再从json文件获取 (3.22:[d19d3a2f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d19d3a2f8db11e9e6f0f7e43eaad607e3849f032?ref=font&prId=908))
+- 支持系统字体热重载 （3.7:[42d1d865](https://gitcode.com/openharmony-tpc/flutter_engine/commit/42d1d865edce59bbe6c11cecde4b77c78975bd88?ref=dev&prId=965)）
+- 修复FlutterAbilityAndEntryDelegate.ets中代表页面是否在前台的变量初始值设置错误 （3.7:[6f7aa793](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6f7aa793f08bfb839c9263efd104675f265095a6?ref=dev&prId=964)）
+- 修改候选词位置为光标的右下角 (3.7:[cf15e39e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/cf15e39e12051e16a91b72c413340903a352ac19?ref=dev&prId=940))
+- 修复多FlutterEntry情况下，生命周期异常的问题 (3.7:[00335081](https://gitcode.com/openharmony-tpc/flutter_engine/commit/003350811535dabbcc3dc3b868c68bd55d939a83?ref=dev&prId=949))
+- 修复didChangeAppLifecycleState切换多任务后台未执行 (3.7:[bff6b81f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/bff6b81ff1768141cef97792947ff14c4f3989c9?ref=dev&prId=948))
+- 系统字体配置改为先从系统接口获取再从json文件获取 (3.7:[be488dfc](https://gitcode.com/openharmony-tpc/flutter_engine/commit/be488dfce98bcdb51980a8dc520c99edfd68eca3?ref=dev&prId=968), 3.22:[d19d3a2f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d19d3a2f8db11e9e6f0f7e43eaad607e3849f032?ref=font&prId=908), 3.27:[545ef790](https://gitcode.com/openharmony-tpc/flutter_engine/commit/545ef790c825abbaa0b429d4288739638b56a95e?ref=font&prId=961))
 - 修复platformview和flutter输入框来回点击导致flutter侧无法输入的问题 (3.22:[5dcef493](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5dcef49354a3d9204395a5cf11fc2f17aeb9b358?ref=oh-3.22.0&prId=958))
 - flutter引擎上游单元测试移植，修复host编译错误 (3.22:[c2fdd5af](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c2fdd5aff3aeebae410364c21f8ebce32e63121b?ref=oh-3.22.0&prId=955))
 - 图片编解码替换不拷贝内存接口 (3.22:[fd7c81f5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fd7c81f5ec9a45e2c164ce3e7d7609bfa56b83a3?ref=oh-3.22.0&prId=950))
