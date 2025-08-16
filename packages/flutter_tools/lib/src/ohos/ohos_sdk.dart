@@ -240,7 +240,7 @@ class OhosSdk implements HarmonySdk {
   @override
   String? getOhosSdkNodePath(){
     final String parentPath = globals.fs.path.dirname(sdkPath);
-    final String nodePath = globals.fs.path.join(parent, 'tools', 'node');
+    final String nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
     final Directory node = globals.fs.directory(nodePath);
 
     if(node.existsSync()){
@@ -411,7 +411,7 @@ class HmosSdk implements HarmonySdk {
   @override
   String? getNodePath(){
     final String parentPath = globals.fs.path.dirname(sdkPath);
-    final String nodePath = globals.fs.path.join(parent, 'tools', 'node');
+    final String nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
     final Directory node = globals.fs.directory(nodePath);
 
     if(node.existsSync()){
