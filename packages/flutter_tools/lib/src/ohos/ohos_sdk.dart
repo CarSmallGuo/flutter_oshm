@@ -8,7 +8,7 @@ import 'dart:collection';
 
 import 'package:cli_config/cli_config.dart';
 import 'package:json5/json5.dart';
-
+import 'package:path/path.dart' as path;
 import '../base/file_system.dart';
 import '../base/platform.dart';
 import '../globals.dart' as globals;
@@ -43,6 +43,35 @@ String? _getHdcPath(String sdkPath) {
   return null;
 }
 
+// find npm in nodePath
+String? _getNpmPath(String? nodePath) {
+  final bool isWindows = globals.platform.isWindows,
+  isMacOS = globals.platform.isMacOS,
+  isLinux = globals.platform.isLinux;
+  final String tempPath, npmName = isWindows? 'npm.cmd' : 'npm';
+  if (nodePath != null) {
+    tempPath = nodePath;
+  } else {
+    globals.printTrace('The current nodePath is empty');
+    return null;
+  }
+
+  late String npmPath;
+  if (isWindows) {
+    npmPath = globals.fs.path.join(tempPath, npmName);
+  } else if (isMacOS || isLinux) {
+    npmPath = globals.fs.path.join(tempPath, 'bin', npmName);
+  }
+
+  if (globals.fs.file(npmPath).existsSync()) {
+    if (isWindows) { //若是Windows平台，则对路径进行格式化
+      npmPath = path.windows.normalize(npmPath);
+    }
+    return npmPath;
+  }
+  return null;
+}
+
 abstract class HarmonySdk {
   // name
   String get name;
@@ -50,6 +79,8 @@ abstract class HarmonySdk {
   String get sdkPath;
   // hdc path
   String? get hdcPath;
+  // npm path
+  String? get npmPath;
   // available api list
   List<String> get apiAvailable;
   // is valid sdk
@@ -90,6 +121,9 @@ class OhosSdk implements HarmonySdk {
 
   @override
   String? get hdcPath => _getHdcPath(_sdkDir.path);
+
+  @override
+  String? get npmPath => _getNpmPath(this.getOhosSdkNodePath());
 
   @override
   List<String> get apiAvailable => getAvailableApi();
@@ -212,6 +246,28 @@ class OhosSdk implements HarmonySdk {
   String? getNdkLdPath({Platform? platform, Config? config}) {
     return _getNdkLdPath(sdkPath, platform: platform, config: config);
   }
+
+  @override
+  String? getOhosSdkNodePath() {
+    final bool isWindows = globals.platform.isWindows,
+    isMacOS = globals.platform.isMacOS,
+    isLinux = globals.platform.isLinux;
+
+    final String parentPath = globals.fs.path.dirname(sdkPath);
+    String? nodePath;
+    if (isWindows || isMacOS) {
+     nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
+    } else if (isLinux) {
+      nodePath = globals.fs.path.join(parentPath, 'tool', 'node');
+    }
+    final Directory node = globals.fs.directory(nodePath);
+
+    if (node.existsSync()) {
+      return nodePath;
+    }
+    return null;
+  }
+
 }
 
 class HmosSdk implements HarmonySdk {
@@ -224,6 +280,9 @@ class HmosSdk implements HarmonySdk {
 
   @override
   String? get hdcPath => _getHdcPath(_sdkDir.path);
+
+  @override
+  String? get npmPath => _getNpmPath(this.getNodePath());
 
   @override
   String get sdkPath => _sdkDir.path;
@@ -366,6 +425,27 @@ class HmosSdk implements HarmonySdk {
   @override
   String? getNdkLdPath({Platform? platform, Config? config}) {
      return _getNdkLdPath(sdkPath, platform: platform, config: config);
+  }
+
+  @override
+  String? getNodePath() {
+    final bool isWindows = globals.platform.isWindows,
+    isMacOS = globals.platform.isMacOS,
+    isLinux = globals.platform.isLinux;
+
+    final String parentPath = globals.fs.path.dirname(sdkPath);
+    String? nodePath;
+    if (isWindows || isMacOS) {
+     nodePath = globals.fs.path.join(parentPath, 'tools', 'node');
+    } else if (isLinux) {
+      nodePath = globals.fs.path.join(parentPath, 'tool', 'node');
+    }
+    final Directory node = globals.fs.directory(nodePath);
+
+    if (node.existsSync()) {
+      return nodePath;
+    }
+    return null;
   }
 }
 
