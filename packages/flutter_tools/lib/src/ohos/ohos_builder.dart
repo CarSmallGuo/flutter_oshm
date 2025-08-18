@@ -111,6 +111,12 @@ class OhosDartBuilder implements OhosBuilder {
         'src/main/resources/rawfile', FLUTTER_ASSETS_PATH);
   }
 
+  /// eg:entry/src/main/resources/rawfile/flutter_assets/
+  String getDatPath(String ohosRootPath, OhosProject ohosProject) {
+    return globals.fs.path.join(
+        getProjectAssetsPath(ohosRootPath, ohosProject), OHOS_DTA_FILE_NAME);
+  }
+
   /// eg:entry/libs/arm64-v8a/libapp.so
   String getAppSoPath(
       String ohosRootPath, OhosArch ohosArch, OhosProject ohosProject) {
@@ -287,6 +293,22 @@ class OhosDartBuilder implements OhosBuilder {
   void cleanAndCopyFlutterRuntime(OhosProject ohosProject,
       OhosBuildInfo ohosBuildInfo, Logger? logger, String ohosRootPath) {
     logger?.printTrace('copy flutter runtime to project start');
+    // copy ohos font-family support
+    if (ohosBuildInfo.buildInfo.isDebug) {
+      final String flutterSdk = globals.fsUtils.escapePath(Cache.flutterRoot!);
+      final File ohosDta = globals.localFileSystem.file(globals.fs.path.join(
+          flutterSdk,
+          'packages',
+          'flutter_tools',
+          'templates',
+          'app_shared',
+          'ohos.tmpl',
+          'dta',
+          OHOS_DTA_FILE_NAME));
+      final String copyDes = getDatPath(ohosRootPath, ohosProject);
+      ohosDta.copySync(copyDes);
+    }
+
     // 复制 flutter.har
     final String localEngineHarPath = globals.artifacts!.getArtifactPath(
       Artifact.flutterEngineHar,

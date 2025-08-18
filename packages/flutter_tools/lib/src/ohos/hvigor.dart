@@ -27,6 +27,8 @@ import 'application_package.dart';
 import 'hvigor_utils.dart';
 import 'ohos_builder.dart';
 
+const String OHOS_DTA_FILE_NAME = 'icudtl.dat';
+
 const String FLUTTER_ASSETS_PATH = 'flutter_assets';
 
 const String APP_SO_ORIGIN = 'app.so';
