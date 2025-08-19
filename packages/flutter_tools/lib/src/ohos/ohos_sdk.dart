@@ -79,6 +79,8 @@ abstract class HarmonySdk {
   String get sdkPath;
   // hdc path
   String? get hdcPath;
+  // npm path
+  String? get npmPath;
   // available api list
   List<String> get apiAvailable;
   // is valid sdk
