@@ -330,6 +330,12 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
         FLUTTER_ASSETS_PATH
       )
       copyDirectory(srcFlutterAssetsDir, destFlutterAssetsDir)
+      // Copy the icudtl.dat file only in debug mode
+      if (buildMode === 'debug') {
+        const dtaFileDir = path.join(sdkPath, 'packages', 'flutter_tools',
+         'templates', 'app_shared', 'ohos.tmpl', 'dta')
+        copyDirectory(dtaFileDir, destFlutterAssetsDir)
+      }
       // 3.copy app.so
       const libsDir = path.join(nodePath, 'libs')
       if (fs.existsSync(libsDir)) {
