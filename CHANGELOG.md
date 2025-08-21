@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.600
+- 适配webview鼠标hover功能 ([147b19b2](https://gitcode.com/openharmony-tpc/flutter_engine/commit/147b19b278955340a98a0a466ca0d521a5307a8a?ref=dev&prId=924))
 ## 6.0.0.504
 - 解决DeltaTextInputClient回车和删除操作异常的问题 ([b3b5deff](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b3b5deff3b35ffa2e8d9e9daac3f4ba2a1f13b98?ref=dev&prId=925))
 ## 6.0.0.503
