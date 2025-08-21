@@ -4,7 +4,7 @@
 * found in the LICENSE_KHZG file.
 */
 import 'dart:convert';
-
+import 'dart:io';
 import 'package:json5/json5.dart';
 
 import '../base/common.dart';
@@ -205,14 +205,28 @@ void installHvigorPlugin(OhosProject ohosProject) {
   packageJsonFile.createSync();
   final String packageJsonContent = const JsonEncoder.withIndent('  ').convert(packageJson);
   packageJsonFile.writeAsStringSync(packageJsonContent);
-  final List<String> command = <String>[
-    'npm',
-    'install',
-  ];
-  globals.processManager.runSync(
-    command,
+  // execute npm install with npm in DevEco-Studio or Command Line Tools.
+  final String? npmPath = globals.hmosSdk?.npmPath;
+  late String tempPath;
+  if (npmPath != null) {
+    tempPath = npmPath;
+  } else {
+    globals.logger.printTrace('npmPath is empty');
+    return;
+  }
+  final ProcessResult result = Process.runSync(
+    tempPath,
+    ['install'],
+    runInShell: true,
     workingDirectory: ohosProject.ohosRoot.path,
   );
+  if (result.exitCode != 0) {
+    globals.logger.printTrace('''
+      The npm command failed to execute!
+      The exit code is: ${result.exitCode}
+      Error message: ${result.stderr}
+      ''');
+  }
 }
 
 bool useHvigorTsBuilder(OhosProject ohosProject) {
