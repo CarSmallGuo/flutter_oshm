@@ -1,4 +1,7 @@
 # Changelog
+## 6.0.0.600
+- 适配webview鼠标hover功能 ([9928387c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/9928387ca45be8848daaf1a90ba36a1d8915b8a1?ref=oh-3.22.0&prId=973))
+- 解决DeltaTextInputClient回车和删除操作异常的问题 ([f400b855](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f400b8552b12e22e313c845935e055bfed43cbbb?ref=oh-3.22.0&prId=975))
 ## 6.0.0.504
 - 解决使用impeller-vulkan时，放大缩小窗口时偶现花屏的问题 ([3117a469](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3117a469862889dc8ed6cdc8fc2c31f872850884?ref=oh-3.22.0&prId=970))
 ## 6.0.0.503
