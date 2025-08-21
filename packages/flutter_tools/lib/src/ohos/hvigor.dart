@@ -395,7 +395,6 @@ class OhosHvigorBuilder implements OhosBuilder {
       return _ohosDartBuilder.buildHap(
           project: project, ohosBuildInfo: ohosBuildInfo, target: target);
     }
-    installHvigorPlugin(project.ohos);
     _logger.printStatus('start hap build...');
 
     if (!project.ohos.ohosBuildData.moduleInfo.hasEntryModule) {
@@ -468,7 +467,6 @@ class OhosHvigorBuilder implements OhosBuilder {
       return _ohosDartBuilder.buildHar(
           project: project, ohosBuildInfo: ohosBuildInfo, target: target);
     }
-    installHvigorPlugin(project.ohos);
     if (!project.isModule ||
         !project.ohos.flutterModuleDirectory.existsSync()) {
       throwToolExit('current project is not module or has not pub get');
@@ -564,7 +562,6 @@ class OhosHvigorBuilder implements OhosBuilder {
       return _ohosDartBuilder.buildApp(
           project: project, ohosBuildInfo: ohosBuildInfo, target: target);
     }
-    installHvigorPlugin(project.ohos);
     final Status status = _logger.startProgress(
       'Running Hvigor task assembleApp...',
     );
