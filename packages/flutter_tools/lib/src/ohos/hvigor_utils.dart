@@ -208,7 +208,7 @@ void installHvigorPlugin(OhosProject ohosProject) {
   //execute npm install commands in IDE
   final String? npmPath = globals.hmosSdk?.npmPath;
   late String tempPath;
-  if (npmPath ! = null) {
+  if (npmPath != null) {
     tempPath = npmPath;
   } else {
     globals.logger.printTrace('npmPath is empty');
