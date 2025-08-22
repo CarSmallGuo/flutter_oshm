@@ -205,7 +205,7 @@ void installHvigorPlugin(OhosProject ohosProject) {
   packageJsonFile.createSync();
   final String packageJsonContent = const JsonEncoder.withIndent('  ').convert(packageJson);
   packageJsonFile.writeAsStringSync(packageJsonContent);
-  //execute npm install commands in IDE
+  // execute npm install commands in IDE
   final String? npmPath = globals.hmosSdk?.npmPath;
   late String tempPath;
   if (npmPath != null) {
