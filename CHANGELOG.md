@@ -1,4 +1,10 @@
 # Changelog
+## 6.0.0.602
+- 添加hover事件 ([7ae3b049](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7ae3b0494df5987786dffb3b273b81aa746bfcb8?ref=oh-3.22.0&prId=985))
+- 新增三方输入法应用反控Flutter输入框的接口适配 ([77a1cb63](https://gitcode.com/openharmony-tpc/flutter_engine/commit/77a1cb6321d565650b41677df60771ed8b718674?ref=feat-input-more-3.22&prId=995))
+- impeller渲染超出纹理范围图片时，不走scalePixels，加速大图渲染 ([c3a919dd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c3a919dd2e5f96ce3a76723526b414114cbd69c7?ref=oh-3.22.0&prId=976))
+- 新增ui卡死检测上报 ([3dd71c49](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3dd71c494326053a76ca8f2a8d5baa65db70ef49?ref=oh-3.22.0&prId=977))
+- 修复外接纹理情况下，无法抛滑问题 ([aafb5659](https://gitcode.com/openharmony-tpc/flutter_engine/commit/aafb5659ec09dd27d861cb3aab5d0741c8f444eb?ref=oh-3.22.0&prId=990))
 ## 6.0.0.600
 - 适配webview鼠标hover功能 ([9928387c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/9928387ca45be8848daaf1a90ba36a1d8915b8a1?ref=oh-3.22.0&prId=973))
 - 解决DeltaTextInputClient回车和删除操作异常的问题 ([f400b855](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f400b8552b12e22e313c845935e055bfed43cbbb?ref=oh-3.22.0&prId=975))
