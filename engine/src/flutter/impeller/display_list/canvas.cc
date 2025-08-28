@@ -1650,10 +1650,12 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth) {
       Matrix::MakeTranslation(Vector3(-GetGlobalPassPosition())) *
       entity.GetTransform());
   entity.SetInheritedOpacity(transform_stack_.back().distributed_opacity);
+  #ifndef FML_OS_OHOS
   if (entity.GetBlendMode() == BlendMode::kSrcOver &&
       entity.GetContents()->IsOpaque(entity.GetTransform())) {
     entity.SetBlendMode(BlendMode::kSrc);
   }
+  #endif
 
   // If the entity covers the current render target and is a solid color, then
   // conditionally update the backdrop color to its solid color value blended
