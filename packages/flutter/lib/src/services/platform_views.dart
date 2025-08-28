@@ -2057,7 +2057,9 @@ abstract class OhosViewController extends PlatformViewController {
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
     if (event is PointerHoverEvent) {
-      await sendHoverEvent();
+      if (event.kind == PointerDeviceKind.mouse) {
+        await sendHoverEvent();
+      }
       return;
     }
 
