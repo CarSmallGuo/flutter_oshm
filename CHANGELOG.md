@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.602
+- 修复pc下面抛滑事件 ([f77615bd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f77615bdc5948ec8d9fd2889825980725b1aefd7?ref=dev&prId=991))
 ## 6.0.0.600
 - 适配webview鼠标hover功能 ([147b19b2](https://gitcode.com/openharmony-tpc/flutter_engine/commit/147b19b278955340a98a0a466ca0d521a5307a8a?ref=dev&prId=924))
 ## 6.0.0.504
