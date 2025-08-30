@@ -2097,12 +2097,13 @@ abstract class OhosViewController extends PlatformViewController {
   /// disposed.
   @override
   Future<void> dispose() async {
-    if (_state == _OhosViewState.creating || _state == _OhosViewState.created) {
+    final _OhosViewState state = _state;
+    _state = _OhosViewState.disposed;
+    _platformViewCreatedCallbacks.clear();
+    PlatformViewsService._instance._focusCallbacks.remove(viewId);
+    if(state == _OhosViewState.creating || state == _OhosViewState.created){
       await _sendDisposeMessage();
     }
-    _platformViewCreatedCallbacks.clear();
-    _state = _OhosViewState.disposed;
-    PlatformViewsService._instance._focusCallbacks.remove(viewId);
   }
 }
 

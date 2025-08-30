@@ -1025,7 +1025,7 @@ class _OhosViewState extends State<OhosView> {
     _layoutDirection = newLayoutDirection;
 
     if (widget.viewType != oldWidget.viewType) {
-      _controller.dispose();
+      _controller.disposePostFrame();
       _createNewOhosView();
       return;
     }
