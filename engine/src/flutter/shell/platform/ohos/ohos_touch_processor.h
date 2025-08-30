@@ -13,6 +13,7 @@
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/lib/ui/window/pointer_data.h"
 #include "napi_common.h"
+#include "memory"
 
 namespace flutter {
 

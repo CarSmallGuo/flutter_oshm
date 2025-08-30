@@ -9,6 +9,7 @@
 
 #include <hiappevent/hiappevent.h>
 #include <vector>
+#include <memory>
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 
 namespace fml {
