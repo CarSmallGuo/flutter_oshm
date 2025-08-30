@@ -249,10 +249,10 @@ deps = {
    Var('flutter_git') + '/third_party/harfbuzz' + '@' + 'ea6a172f84f2cbcfed803b5ae71064c7afb6b5c2',
 
   'engine/src/flutter/third_party/libcxx':
-   Var('ljk_git') + '/fluttertpc_libcxx' + '@' + '6a4bdd9f092c9a1a747f58c61394cf56ec191f12',
+   Var('ljk_git') + '/fluttertpc_libcxx' + '@' + '56f7d4ba53cfd04508a10f975007c40019c13063',
 
   'engine/src/flutter/third_party/libcxxabi':
-   Var('ljk_git') + '/fluttertpc_libcxxabi' + '@' + 'cf14d5b73b47ba24f2c542e1d253a6deeab1dad5',
+   Var('ljk_git') + '/fluttertpc_libcxxabi' + '@' + '8b14a3c8a5f7a0fe4189ecce4aa5c717818078b5',
 
   'engine/src/flutter/third_party/llvm_libc':
    Var('llvm_git') + '/llvm-project/libc' + '@' + '5af39a19a1ad51ce93972cdab206dcd3ff9b6afa',
