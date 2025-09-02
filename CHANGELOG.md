@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.0.603
+- 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart层 ([8efe18c3](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8efe18c3c4d545f43f1cca6ce26be6d390c01891?prId=1002))
+- 解决由于时序问题，导致输入法在同步方法中调用异步粘贴方法，错误插入旧剪贴板数据 ([5d73936e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5d73936e308da4226a93c09245b74ad377efa336?ref=oh-3.22.0))
+- 解决bottomRect of undefined的问题 ([aa8934dd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/aa8934dd671e763b83f28165451d6dbd832754d7?ref=oh-3.22.0&prId=997))
 ## 6.0.0.602
 - 添加hover事件 ([7ae3b049](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7ae3b0494df5987786dffb3b273b81aa746bfcb8?ref=oh-3.22.0&prId=985))
 - 新增三方输入法应用反控Flutter输入框的接口适配 ([77a1cb63](https://gitcode.com/openharmony-tpc/flutter_engine/commit/77a1cb6321d565650b41677df60771ed8b718674?ref=feat-input-more-3.22&prId=995))
