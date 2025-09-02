@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.0.603
+- release模式下嵌入icu数据到so中 ([f42fde19](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f42fde19782ca03c5f44ca12d0e1a0beb5711c7b?ref=icu_37&prId=1001))
+- 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart层 ([24b182e4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/24b182e4c03df73dbb793f126309dd95ccfd647e?ref=dev&prId=1003))
+- 解决bottomRect of undefined的问题 ([c14cf409](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c14cf4099bf541496ad14bcdfa2be8f7d46a0935?ref=dev&prId=1004))
 ## 6.0.0.602
 - 修复pc下面抛滑事件 ([f77615bd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f77615bdc5948ec8d9fd2889825980725b1aefd7?ref=dev&prId=991))
 ## 6.0.0.600
