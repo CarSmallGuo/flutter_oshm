@@ -1,4 +1,16 @@
 # Changelog
+## 3.27.4-ohos-0.1.2
+- 解决可选择文本组件无法滑动问题 ([936b1210](https://gitcode.com/openharmony-tpc/flutter_engine/commit/936b12102797644c832ad0ecc367ea9a0e43c08f?ref=oh-3.27.4-dev&prId=1008))
+- 解决bottomRect of undefined的问题 ([55b0f705](https://gitcode.com/openharmony-tpc/flutter_engine/commit/55b0f705e3e989407e44c8c503f627b474645b38?ref=oh-3.27.4-dev))
+- 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart ([6f6a40a8](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6f6a40a8cadddc82368880bf22b46a3b9010d9cc?ref=oh-3.27.4-dev&prId=1005))
+- 修复canvas.drawRect出现白边的情况 ([03dab0c7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/03dab0c78e595a36537446b3191a2476414e2235?ref=oh-3.27.4-dev&prId=994))
+- 解决由于时序问题，导致输入法在同步方法中调用异步粘贴方法，错误插入旧剪贴板数据 ([11d8c41d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/11d8c41dc46c685c0477612f9d1ca64f2d269271?ref=fix-input-paste-old&prId=996))
+- 新增三方输入法应用反控flutter输入框的回调注册与实现 ([1d62e658](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1d62e65815290d018651aa217fb9199991186a40?ref=oh-3.27.4-dev&prId=993))
+- 修复pc下面外接纹理的抛滑问题 ([2da13779](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2da137794bc7591c4bdcdf8d7d3032efc3297dd1?ref=oh-3.27.4-dev&prId=992))
+- 新增ui卡死上报 ([8b58c80c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8b58c80c9e133bd6925e8783725067d33a573e1a?ref=oh-3.27.4-dev&prId=986))
+- 新增输入法字符预上屏 ([7d80690e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7d80690eadb75c85034078f09c4029f1dd4c5c2a?ref=feat-previewtext-3.27&prId=989))
+- 适配webview鼠标hover功能 ([73791c98](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73791c981f6518f8488e9c20d6acaea77d4ace4e?ref=oh-3.27.4-dev&prId=979))
+- 解决DeltaTextInputClient回车和删除操作异常的问题 ([1f10a581](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1f10a581e7a84e221b55e902f4a3f3c4c33a9bf0?ref=oh-3.27.4-dev&prId=974))
 ## 3.27.4-ohos-0.1.1
 - 图片编解码替换不拷贝内存接口 ([5973e3ba](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5973e3ba0d5d3899617cac331a102ac494041373?ref=oh-3.27.4-dev&prId=972))
 - 系统字体配置改为先从系统接口获取再从json文件获取 ([545ef790](https://gitcode.com/openharmony-tpc/flutter_engine/commit/545ef790c825abbaa0b429d4288739638b56a95e?ref=font&prId=961))
