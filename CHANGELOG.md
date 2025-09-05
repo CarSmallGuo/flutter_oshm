@@ -1,5 +1,6 @@
 # Changelog
 ## 6.0.0.603
+- 解决可选择文本组件无法滑动问题 ([a8d008e4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/a8d008e4006f036caa37a99997603f6b8bddd9ef?ref=oh-3.22.0&prId=1007))
 - 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart层 ([8efe18c3](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8efe18c3c4d545f43f1cca6ce26be6d390c01891?prId=1002))
 - 解决由于时序问题，导致输入法在同步方法中调用异步粘贴方法，错误插入旧剪贴板数据 ([5d73936e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5d73936e308da4226a93c09245b74ad377efa336?ref=oh-3.22.0))
 - 解决bottomRect of undefined的问题 ([aa8934dd](https://gitcode.com/openharmony-tpc/flutter_engine/commit/aa8934dd671e763b83f28165451d6dbd832754d7?ref=oh-3.22.0&prId=997))
