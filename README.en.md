@@ -13,15 +13,14 @@ Original warehouse source: https://github.com/flutter/flutter
 You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutter OH version evolution planning and branching strategy](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md).
 
 ## Upgrade Guide
-1. If your project is upgrading from HarmonyOS version 3.7.12 to version 3.27.4:
+1. If your project is upgrading from HarmonyOS version 3.22.0 to version 3.27.4:
    * Environment dependencies: Configuration remains consistent between the two versions, no additional modifications required.
-   * For new features and changes from 3.7.12 to 3.27.4, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
+   * For new features and changes from 3.22.0 to 3.27.4, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
    * For official compatibility changes, please refer to the [Upgrade Guide](https://docs.flutter.dev/release/breaking-changes).
-   * For the changelog from 3.7 to 3.22, please refer to the [Changelog](/release-notes/changelog/Flutter3.7_to_3.22_CHANGElOG.md)
    * Rendering Engine: Added impeller-vulkan mode (default, can be switched to skia-gl).
    * Third-party libraries:
       - Pure Dart libraries should be upgraded to the specified version to support 3.27.4.
-      - The packages in [OpenHarmony-SIG/flutter_packages](https://gitcode.com/openharmony-sig/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.27.4. If you encounter any issues during use, please create an issue for tracking.
+      - The packages in [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md) have undergone a basic usability test for version 3.27.4. If you encounter any issues during use, please create an issue for tracking.
 2. If your project is migrating from Android or iOS to the HarmonyOS adaptation for version 3.27.4, please refer to the remaining guide documents.
 
 ## Development document
@@ -51,7 +50,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
         export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
        ```
 
-   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-sig/flutter_flutter.git` Specify the oh-3.27.4-dev branch and configure the environment
+   2. Download the current warehouse code `git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git` Specify the oh-3.27.4-dev branch and configure the environment
 
       ```sh
        export PATH=<flutter_flutter path>/bin:$PATH
@@ -133,26 +132,6 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
     # Example: flutter run --local-engine=<DIR>/src/out/ohos_debug_unopt_arm64 -d <device-id>
     flutter run  --debug --local-engine=/home/user/engine_make/src/out/ohos_debug_unopt_arm64 -d <device-id> --local-engine-host=src/out/<engine_host>/
     ```
-
-## Release Notes
- - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
-
-To use a specific version of flutter, you can obtain it based on the version tag, and the format of the version tag is described in "TAG Description"
-
-### Branch description
- - dev: The main branch of development based on the 3.7.12 branch of the upstream community.
- - br_3.7.12-ohos-X.X.X: The release branch based on the upstream community 3.7.12 after adapting to ohos.
- - 3.22.0-ohos：The main branch of development based on the 3.22.0 branch of the upstream community.
- - 3.22.1-ohos-X.X.X: The release branch based on the upstream community 3.22.0 after adapting to ohos.
- - oh-3.27.4-dev: The branch based on the upstream community 3.27.4 branch adapted to ohos, which is currently being adapted, and has not been commercially released and does not guarantee quality. It is expected to be released in Q3 2025.
-
-### TAG description
- - 3.7.12-ohos-X.X.X: version X.X.X based on the upstream community 3.7.12 branch after adapting to ohos
- - 3.22.1-ohos-X.X.X: version X.X.X based on the upstream community 3.22.0 branch after adapting to ohos
- - 3.27.5-ohos-X.X.X: version X.X.X based on the upstream community 3.27.4 branch after adapting to ohos
 
 ## Compatible command list developed by OpenHarmony
 
@@ -338,7 +317,7 @@ Attachment: [Flutter third-party library adaptation plan](https://docs.qq.com/sh
     2. Since the emulator does not currently support Vulkan, please try following the steps in section 2.1. Disable Impeller and try again.
 
 20. Compilation or runtime failure in Flutter profile mode
-    1. Please add the `buildModeSet` field in the OHOS project `build_profile.json5`. You can refer to [complex_layout](./dev/benchmarks/complex_layout/ohos/build-profile.json5).
+    1. Please add the `buildModeSet` field in the OHOS project `build_profile.json5`. You can refer to [complex_layout](https://gitee.com/harmonycommando_flutter/flutter/blob/oh-3.22.0/dev/benchmarks/complex_layout/ohos/build-profile.json5).
     2. Error message:
       ```
       hvigor ERROR: Build mode 'profile' used in command line is not declared in buildModeSet in /xxx/example/ohos/build-profile.json5.
