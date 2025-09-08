@@ -17,7 +17,7 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
    * Environment dependencies: Configuration remains consistent between the two versions, no additional modifications required.
    * For new features and changes from 3.7.12 to 3.27.4, please refer to the [Release Notes](https://docs.flutter.dev/release/release-notes).
    * For official compatibility changes, please refer to the [Upgrade Guide](https://docs.flutter.dev/release/breaking-changes).
-   * For the changelog from 3.7 to 3.22, please refer to the [Changelog](/release-notes/changelog/Flutter3.7_to_3.22_CHANGElOG.md)
+   * For the changelog from 3.22 to 3.27, please refer to the [Changelog](/release-notes/changelog/Flutter3.22_to_3.27_Breaking-changes.en.md)
    * Rendering Engine: Added impeller-vulkan mode (default, can be switched to skia-gl).
    * Third-party libraries:
       - Pure Dart libraries should be upgraded to the specified version to support 3.27.4.
@@ -133,26 +133,6 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
     # Example: flutter run --local-engine=<DIR>/src/out/ohos_debug_unopt_arm64 -d <device-id>
     flutter run  --debug --local-engine=/home/user/engine_make/src/out/ohos_debug_unopt_arm64 -d <device-id> --local-engine-host=src/out/<engine_host>/
     ```
-
-## Release Notes
- - [3.22.0-ohos-1.0.0 Release](/release-notes/Flutter%203.22.0-ohos%201.0.0%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.2 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.2%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.1 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.1%20ReleaseNote.en.md)
- - [3.22.0-ohos-0.1.0 Beta](/release-notes/Flutter%203.22.0-ohos%200.1.0%20ReleaseNote.en.md)
-
-To use a specific version of flutter, you can obtain it based on the version tag, and the format of the version tag is described in "TAG Description"
-
-### Branch description
- - dev: The main branch of development based on the 3.7.12 branch of the upstream community.
- - br_3.7.12-ohos-X.X.X: The release branch based on the upstream community 3.7.12 after adapting to ohos.
- - 3.22.0-ohos：The main branch of development based on the 3.22.0 branch of the upstream community.
- - 3.22.1-ohos-X.X.X: The release branch based on the upstream community 3.22.0 after adapting to ohos.
- - oh-3.27.4-dev: The branch based on the upstream community 3.27.4 branch adapted to ohos, which is currently being adapted, and has not been commercially released and does not guarantee quality. It is expected to be released in Q3 2025.
-
-### TAG description
- - 3.7.12-ohos-X.X.X: version X.X.X based on the upstream community 3.7.12 branch after adapting to ohos
- - 3.22.1-ohos-X.X.X: version X.X.X based on the upstream community 3.22.0 branch after adapting to ohos
- - 3.27.5-ohos-X.X.X: version X.X.X based on the upstream community 3.27.4 branch after adapting to ohos
 
 ## Compatible command list developed by OpenHarmony
 
