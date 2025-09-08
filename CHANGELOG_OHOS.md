@@ -1,5 +1,5 @@
 # Changelog
-## 3.27.4-ohos-0.1.2
+## 3.27.4-ohos-1.0.0
 - 解决可选择文本组件无法滑动问题 ([936b1210](https://gitcode.com/openharmony-tpc/flutter_engine/commit/936b12102797644c832ad0ecc367ea9a0e43c08f?ref=oh-3.27.4-dev&prId=1008))
 - 解决bottomRect of undefined的问题 ([55b0f705](https://gitcode.com/openharmony-tpc/flutter_engine/commit/55b0f705e3e989407e44c8c503f627b474645b38?ref=oh-3.27.4-dev))
 - 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart ([6f6a40a8](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6f6a40a8cadddc82368880bf22b46a3b9010d9cc?ref=oh-3.27.4-dev&prId=1005))

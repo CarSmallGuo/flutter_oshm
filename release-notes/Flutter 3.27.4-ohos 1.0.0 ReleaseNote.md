@@ -21,10 +21,10 @@
 
 ## 版本配套
 - OpenHarmony API20
-- Flutter SDK: 3.27.4-ohos-0.1.2（由于flutter版本解析规则，为了避免版本比较解析失败，将显示为3.27.5-ohos-0.1.2）
+- Flutter SDK: 3.27.4-ohos-1.0.0（由于flutter版本解析规则，为了避免版本比较解析失败，将显示为3.27.5-ohos-1.0.0）
 
 ## Changelog
-- [3.27.4-ohos-0.1.2](../CHANGELOG_OHOS.md)
+- [3.27.4-ohos-1.0.0](../CHANGELOG_OHOS.md)
 
 ## 赋能文档
 - [文档链接](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
