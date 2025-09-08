@@ -21,10 +21,10 @@ Sep 4, 2025
 
 ## Version Compatibility
 - OpenHarmony API20
-- Flutter SDK: 3.27.4-ohos-0.1.2 (Due to Flutter version parsing rules, to avoid version comparison failures, it will display as 3.27.5-ohos-0.1.2)
+- Flutter SDK: 3.27.4-ohos-1.0.0 (Due to Flutter version parsing rules, to avoid version comparison failures, it will display as 3.27.5-ohos-1.0.0)
 
 ## Changelog
-- [3.27.4-ohos-0.1.2](../CHANGELOG_OHOS.md)
+- [3.27.4-ohos-1.0.0](../CHANGELOG_OHOS.md)
 
 ## Enabling Documentation
 - [Documentation Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
