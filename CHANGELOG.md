@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.0.700
+- 修复PC调用setWindowLayoutFullScreen接口不生效的问题 ([da1a2ce7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/da1a2ce70777ac9459ee3e6cbc99828675088a3a?ref=dev&prId=1011))
+- 添加hover事件 ([1e2b3f4a](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1e2b3f4a3d58919cedf5227d935f17cb8fac96d2?ref=dev&prId=1018))
+- 解决delta模式下删除异常的问题 ([20c3ad6b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/20c3ad6bfcfbb2ca1488a777c24f7953f0062d70?ref=dev&prId=978))
 ## 6.0.0.603
 - release模式下嵌入icu数据到so中 ([f42fde19](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f42fde19782ca03c5f44ca12d0e1a0beb5711c7b?ref=icu_37&prId=1001))
 - 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart层 ([24b182e4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/24b182e4c03df73dbb793f126309dd95ccfd647e?ref=dev&prId=1003))
