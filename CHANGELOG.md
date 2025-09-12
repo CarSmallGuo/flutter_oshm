@@ -1,4 +1,12 @@
 # Changelog
+## 6.0.0.700
+- 预渲染情况下脏区渲染异常修复 ([70dc3dd4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/70dc3dd4dbaba4ab73d7e67d1eb28ec89bcd7f19?ref=damage_paint_fix&prId=1009))
+- 解决偶现bottomRect报错问题 ([e5bf1598](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e5bf1598b1af33d1fbe61d6563374de52bf0fb42?ref=oh-3.22.0&prId=1019))
+- 修复app点击返回按钮时出现vulkan DestroyImageView崩溃 ([b1b4a31b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b1b4a31b65c62883190222e911d1734dc5e0016e?ref=oh-3.22.0&prId=1021))
+- 处理鸿蒙系统异常touchevent ([5927372a](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5927372a6d6364b806c5874ba558e0d744f89791?ref=hand-touchevent&prId=1020))
+- 修复PC调用setWindowLayoutFullScreen接口不生效的问题 ([1ebec606](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1ebec606656739ab6222a5703d8d11548d32adea?ref=oh-3.22.0&prId=1013))
+- 解决可能会导致image_source uaf的问题 ([61e16629](https://gitcode.com/openharmony-tpc/flutter_engine/commit/61e166298005b7aa913139a9189fbd6063f46f16?ref=oh-3.22.0&prId=1010))
+- 解决delta模式下删除异常的问题 ([91c1a55d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/91c1a55d98c08a8bebae17c5882af07292ef3142?ref=oh-3.22.0&prId=980))
 ## 6.0.0.603
 - 解决可选择文本组件无法滑动问题 ([a8d008e4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/a8d008e4006f036caa37a99997603f6b8bddd9ef?ref=oh-3.22.0&prId=1007))
 - 在FlutterEntry中添加系统环境变化监听器，把深色模式、字体等变化发送到dart层 ([8efe18c3](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8efe18c3c4d545f43f1cca6ce26be6d390c01891?prId=1002))
