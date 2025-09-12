@@ -10,7 +10,7 @@ import PlatformView, { Params } from '../../plugin/platform/PlatformView';
 import Log from '../../util/Log';
 import { DVModel, DVModelChildren, DynamicView } from '../../view/DynamicView/dynamicView';
 
-
+// 门禁测试
 declare class nodeControllerParams {
   surfaceId: string
   type: string
