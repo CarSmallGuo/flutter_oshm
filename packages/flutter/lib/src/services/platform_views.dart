@@ -2058,6 +2058,9 @@ abstract class OhosViewController extends PlatformViewController {
   @override
   Future<void> dispatchPointerEvent(PointerEvent event) async {
     if (event is PointerHoverEvent) {
+      if (event.kind == PointerDeviceKind.mouse) {
+        await sendHoverEvent();
+      }
       return;
     }
 
@@ -2088,6 +2091,10 @@ abstract class OhosViewController extends PlatformViewController {
       return Future<void>.value();
     }
     return SystemChannels.platform_views.invokeMethod<void>('clearFocus', viewId);
+  }
+
+  Future<void> sendHoverEvent() {
+    return SystemChannels.platform_views.invokeMethod<void>('hover', viewId);
   }
 
   /// Disposes the Ohos view.
