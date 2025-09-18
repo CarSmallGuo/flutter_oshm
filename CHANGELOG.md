@@ -1,4 +1,7 @@
 # Changelog
+## 6.0.0.701
+- 修复多web时，鼠标/双指滑动无法滚动的问题 ([21973a44](https://gitcode.com/openharmony-tpc/flutter_engine/commit/21973a442675798a227385a42331067492b3ab1f?ref=oh-3.22.0&prId=1030))
+- 编译和上传debug引擎产物时，改为默认不使用unoptimized选项 ([1970b40b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1970b40bd28013d6b44ca76f6e991871351ddb3f?ref=oh-3.22.0&prId=1027))
 ## 6.0.0.700
 - 预渲染情况下脏区渲染异常修复 ([70dc3dd4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/70dc3dd4dbaba4ab73d7e67d1eb28ec89bcd7f19?ref=damage_paint_fix&prId=1009))
 - 解决偶现bottomRect报错问题 ([e5bf1598](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e5bf1598b1af33d1fbe61d6563374de52bf0fb42?ref=oh-3.22.0&prId=1019))
