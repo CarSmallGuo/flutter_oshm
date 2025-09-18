@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.701
+- 修复多web时，鼠标/双指滑动无法滚动的问题
 ## 6.0.0.700
 - 修复PC调用setWindowLayoutFullScreen接口不生效的问题 ([da1a2ce7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/da1a2ce70777ac9459ee3e6cbc99828675088a3a?ref=dev&prId=1011))
 - 添加hover事件 ([1e2b3f4a](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1e2b3f4a3d58919cedf5227d935f17cb8fac96d2?ref=dev&prId=1018))
