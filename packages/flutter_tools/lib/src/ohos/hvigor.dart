@@ -474,10 +474,14 @@ class OhosHvigorBuilder implements OhosBuilder {
   late String _ohosRootPath;
   late OhosBuildData _ohosBuildData;
 
-  void parseData(FlutterProject flutterProject, Logger? logger) {
+  void parseData(FlutterProject flutterProject, OhosBuildInfo ohosBuildInfo,
+      Logger? logger) {
     _ohosProject = flutterProject.ohos;
     _ohosRootPath = _ohosProject.ohosRoot.path;
     _ohosBuildData = OhosBuildData.parseOhosBuildData(_ohosProject, logger);
+    for (final OhosModule module in _ohosBuildData.moduleInfo.moduleList) {
+      module.setFlavor(ohosBuildInfo.buildInfo.flavor);
+    }
   }
 
   /// build hap
@@ -603,7 +607,7 @@ class OhosHvigorBuilder implements OhosBuilder {
     await addPluginsModules(project);
     await addFlutterModuleAndPluginsSrcOverrides(project);
 
-    parseData(project, _logger);
+    parseData(project, ohosBuildInfo, _logger);
 
     await flutterBuildPre(project, ohosBuildInfo, target);
 
@@ -700,7 +704,7 @@ class OhosHvigorBuilder implements OhosBuilder {
           "this ohos project don't have a entry module , can't build to a application.");
     }
 
-    parseData(flutterProject, _logger);
+    parseData(flutterProject, ohosBuildInfo, _logger);
 
     /// 检查plugin的har构建
     await checkOhosPluginsDependencies(flutterProject);
@@ -722,14 +726,6 @@ class OhosHvigorBuilder implements OhosBuilder {
 
   String _moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
     return modules
-        .map((OhosModule module) => OhosModule.fromModulePath(
-              modulePath: module.srcPath,
-              flavor: getFlavor(
-                globals.fs.file(globals.fs.path
-                    .join(module.srcPath, 'build-profile.json5')),
-                flavor,
-              ),
-            ))
         .map((OhosModule module) => '${module.name}@${module.flavor}')
         .join(',');
   }
