@@ -99,10 +99,13 @@ class OhosDartBuilder implements OhosBuilder {
   late String ohosRootPath;
   late OhosBuildData ohosBuildData;
 
-  void parseData(FlutterProject flutterProject, Logger? logger) {
+  void parseData(FlutterProject flutterProject, OhosBuildInfo ohosBuildInfo, Logger? logger) {
     ohosProject = flutterProject.ohos;
     ohosRootPath = ohosProject.ohosRoot.path;
     ohosBuildData = OhosBuildData.parseOhosBuildData(ohosProject, logger);
+    for (final OhosModule module in ohosBuildData.moduleInfo.moduleList) {
+      module.setFlavor(ohosBuildInfo.buildInfo.flavor);
+    }
   }
 
   /// eg:entry/src/main/resources/rawfile
@@ -376,7 +379,7 @@ class OhosDartBuilder implements OhosBuilder {
     await addPluginsModules(project);
     await addFlutterModuleAndPluginsSrcOverrides(project);
 
-    parseData(project, _logger);
+    parseData(project, ohosBuildInfo, _logger);
 
     final String output = await flutterAssemble(project, ohosBuildInfo, target);
 

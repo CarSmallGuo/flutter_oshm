@@ -309,14 +309,6 @@ void ensureParentExists(String path) {
 
 String moduleNameWithFlavor(List<OhosModule> modules, String? flavor) {
   return modules
-      .map((OhosModule module) => OhosModule.fromModulePath(
-            modulePath: module.srcPath,
-            flavor: getFlavor(
-              globals.fs.file(
-                  globals.fs.path.join(module.srcPath, 'build-profile.json5')),
-              flavor,
-            ),
-          ))
       .map((OhosModule module) => '${module.name}@${module.flavor}')
       .join(',');
 }
@@ -375,10 +367,13 @@ class OhosHvigorBuilder implements OhosBuilder {
 
   final OhosDartBuilder _ohosDartBuilder;
 
-  void parseData(FlutterProject flutterProject, Logger? logger) {
+  void parseData(FlutterProject flutterProject, OhosBuildInfo ohosBuildInfo, Logger? logger) {
     ohosProject = flutterProject.ohos;
     ohosRootPath = ohosProject.ohosRoot.path;
     ohosBuildData = OhosBuildData.parseOhosBuildData(ohosProject, logger);
+    for (final OhosModule module in ohosBuildData.moduleInfo.moduleList) {
+      module.setFlavor(ohosBuildInfo.buildInfo.flavor);
+    }
   }
 
   /// build hap
@@ -404,7 +399,7 @@ class OhosHvigorBuilder implements OhosBuilder {
     );
     updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
-    parseData(project, _logger);
+    parseData(project, ohosBuildInfo, _logger);
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
@@ -478,7 +473,7 @@ class OhosHvigorBuilder implements OhosBuilder {
       'Running Hvigor task assembleHar...',
     );
 
-    parseData(project, _logger);
+    parseData(project, ohosBuildInfo, _logger);
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
@@ -570,7 +565,7 @@ class OhosHvigorBuilder implements OhosBuilder {
     );
     updateLocalProperties(project: project, buildInfo: ohosBuildInfo.buildInfo);
 
-    parseData(project, _logger);
+    parseData(project, ohosBuildInfo, _logger);
 
     if (ohosBuildInfo.enableImpellerFlag != null) {
       await setImpellerEnableFlag(ohosProject, ohosBuildInfo);
@@ -591,7 +586,7 @@ class OhosHvigorBuilder implements OhosBuilder {
         logger: _logger);
     status.stop();
     if (errorCode1 != 0) {
-      throwToolExit('assembleHap error! please check log.');
+      throwToolExit('assembleApp error! please check log.');
     }
 
     if (ohosBuildInfo.shouldCodesign!) {
