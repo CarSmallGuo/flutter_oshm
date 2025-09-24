@@ -27,6 +27,18 @@
       "srcPath": "./flutter"
     },
     {
+      "name": "application",
+      "srcPath": "./application",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    },
+    {
       "name": "flutter_native",
       "srcPath": "./flutter_native",
     }
