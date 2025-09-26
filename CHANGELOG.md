@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.702
+- 编译和上传debug引擎产物时，改为不使用unoptimized选项 ([d3f04dde](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d3f04dde8d471c970979785f505e1f927e891866?ref=dev&prId=1025))
 ## 6.0.0.701
 - 修复多web时，鼠标/双指滑动无法滚动的问题
 ## 6.0.0.700
