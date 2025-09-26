@@ -196,6 +196,38 @@ export function injectNativeModules(nativeProjectPath: string, flutterProjectPat
   })
 }
 
+// sync function
+function copyConfigsFile(srcDir: string, destDir: string) {
+  console.info("copy ConfigsFile start")
+
+  if (!fs.existsSync(srcDir)) {
+    console.error(srcDir + " not exists, failed to copy ConfigsFile")
+    return
+  }
+
+  if (!fs.existsSync(destDir)) {
+    fs.mkdirSync(path.dirname(destDir), {recursive: true})
+  }
+
+  // buildinfo.json5
+  const srcBuildInfoFile = srcDir + "/buildinfo.json5"
+  if (fs.existsSync(srcBuildInfoFile)) {
+    fs.copyFileSync(srcBuildInfoFile, destDir + "/buildinfo.json5")
+  } else {
+    console.info("buildinfo.json5 not exist")
+  }
+
+  // framesconfig.json
+  const srcFramesConfigFile = srcDir + "/framesconfig.json"
+  if (fs.existsSync(srcFramesConfigFile)) {
+    fs.copyFileSync(srcFramesConfigFile, destDir + "/framesconfig.json")
+  } else {
+    console.info("framesconfig.json not exist")
+  }
+
+  console.info("copy ConfigsFile end")
+}
+
 function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: string, flutterProjectPath: string,
   target: Target) {
   const targetPlatforms = getParameters(TARGET_PLATFORM, DEFAULT_PLATFORMS)
@@ -361,6 +393,30 @@ function registerFlutterTask(node: HvigorNode, sdkPath: string, buildMode: strin
         })
       }
       console.log('copy flutter assets to project end')
+
+      // 4.Copy configuration files in 'profile' to 'rawfile',
+      // such as buildinfo.json5 and framesconfig.json
+      // srcDir: ohos/entry/src/main/resources/base/profile/
+      // destDir: ohos/entry/src/main/resources/rawfile/
+      const srcFlutterConfigsDir = path.join(
+        nodePath,
+        "src",
+        "main",
+        "resources",
+        "base",
+        "profile"
+      )
+
+      const destFlutterConfigsDir = path.join(
+        nodePath,
+        "src",
+        "main",
+        "resources",
+        "rawfile"
+      )
+
+      copyConfigsFile(srcFlutterConfigsDir, destFlutterConfigsDir)
+
     },
   })
 }
