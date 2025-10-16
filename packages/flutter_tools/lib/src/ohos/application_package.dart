@@ -264,11 +264,13 @@ class OhosModule {
     }
     final Map<String, dynamic> buildProfile = JSON5
         .parse(buildProfileFile.readAsStringSync()) as Map<String, dynamic>;
-    for (final dynamic e in buildProfile['modules'] as List<dynamic>) {
-      final Map<String, dynamic> module = e as Map<String, dynamic>;
-      final String srcPath = module['srcPath'] as String;
-      modulePathSet
-          .add(globals.fs.path.join(ohosProject.ohosRoot.path, srcPath));
+    if (buildProfile['modules'] != null) {
+      for (final dynamic e in buildProfile['modules'] as List<dynamic>) {
+        final Map<String, dynamic> module = e as Map<String, dynamic>;
+        final String srcPath = module['srcPath'] as String;
+        modulePathSet
+            .add(globals.fs.path.join(ohosProject.ohosRoot.path, srcPath));
+      }
     }
     // flutter plugin
     final File flutterPluginsDependenciesFile =
