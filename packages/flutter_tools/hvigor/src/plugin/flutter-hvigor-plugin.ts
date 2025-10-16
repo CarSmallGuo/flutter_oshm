@@ -85,30 +85,31 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
         // }
         // 以下修改方可生效
         const subNodeName = subNode.getNodeName()
-        if (subNodeName === 'entry') {
-          subNode.afterNodeEvaluate(node => {
-            const hapContext = node.getContext(OhosPluginId.OHOS_HAP_PLUGIN) as OhosHapContext
-            if (!hapContext) {
-              return
-            }
+        subNode.afterNodeEvaluate(node => {
+          const hapContext = node.getContext(OhosPluginId.OHOS_HAP_PLUGIN) as OhosHapContext
+          if (hapContext) {
+            const dependenciesOpt = hapContext.getDependenciesOpt()
             if (flutterProjectType == 0) {
               hapContext.targets((target: Target) => {
                 registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
               })
+            } else if (flutterProjectType == 1) {
+              dependenciesOpt['@ohos/flutter_module'] = `file:${path.join(flutterProjectPath, '.ohos', 'flutter_module')}`
             }
-            const dependenciesOpt = hapContext.getDependenciesOpt()
             setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
             nativePlugins.forEach(nativePlugin => {
               dependenciesOpt[nativePlugin.name] = ''
             })
             hapContext.setDependenciesOpt(dependenciesOpt)
-          })
-        } else if (subNodeName === 'flutter_module' && flutterProjectType === 1) {
-          subNode.afterNodeEvaluate(node => {
-            const harContext = node.getContext(OhosPluginId.OHOS_HAR_PLUGIN) as OhosHarContext
-            if (!harContext) {
-              return
-            }
+            return
+          }
+
+          const harContext = node.getContext(OhosPluginId.OHOS_HAR_PLUGIN) as OhosHarContext
+          if (!harContext) {
+            return
+          }
+
+          if (subNodeName === 'flutter_module' && flutterProjectType === 1) {
             harContext.targets((target: Target) => {
               registerFlutterTask(node, sdkPath, buildMode, flutterProjectPath, target)
             })
@@ -118,24 +119,18 @@ export function flutterHvigorPlugin(flutterProjectPath: string, flutterProjectTy
               dependenciesOpt[nativePlugin.name] = ''
             })
             harContext.setDependenciesOpt(dependenciesOpt)
-          })
-        } else if (nativePlugins.map(it => it.name).includes(subNodeName)) {
-          // 仅当flutter plugin的hvigorfile.ts是以下形式：
-          // export default {
-          //   system: harTasks,
-          //   plugins: []
-          // }
-          // 以下修改方可生效
-          subNode.afterNodeEvaluate(node => {
-            const harContext = node.getContext(OhosPluginId.OHOS_HAR_PLUGIN) as OhosHarContext
-            if (!harContext) {
-              return
-            }
+          } else if (nativePlugins.map(it => it.name).includes(subNodeName)) {
+            // 仅当flutter plugin的hvigorfile.ts是以下形式：
+            // export default {
+            //   system: harTasks,
+            //   plugins: []
+            // }
+            // 以下修改方可生效
             const dependenciesOpt = harContext.getDependenciesOpt()
             setFlutterHarInDependencies(dependenciesOpt, targetPlatforms)
             harContext.setDependenciesOpt(dependenciesOpt)
-          })
-        }
+          }
+        })
       })
     }
   }
