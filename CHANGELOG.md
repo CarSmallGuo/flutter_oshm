@@ -1,4 +1,9 @@
 # Changelog
+## 6.0.0.704
+- 更新fluttertpc_dart_sdk仓库版本为f5029bd2 ([de48ed88](https://gitcode.com/openharmony-tpc/flutter_engine/commit/de48ed88bd8fc807ee995e63589c48eb96fb3c3f?ref=oh-3.22.0&prId=1040))
+- 修复当没有新的帧生成时，AcquireBuffer导致的日志刷屏问题 ([b7b50c84](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b7b50c84149811faddda5e8b3ff762048f9e70a7?ref=oh-3.22.0&prId=1017))
+- 修复Channel内存泄漏问题 ([c10f5a47](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c10f5a47f60a8c4939990c21f7f508e44e25c6a1?ref=oh-3.22.0&prId=1041))
+- 更新fluttertpc_dart_sdk仓库版本到ee0af3db ([21b87e83](https://gitcode.com/openharmony-tpc/flutter_engine/commit/21b87e83801415fb7268cf3558e74e7316f11279?ref=oh-3.22.0&prId=1034))
 ## 6.0.0.701
 - 修复多web时，鼠标/双指滑动无法滚动的问题 ([21973a44](https://gitcode.com/openharmony-tpc/flutter_engine/commit/21973a442675798a227385a42331067492b3ab1f?ref=oh-3.22.0&prId=1030))
 - 编译和上传debug引擎产物时，改为默认不使用unoptimized选项 ([1970b40b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1970b40bd28013d6b44ca76f6e991871351ddb3f?ref=oh-3.22.0&prId=1027))
