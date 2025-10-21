@@ -80,7 +80,7 @@ Flutter SDK 仓库
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
        export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
        export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
-       export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
+       export PATH=$TOOL_HOME/tools/node:$PATH # command-line-tools/tool/node/bin
       ```
 
 ## 构建步骤
