@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.0.705
+- 销毁xcomponent时，对目前正在处理的手势发送cancel信号 ([f80e2076](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f80e2076cf9e5a3596ffe03889a8226a9f6dbec5?ref=cancel-event&prId=1047))
 ## 6.0.0.704
 - 更新fluttertpc_dart_sdk仓库版本为f5029bd2 ([de48ed88](https://gitcode.com/openharmony-tpc/flutter_engine/commit/de48ed88bd8fc807ee995e63589c48eb96fb3c3f?ref=oh-3.22.0&prId=1040))
 - 修复当没有新的帧生成时，AcquireBuffer导致的日志刷屏问题 ([b7b50c84](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b7b50c84149811faddda5e8b3ff762048f9e70a7?ref=oh-3.22.0&prId=1017))
