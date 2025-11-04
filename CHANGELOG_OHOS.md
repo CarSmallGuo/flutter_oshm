@@ -1,4 +1,19 @@
 # Changelog
+## 3.27.4-ohos-1.0.1
+- impeller渲染超出纹理范围图片时，不走scalePixels，加速大图渲染 ([e5d2c939](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e5d2c9391b2525239397701422a36291969f4cbe?ref=oh-3.27.4-dev&prId=1052))
+- flutter输入框存在默认英文字符时，切换输入框，软键盘候选词不更新 ([8dd36b8d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8dd36b8db13392bba8504f6341bbb2853a2782ca?ref=oh-3.27.4-dev&prId=1049))
+- 修复Channel内存泄漏问题 ([de3747e6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/de3747e6722d337773ec1a86b385b6e25e08ef56?ref=cherry-pick-mr-1041-1760667798535-auto&prId=1045))
+- 解决看门狗功能引入的debug模式下日志刷屏问题 ([1b1592f4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1b1592f4cd159a9f76679e2fb5badea66b8caf4e?ref=watchdog_weakptr&prId=1032))
+- 解决debug模式下调试dart代码出现appfreeze ([d92e2ca7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d92e2ca79a751db3d8d9a0c1163d535065a8fc9c?ref=appfreeze&prId=1038))
+- Fix FlutterAssets getAssetFilePathByName with bundleName not working ([2bd5d221](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2bd5d2216484988a508263f63562f1e32b339045?ref=oh-3.27.4-dev&prId=1036))
+- 默认LTPO开启 ([494b8520](https://gitcode.com/openharmony-tpc/flutter_engine/commit/494b8520309b96e35ccd77f6748e6c630be1eee8?ref=ltpo-open&prId=1035))
+- 编译和上传debug引擎产物时，默认改为不使用unoptimized选项 ([cb016344](https://gitcode.com/openharmony-tpc/flutter_engine/commit/cb0163447c0169582116eedd09fe048c9b902283?ref=oh-3.27.4-dev&prId=1033))
+- 修复多web时，鼠标/双指滑动无法滚动的问题 ([9692c154](https://gitcode.com/openharmony-tpc/flutter_engine/commit/9692c154e85882ed2ca9594be0fcdd98fa0b628e?ref=oh-3.27.4-dev&prId=1031))
+- 添加hover事件 ([6e3df560](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6e3df5602c0d9246692cedbab9d2ff53b977d393?ref=oh-3.27.4-dev&prId=1023))
+- bottomRect报undefined ([ff70b2af](https://gitcode.com/openharmony-tpc/flutter_engine/commit/ff70b2af9cfef9c6bf836099b4d6e90dfda17aef?ref=oh-3.27.4-dev&prId=1016))
+- 修复drawclirle白边问题 ([6bb0c9cc](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6bb0c9cc1d6b742e969f39dd1fb39b4a917d216d?ref=write&prId=1022))
+- 解决可能会导致image_source uaf的问题 ([af592ee7](https://gitcode.com/openharmony-tpc/flutter_engine/commit/af592ee79f4eb322e80469576bcf73a7cc70f895?ref=oh-3.27.4-dev&prId=1015))
+- 修复PC调用setWindowLayoutFullScreen接口不生效的问题 ([2a727238](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2a72723806eb972849048e01c5f4ef9692c010a0?ref=oh-3.27.4-dev&prId=1014))
 ## 3.27.4-ohos-1.0.0
 - 解决可选择文本组件无法滑动问题 ([936b1210](https://gitcode.com/openharmony-tpc/flutter_engine/commit/936b12102797644c832ad0ecc367ea9a0e43c08f?ref=oh-3.27.4-dev&prId=1008))
 - 解决bottomRect of undefined的问题 ([55b0f705](https://gitcode.com/openharmony-tpc/flutter_engine/commit/55b0f705e3e989407e44c8c503f627b474645b38?ref=oh-3.27.4-dev))
