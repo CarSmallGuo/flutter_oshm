@@ -1,0 +1,24 @@
+## Version Overview
+This version is an OpenHarmony version based on Flutter 3.7.12. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
+
+## New Features
+- Add the hover event
+- When compiling and uploading debug engine products, change to not using the unoptimized option
+
+## BugFix
+- Solve the problem of deleting exceptions in delta mode
+- Fixed the issue where mouse/two-finger swiping could not scroll when using multiple web pages
+- Fix the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
+
+## Version Release Time
+Nov 4, 2025
+
+## Version Support
+- OpenHarmony API20
+- Flutter SDK: 3.7.12-ohos-1.1.7
+
+## Changelog
+- [6.0.0.702, 6.0.0.701, 6.0.0.700](../CHANGELOG.md)
+
+## Enablement Documents
+- [Document Link](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
