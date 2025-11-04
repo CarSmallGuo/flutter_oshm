@@ -4,6 +4,7 @@ This version is an OpenHarmony version based on Flutter 3.7.12. This version sup
 ## New Features
 - Add the hover event
 - When compiling and uploading debug engine products, change to not using the unoptimized option
+
 ## BugFix
 - Solve the problem of deleting exceptions in delta mode
 - Fixed the issue where mouse/two-finger swiping could not scroll when using multiple web pages
