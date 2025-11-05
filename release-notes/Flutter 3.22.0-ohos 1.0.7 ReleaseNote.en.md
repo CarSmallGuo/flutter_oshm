@@ -2,22 +2,21 @@
 This version is an OpenHarmony version based on Flutter 3.22.0. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
 ## New Features
-- When destroying an xcomponent, send a cancel signal to the gesture currently being processed
-- Update the fluttertpc dart sdk repository version to f5029bd2
-- Update the fluttertpc dart sdk repository version to ee0af3db
-- When compiling and uploading debug engine products, change to default not to use the unoptimized option
 
 ## BugFix
 - Fixed the issue of log screen flooding caused by AcquireBuffer when no new frames were generated
 - Fixed the Channel memory leak issue
 - Fixed the issue where mouse/two-finger swiping could not scroll when using multiple web pages
-- Fix for rendering anomalies in dirty areas during pre-rendering
+- Fixed for rendering anomalies in dirty areas during pre-rendering
 - Fixed the occasional bottomRect error issue
 - Fixed the issue where vulkan DestroyImageView crashed when the app clicked the back button
 - Handle the HarmonyOS exception touchevent
-- Fix the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
+- Fixed the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
 - Solve the problems that may cause the image source uaf
 - Solve the problem of deleting exceptions in delta mode
+- Solve the problem of mprotect failing when listing on the app market through memory mapping
+- When destroying an xcomponent, send a cancel signal to the gesture currently being processed
+- When compiling and uploading debug engine products, change to default not to use the unoptimized option
 
 ## Version Release Time
 Nov 4, 2025

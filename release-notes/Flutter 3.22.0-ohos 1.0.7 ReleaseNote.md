@@ -2,10 +2,6 @@
 本版本为基于Flutter 3.22.0适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
 ## 新增特性
-- 销毁xcomponent时，对目前正在处理的手势发送cancel信号
-- 更新fluttertpc_dart_sdk仓库版本为f5029bd2
-- 更新fluttertpc_dart_sdk仓库版本到ee0af3db
-- 编译和上传debug引擎产物时，改为默认不使用unoptimized选项
 
 ## Bug修复
 - 修复当没有新的帧生成时，AcquireBuffer导致的日志刷屏问题
@@ -18,6 +14,9 @@
 - 修复PC调用setWindowLayoutFullScreen接口不生效的问题
 - 解决可能会导致image_source uaf的问题
 - 解决delta模式下删除异常的问题
+- 通过内存映射解决上架应用市场时mprotect failed的问题
+- 销毁xcomponent时，对目前正在处理的手势发送cancel信号
+- 编译和上传debug引擎产物时，改为默认不使用unoptimized选项
 
 ## 版本发布时间
 2025年11月4日
