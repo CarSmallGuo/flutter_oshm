@@ -2,12 +2,12 @@
 本版本为基于Flutter 3.7.12适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
 ## 新增特性
-- 添加hover事件
-- 编译和上传debug引擎产物时，改为不使用unoptimized选项
 
 ## Bug修复
 - 解决delta模式下删除异常的问题
+- 修复Flutter WebView中Hover异常问题
 - 修复多web时，鼠标/双指滑动无法滚动的问题
+- 编译和上传debug引擎产物时，改为不使用unoptimized选项
 - 修复PC调用setWindowLayoutFullScreen接口不生效的问题
 
 ## 版本发布时间

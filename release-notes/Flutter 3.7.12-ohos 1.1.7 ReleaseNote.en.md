@@ -2,13 +2,13 @@
 This version is an OpenHarmony version based on Flutter 3.7.12. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
 ## New Features
-- Add the hover event
-- When compiling and uploading debug engine products, change to not using the unoptimized option
 
 ## BugFix
 - Solve the problem of deleting exceptions in delta mode
+- Fixed the Hover exception issue in Flutter WebView
 - Fixed the issue where mouse/two-finger swiping could not scroll when using multiple web pages
-- Fix the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
+- When compiling and uploading debug engine products, change to not using the unoptimized option
+- Fixed the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
 
 ## Version Release Time
 Nov 4, 2025
