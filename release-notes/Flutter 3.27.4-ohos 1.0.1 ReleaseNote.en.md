@@ -1,8 +1,6 @@
 ## Version Overview
 This version is an OpenHarmony version based on Flutter 3.27.4. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
-## New Features
-
 ## Bugfix
 - When rendering images beyond the texture range, do not use scalePixels to accelerate the rendering of large images
 - When the flutter input box contains default English characters, when switching the input box, the soft keyboard candidate words will not be updated

@@ -1,8 +1,6 @@
 ## 版本概述
 本版本为基于Flutter 3.27.4适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
-## 新增特性
-
 ## Bug修复
 - impeller渲染超出纹理范围图片时，不走scalePixels，加速大图渲染
 - flutter输入框存在默认英文字符时，切换输入框，软键盘候选词不更新
