@@ -1,8 +1,6 @@
 ## Version Overview
 This version is an OpenHarmony version based on Flutter 3.22.0. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
-## New Features
-
 ## BugFix
 - Fixed the issue of log screen flooding caused by AcquireBuffer when no new frames were generated
 - Fixed the Channel memory leak issue

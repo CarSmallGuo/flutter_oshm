@@ -1,8 +1,6 @@
 ## 版本概述
 本版本为基于Flutter 3.22.0适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
-## 新增特性
-
 ## Bug修复
 - 修复当没有新的帧生成时，AcquireBuffer导致的日志刷屏问题
 - 修复Channel内存泄漏问题
