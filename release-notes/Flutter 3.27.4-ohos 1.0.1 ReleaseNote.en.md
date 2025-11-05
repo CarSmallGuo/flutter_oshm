@@ -2,9 +2,6 @@
 This version is an OpenHarmony version based on Flutter 3.27.4. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
 ## New Features
-- Default LTPO enabledinput box
-- Add hover event
-- When compiling and uploading debug engine products, the default setting is to not use the unptimized option
 
 ## Bugfix
 - When rendering images beyond the texture range, do not use scalePixels to accelerate the rendering of large images
@@ -17,7 +14,10 @@ This version is an OpenHarmony version based on Flutter 3.27.4. This version sup
 - bottomRect reports an undefined issue
 - Fixed the white border issue of drawclirle
 - Solve the problems that may cause the image source uaf
-- Fix the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
+- Fixed the issue where calling the setWindowLayoutFullScreen interface on a PC does not take effect
+- LTPO enabled by default
+- Fixed the Hover exception issue in Flutter WebView
+- When compiling and uploading debug engine products, the default setting is to not use the unptimized option
 
 ## Release Date
 Nov 4, 2025

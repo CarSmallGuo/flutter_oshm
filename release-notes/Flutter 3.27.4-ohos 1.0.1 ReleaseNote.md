@@ -2,9 +2,6 @@
 本版本为基于Flutter 3.27.4适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
 ## 新增特性
-- 默认LTPO开启
-- 添加hover事件
-- 编译和上传debug引擎产物时，默认改为不使用unoptimized选项
 
 ## Bug修复
 - impeller渲染超出纹理范围图片时，不走scalePixels，加速大图渲染
@@ -18,6 +15,9 @@
 - 修复drawclirle白边问题
 - 解决可能会导致image_source uaf的问题
 - 修复PC调用setWindowLayoutFullScreen接口不生效的问题
+- 默认LTPO开启
+- 修复Flutter WebView中Hover异常问题
+- 编译和上传debug引擎产物时，默认改为不使用unoptimized选项
 
 ## 版本发布时间
 2025年11月4日
