@@ -1,8 +1,6 @@
 ## Version Overview
 This version is an OpenHarmony version based on Flutter 3.7.12. This version supports and improves the capabilities of the OpenHarmony platform and improves stability.
 
-## New Features
-
 ## BugFix
 - Solve the problem of deleting exceptions in delta mode
 - Fixed the Hover exception issue in Flutter WebView

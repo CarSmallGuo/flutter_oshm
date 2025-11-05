@@ -1,8 +1,6 @@
 ## 版本概述
 本版本为基于Flutter 3.7.12适配的OpenHarmony版本。本版本支持和完善OpenHarmony平台侧能力，提升稳定性。
 
-## 新增特性
-
 ## Bug修复
 - 解决delta模式下删除异常的问题
 - 修复Flutter WebView中Hover异常问题
