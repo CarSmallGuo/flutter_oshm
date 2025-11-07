@@ -191,8 +191,26 @@ export function injectNativeModules(nativeProjectPath: string, flutterProjectPat
   })
 }
 
-// sync function
-function copyConfigsFile(srcDir: string, destDir: string) {
+async function deleteFile(filePath: string) {
+  try {
+
+    fs.unlink(filePath, (err) => {
+      if (err) {
+        console.error(err);
+        return;
+      }
+      console.log("文件已成功删除");
+    });
+
+    // await fs.unlink(filePath);
+    // console.log('文件已成功删除');
+  } catch (err) {
+    console.error('删除文件时发生错误:', err);
+  }
+}
+
+
+async function copyConfigsFile(srcDir: string, destDir: string) {
   console.info("copy ConfigsFile start")
 
   if (!fs.existsSync(srcDir)) {
@@ -205,20 +223,70 @@ function copyConfigsFile(srcDir: string, destDir: string) {
   }
 
   // buildinfo.json5
-  const srcBuildInfoFile = srcDir + "/buildinfo.json5"
+  const srcBuildInfoFile = path.join(
+    srcDir,
+    "buildinfo.json5"
+  )
+  const destBuildInfoFile = path.join(
+    destDir,
+    "buildinfo.json5"
+  )
+  // console.info("srcBuildInfoFile:" + srcBuildInfoFile)
+  // console.info("destBuildInfoFile:" + destBuildInfoFile)
+  // const srcBuildInfoFile = srcDir + "/buildinfo.json5"
+  // const destBuildInfoFile = destDir + "/buildinfo.json5"
   if (fs.existsSync(srcBuildInfoFile)) {
-    fs.copyFileSync(srcBuildInfoFile, destDir + "/buildinfo.json5")
+    if (!fs.existsSync(destBuildInfoFile)) {
+      fs.copyFileSync(srcBuildInfoFile, destBuildInfoFile)
+    }
+    // try {
+    //   console.info("删除文件", srcBuildInfoFile)
+    //   await fs.unlink(srcBuildInfoFile)
+    //   console.info("文件已成功删除")
+    // } catch (err) {
+    //   console.error('删除文件时发生错误:', err)
+    // }
+
+
+
+    // fs.rmdirSync(srcBuildInfoFile)
+
+    fs.unlinkSync(srcBuildInfoFile)
+    // fs.rmdirSync
   } else {
     console.info("buildinfo.json5 not exist")
   }
 
   // framesconfig.json
-  const srcFramesConfigFile = srcDir + "/framesconfig.json"
+  const srcFramesConfigFile = path.join(
+    srcDir,
+    "framesconfig.json"
+  )
+  const destFramesConfigFile = path.join(
+    destDir,
+    "framesconfig.json"
+  )
+  console.info(srcFramesConfigFile)
+  console.info(destFramesConfigFile)
+  // const srcFramesConfigFile = srcDir + "/framesconfig.json"
+  // const destFramesConfigFile = destDir + "/framesconfig.json"
   if (fs.existsSync(srcFramesConfigFile)) {
-    fs.copyFileSync(srcFramesConfigFile, destDir + "/framesconfig.json")
+    if (!fs.existsSync(destFramesConfigFile)) {
+      fs.copyFileSync(srcFramesConfigFile, destFramesConfigFile)
+    }
+    // try {
+    //   console.info("删除文件", srcFramesConfigFile)
+    //   await fs.unlink(srcFramesConfigFile)
+    //   console.info("文件已成功删除")
+    // } catch (err) {
+    //   console.error('删除文件时发生错误:', err)
+    // }
+    fs.unlinkSync(srcFramesConfigFile)
+    // fs.rmdirSync(srcFramesConfigFile)
   } else {
     console.info("framesconfig.json not exist")
   }
+
 
   console.info("copy ConfigsFile end")
 }
