@@ -205,17 +205,37 @@ function copyConfigsFile(srcDir: string, destDir: string) {
   }
 
   // buildinfo.json5
-  const srcBuildInfoFile = srcDir + "/buildinfo.json5"
+  const srcBuildInfoFile = path.join(
+    srcDir,
+    "buildinfo.json5"
+  )
+  const destBuildInfoFile = path.join(
+    destDir,
+    "buildinfo.json5"
+  )
   if (fs.existsSync(srcBuildInfoFile)) {
-    fs.copyFileSync(srcBuildInfoFile, destDir + "/buildinfo.json5")
+    if (!fs.existsSync(destBuildInfoFile)) {
+      fs.copyFileSync(srcBuildInfoFile, destBuildInfoFile)
+    }
+    fs.unlinkSync(srcBuildInfoFile)
   } else {
     console.info("buildinfo.json5 not exist")
   }
 
   // framesconfig.json
-  const srcFramesConfigFile = srcDir + "/framesconfig.json"
+  const srcFramesConfigFile = path.join(
+    srcDir,
+    "framesconfig.json"
+  )
+  const destFramesConfigFile = path.join(
+    destDir,
+    "framesconfig.json"
+  )
   if (fs.existsSync(srcFramesConfigFile)) {
-    fs.copyFileSync(srcFramesConfigFile, destDir + "/framesconfig.json")
+    if (!fs.existsSync(destFramesConfigFile)) {
+      fs.copyFileSync(srcFramesConfigFile, destFramesConfigFile)
+    }
+    fs.unlinkSync(srcFramesConfigFile)
   } else {
     console.info("framesconfig.json not exist")
   }
