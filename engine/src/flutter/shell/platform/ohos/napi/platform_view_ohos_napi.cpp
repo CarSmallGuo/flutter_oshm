@@ -34,7 +34,7 @@ namespace flutter {
 
 int64_t PlatformViewOHOSNapi::display_width = 0;
 int64_t PlatformViewOHOSNapi::display_height = 0;
-int64_t PlatformViewOHOSNapi::display_refresh_rate = 60;
+int32_t PlatformViewOHOSNapi::display_refresh_rate = 60;
 // std::set<int> all_refresh_rates = {60, 90, 120};
 std::shared_ptr<std::set<int>> PlatformViewOHOSNapi::all_refresh_rates =
     std::make_shared<std::set<int>>(std::initializer_list<int>{60});
