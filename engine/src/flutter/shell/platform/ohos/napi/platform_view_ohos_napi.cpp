@@ -2789,7 +2789,7 @@ napi_value PlatformViewOHOSNapi::nativePrefetchFramesCfg(
 napi_value PlatformViewOHOSNapi::nativeCheckLTPOSwitchState(
     napi_env env,
     napi_callback_info info) {
-  uint32_t votingSwitchState = LTPO_SWITCH_NOT_INIT;
+  LTPOSwitchState votingSwitchState = LTPOSwitchState::LTPO_SWITCH_NOT_INIT;
   std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
       OhosVsyncVotingMgr::GetInstance();
   if (votingMgr != nullptr) {
@@ -2797,7 +2797,7 @@ napi_value PlatformViewOHOSNapi::nativeCheckLTPOSwitchState(
   }
 
   napi_value napiVotingSwitchState;
-  napi_create_uint32(env, votingSwitchState, &napiVotingSwitchState);
+  napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState), &napiVotingSwitchState);
   return napiVotingSwitchState;
 }
 

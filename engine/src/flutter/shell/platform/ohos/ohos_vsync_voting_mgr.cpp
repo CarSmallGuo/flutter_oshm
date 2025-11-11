@@ -47,7 +47,7 @@ static constexpr fml::TimeDelta TOUCH_3_SEC = fml::TimeDelta::FromSeconds(3);
 
 std::shared_ptr<OhosVsyncVotingMgr> OhosVsyncVotingMgr::GetInstance(void) {
   std::call_once(instanceFlag, [&] {
-    instance = std::shared_ptr<OhosVsyncVotingMgr>(new OhosVsyncVotingMgr());
+    instance = std::make_shared<OhosVsyncVotingMgr>();
   });
 
   return instance;
@@ -55,7 +55,7 @@ std::shared_ptr<OhosVsyncVotingMgr> OhosVsyncVotingMgr::GetInstance(void) {
 
 OhosVsyncVotingMgr::OhosVsyncVotingMgr()
     : asset_provider_(nullptr), libHandle_(nullptr) {
-  switchStatus_ = LTPO_SWITCH_NOT_INIT;
+  switchStatus_ = LTPOSwitchState::LTPO_SWITCH_NOT_INIT;
   libHandle_ = dlopen(LIB_NATIVE_VSYNC_NAME, RTLD_LAZY | RTLD_LOCAL);
   if (libHandle_ == nullptr) {
     FML_LOG(ERROR) << "Failed to dlopen libnative_vsync.so";
@@ -83,7 +83,7 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType ANType,
                                             double devicePixelRatio,
                                             double velocity) {
   // 接口不存在或ltpo未使能
-  if (libHandle_ == nullptr || switchStatus_ != LTPO_SWITCH_ON) {
+  if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
 
@@ -108,9 +108,11 @@ void OhosVsyncVotingMgr::VoteAnimationValue(AnimationType ANType,
 
 void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
   // 接口不存在或ltpo未使能
-  if (libHandle_ == nullptr || switchStatus_ != LTPO_SWITCH_ON) {
+  if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
+
+  const int TouchTimeOut_ = 3000;
 
   switch (type) {
     case VVMTouchType::TOUCH_TYPE_DOWN:
@@ -130,7 +132,7 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
         break;
       }
       // 取最后一次手指抬起后的时间
-      if (timestamp - touchTimestamp >= 3000) {
+      if (timestamp - touchTimestamp >= TouchTimeOut_) {
         touchVoting_.store(0);
         VotingBySelf();
       }
@@ -143,11 +145,11 @@ void OhosVsyncVotingMgr::VoteTouchValue(VVMTouchType type, int64_t timestamp) {
 
 void OhosVsyncVotingMgr::VoteVideoValue(int second, int frameCount) {
   // 接口不存在或ltpo未使能
-  if (libHandle_ == nullptr || switchStatus_ != LTPO_SWITCH_ON) {
+  if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON) {
     return;
   }
 
-  if (second <= 0 || frameCount <= 0) {
+  if (second <= 0 || frameCount <= 0 || second == 0) {
     return;
   }
 
@@ -210,7 +212,7 @@ void OhosVsyncVotingMgr::DettachNativeVsync(string handleName) {
 
 void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
   // 接口不存在或ltpo未使能
-  if (libHandle_ == nullptr || switchStatus_ != LTPO_SWITCH_ON ||
+  if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       setExpectedFrameRateRangeFunc_ == nullptr) {
     return;
   }
@@ -279,7 +281,7 @@ void OhosVsyncVotingMgr::VotingByNativeVsync(OH_NativeVSync* handle) {
 
 void OhosVsyncVotingMgr::VotingBySelf() {
   // 接口不存在或ltpo未使能
-  if (libHandle_ == nullptr || switchStatus_ != LTPO_SWITCH_ON ||
+  if (libHandle_ == nullptr || switchStatus_ != LTPOSwitchState::LTPO_SWITCH_ON ||
       setExpectedFrameRateRangeFunc_ == nullptr) {
     return;
   }
@@ -390,19 +392,19 @@ void OhosVsyncVotingMgr::ParseFramesCfg(void) {
   // 接口不存在
   if (libHandle_ == nullptr) {
     FML_LOG(ERROR) << "libHandle is null";
-    switchStatus_ = LTPO_SWITCH_OFF;
+    switchStatus_ = LTPOSwitchState::LTPO_SWITCH_OFF;
     return;
   }
 
   if (asset_provider_ == nullptr) {
     FML_LOG(ERROR) << "asset_provider is null";
-    switchStatus_ = LTPO_SWITCH_OFF;
+    switchStatus_ = LTPOSwitchState::LTPO_SWITCH_OFF;
     return;
   }
 
   if (isCfgFileInit_) {
     FML_LOG(ERROR) << "framesconfig file has been initiallized";
-    switchStatus_ = LTPO_SWITCH_OFF;
+    switchStatus_ = LTPOSwitchState::LTPO_SWITCH_OFF;
     return;
   }
 
@@ -410,7 +412,7 @@ void OhosVsyncVotingMgr::ParseFramesCfg(void) {
 
   if (ParseFramesCfgImpl() != RET_SUCCEED) {
     FML_LOG(ERROR) << "Failed to parse file frameconfig";
-    switchStatus_ = LTPO_SWITCH_OFF;
+    switchStatus_ = LTPOSwitchState::LTPO_SWITCH_OFF;
   }
 
   return;
@@ -455,7 +457,7 @@ int OhosVsyncVotingMgr::ParseFramesCfgImpl(void) {
     }
   }
 
-  if (switchValue != LTPO_SWITCH_ON) {
+  if (switchValue != static_cast<uint32_t>(LTPOSwitchState::LTPO_SWITCH_ON)) {
     FML_LOG(WARNING) << "ltpo is not enabled";
     return RET_FAILED;
   }
@@ -467,7 +469,7 @@ int OhosVsyncVotingMgr::ParseFramesCfgImpl(void) {
     return RET_FAILED;
   }
 
-  switchStatus_ = LTPO_SWITCH_ON;
+  switchStatus_ = LTPOSwitchState::LTPO_SWITCH_ON;
   return RET_SUCCEED;
 }
 
@@ -498,7 +500,7 @@ void OhosVsyncVotingMgr::SetPlatformViewExist(bool isExist) {
   return;
 }
 
-uint32_t OhosVsyncVotingMgr::CheckVotingSwitchState(void) {
+LTPOSwitchState OhosVsyncVotingMgr::CheckVotingSwitchState(void) {
   return switchStatus_;
 }
 }  // namespace flutter
