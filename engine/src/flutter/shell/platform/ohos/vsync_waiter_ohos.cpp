@@ -11,6 +11,7 @@
 #include "fml/trace_event.h"
 #include "napi_common.h"
 #include "ohos_logging.h"
+#include "flutter/shell/platform/ohos/ohos_vsync_voting_mgr.h"
 
 namespace flutter {
 
@@ -26,9 +27,20 @@ VsyncWaiterOHOS::VsyncWaiterOHOS(const flutter::TaskRunners& task_runners,
     : VsyncWaiter(task_runners), enable_frame_cache_(enable_frame_cache) {
   vsync_handle_ =
       OH_NativeVSync_Create("flutterSyncName", strlen(flutterSyncName));
+  std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+      OhosVsyncVotingMgr::GetInstance();
+  if (votingMgr != nullptr) {
+    votingMgr->AttachNativeVsync(std::string("VsyncWaiterOHOS"), vsync_handle_);
+  }
 }
 
 VsyncWaiterOHOS::~VsyncWaiterOHOS() {
+  std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+      OhosVsyncVotingMgr::GetInstance();
+  if (votingMgr != nullptr) {
+    votingMgr->DettachNativeVsync(std::string("VsyncWaiterOHOS"));
+  }
+
   OH_NativeVSync_Destroy(vsync_handle_);
   vsync_handle_ = nullptr;
 }
@@ -88,10 +100,15 @@ void VsyncWaiterOHOS::AwaitVSync() {
 
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
+        std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
+            OhosVsyncVotingMgr::GetInstance();
+        if (votingMgr != nullptr) {
+          votingMgr->VotingByNativeVsync(handle);
+        }
         int32_t ret = 0;
         if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
                       handle, &OnVsyncFromOHOS, weak_this))) {
-          FML_DLOG(ERROR) << "AwaitVSync...failed:" << ret;
+          FML_LOG(ERROR) << "AwaitVSync...failed:" << ret;
         }
       });
 }
