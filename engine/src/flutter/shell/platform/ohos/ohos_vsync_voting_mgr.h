@@ -24,9 +24,9 @@ using SetExpectedFrameRateRangeFunc_ =
             OH_NativeVSync_ExpectedRateRange* range);
 
 enum class LTPOSwitchState {
-  LTPO_SWITCH_OFF = 0;
-  LTPO_SWITCH_ON = 1;
-  LTPO_SWITCH_NOT_INIT = 2;
+  LTPO_SWITCH_OFF = 0,
+  LTPO_SWITCH_ON = 1,
+  LTPO_SWITCH_NOT_INIT = 2,
 };
 
 enum class AnimationType {
