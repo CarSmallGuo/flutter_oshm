@@ -45,7 +45,9 @@ class OhosVsyncVotingMgr {
  public:
   OhosVsyncVotingMgr();
 
-  ~OhosVsyncVotingMgr(OhosVsyncVotingMgr&) = delete;
+  ~OhosVsyncVotingMgr();
+
+  OhosVsyncVotingMgr(OhosVsyncVotingMgr&) = delete;
 
   OhosVsyncVotingMgr& operator=(const OhosVsyncVotingMgr&) = delete;
 
