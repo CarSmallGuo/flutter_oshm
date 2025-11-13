@@ -5,6 +5,7 @@
 #ifndef FLUTTER_IMPELLER_ENTITY_INLINE_PASS_CONTEXT_H_
 #define FLUTTER_IMPELLER_ENTITY_INLINE_PASS_CONTEXT_H_
 
+#include <cstddef>
 #include <cstdint>
 
 #include "impeller/entity/contents/content_context.h"
@@ -26,6 +27,8 @@ class InlinePassContext {
   bool IsActive() const;
 
   std::shared_ptr<Texture> GetTexture();
+
+  void Deactive() { pass_ = nullptr; };
 
   bool EndPass(bool is_onscreen = false);
 
