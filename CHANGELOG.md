@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.3.17
+- 修改image黑色背景的问题 ([f80e2076](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5a6e1b8060539698cbf305d499848572e767fc17?ref=oh-3.22.0&prId=1057))
+- 修改HAR_VERSION的提示等级 ([8d48de06](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8d48de06a6cf7461df4656e60329ac0e10851ec1?ref=oh-3.22.0&prId=1055))
+- 修复Channel内存泄漏问题 ([c10f5a47](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c10f5a47f60a8c4939990c21f7f508e44e25c6a1?ref=oh-3.22.0&prId=1041))
 ## 6.0.0.705
 - 销毁xcomponent时，对目前正在处理的手势发送cancel信号 ([f80e2076](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f80e2076cf9e5a3596ffe03889a8226a9f6dbec5?ref=cancel-event&prId=1047))
 ## 6.0.0.704
