@@ -577,11 +577,11 @@ void Canvas::DrawRect(const Rect& rect, const Paint& paint) {
   entity.SetBlendMode(paint.blend_mode);
 
   RectGeometry geom(rect);
-  #ifdef FML_OS_OHOS
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
-  #else
-    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
-  #endif
+#ifdef FML_OS_OHOS
+  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+#else
+  AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+#endif
 }
 
 void Canvas::DrawOval(const Rect& rect, const Paint& paint) {
@@ -683,11 +683,11 @@ void Canvas::DrawCircle(const Point& center,
     AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
   } else {
     CircleGeometry geom(center, radius);
-    #ifdef FML_OS_OHOS
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
-    #else
-      AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
-    #endif
+#ifdef FML_OS_OHOS
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint, false, true);
+#else
+    AddRenderEntityWithFiltersToCurrentPass(entity, &geom, paint);
+#endif
   }
 }
 
@@ -1575,8 +1575,7 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
                                                      const Geometry* geometry,
                                                      const Paint& paint,
                                                      bool reuse_depth,
-                                                     bool is_draw_rect
-                                                    ) {
+                                                     bool is_draw_rect) {
   std::shared_ptr<ColorSourceContents> contents = paint.CreateContents();
   if (!paint.color_filter && !paint.invert_colors && !paint.image_filter &&
       !paint.mask_blur_descriptor.has_value()) {
@@ -1651,7 +1650,9 @@ void Canvas::AddRenderEntityWithFiltersToCurrentPass(Entity& entity,
   AddRenderEntityToCurrentPass(entity, reuse_depth);
 }
 
-void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool is_draw_rect) {
+void Canvas::AddRenderEntityToCurrentPass(Entity& entity,
+                                          bool reuse_depth,
+                                          bool is_draw_rect) {
   if (IsSkipping()) {
     return;
   }
@@ -1665,25 +1666,50 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
     entity.SetBlendMode(BlendMode::kSrc);
   }
 
-  // If the entity covers the current render target and is a solid color, then
-  // conditionally update the backdrop color to its solid color value blended
-  // with the current backdrop.
-  if (render_passes_.back().IsApplyingClearColor()) {
-    std::optional<Color> maybe_color = entity.AsBackgroundColor(
-        render_passes_.back().inline_pass_context->GetTexture()->GetSize());
-    if (maybe_color.has_value()) {
+  std::optional<Color> maybe_color = entity.AsBackgroundColor(
+      render_passes_.back().inline_pass_context->GetTexture()->GetSize());
+  if (maybe_color.has_value()) {
+    FML_LOG(ERROR) << "Canvas::AddRenderEntityToCurrentPass: "
+                   << maybe_color.value().ToARGB() << " "
+                   << render_passes_.back().IsApplyingClearColor() << " "
+                   << entity.GetBlendMode();
+    // If the entity covers the current render target and is a solid color, then
+    // conditionally update the backdrop color to its solid color value blended
+    // with the current backdrop.
+    if (render_passes_.back().IsApplyingClearColor()) {
       Color color = maybe_color.value();
       RenderTarget& render_target = render_passes_.back()
                                         .inline_pass_context->GetPassTarget()
                                         .GetRenderTarget();
       ColorAttachment attachment = render_target.GetColorAttachment(0);
-      // Attachment.clear color needs to be premultiplied at all times, but the
-      // Color::Blend function requires unpremultiplied colors.
+      // Attachment.clear color needs to be premultiplied at all times, but
+      // the Color::Blend function requires unpremultiplied colors.
       attachment.clear_color = attachment.clear_color.Unpremultiply()
                                    .Blend(color, entity.GetBlendMode())
                                    .Premultiply();
       render_target.SetColorAttachment(attachment, 0u);
       return;
+    } else {
+      if (entity.GetBlendMode() == BlendMode::kSrc ||
+          entity.GetBlendMode() == BlendMode::kClear ||
+          (entity.GetBlendMode() == BlendMode::kSrcOver &&
+           maybe_color.value().IsOpaque())) {
+        LazyRenderingConfig rendering_config = std::move(render_passes_.back());
+        render_passes_.pop_back();
+        rendering_config.inline_pass_context->Deactive();
+        ColorAttachment attachment =
+            rendering_config.entity_pass_target->GetRenderTarget()
+                .GetColorAttachment(0);
+        attachment.clear_color = entity.GetBlendMode() == BlendMode::kClear
+                                     ? Color::BlackTransparent()
+                                     : maybe_color.value();
+        rendering_config.entity_pass_target.get()
+            ->GetRenderTarget()
+            .SetColorAttachment(attachment, 0u);
+        render_passes_.push_back(LazyRenderingConfig(
+            renderer_, std::move(rendering_config.entity_pass_target)));
+        return;
+      }
     }
   }
 
@@ -1692,7 +1718,8 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
   }
   // We can render at a depth up to and including the depth of the currently
   // active clips and we will still be clipped out, but we cannot render at
-  // a depth that is greater than the current clips or we will not be clipped.
+  // a depth that is greater than the current clips or we will not be
+  // clipped.
   FML_DCHECK(current_depth_ <= transform_stack_.back().clip_depth)
       << current_depth_ << " <=? " << transform_stack_.back().clip_depth;
   entity.SetClipDepth(current_depth_);
@@ -1701,15 +1728,16 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
     if (renderer_.GetDeviceCapabilities().SupportsFramebufferFetch()) {
       ApplyFramebufferBlend(entity);
     } else {
-      // End the active pass and flush the buffer before rendering "advanced"
-      // blends. Advanced blends work by binding the current render target
-      // texture as an input ("destination"), blending with a second texture
-      // input ("source"), writing the result to an intermediate texture, and
-      // finally copying the data from the intermediate texture back to the
-      // render target texture. And so all of the commands that have written
-      // to the render target texture so far need to execute before it's bound
-      // for blending (otherwise the blend pass will end up executing before
-      // all the previous commands in the active pass).
+      // End the active pass and flush the buffer before rendering
+      // "advanced" blends. Advanced blends work by binding the current
+      // render target texture as an input ("destination"), blending with a
+      // second texture input ("source"), writing the result to an
+      // intermediate texture, and finally copying the data from the
+      // intermediate texture back to the render target texture. And so all
+      // of the commands that have written to the render target texture so
+      // far need to execute before it's bound for blending (otherwise the
+      // blend pass will end up executing before all the previous commands
+      // in the active pass).
       auto input_texture = FlipBackdrop(GetGlobalPassPosition());
       if (!input_texture) {
         return;
@@ -1717,8 +1745,8 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
 
       // The coverage hint tells the rendered Contents which portion of the
       // rendered output will actually be used, and so we set this to the
-      // current clip coverage (which is the max clip bounds). The contents may
-      // optionally use this hint to avoid unnecessary rendering work.
+      // current clip coverage (which is the max clip bounds). The contents
+      // may optionally use this hint to avoid unnecessary rendering work.
       auto element_coverage_hint = entity.GetContents()->GetCoverageHint();
       entity.GetContents()->SetCoverageHint(Rect::Intersection(
           element_coverage_hint, clip_coverage_stack_.CurrentClipCoverage()));
@@ -1736,9 +1764,9 @@ void Canvas::AddRenderEntityToCurrentPass(Entity& entity, bool reuse_depth, bool
   const std::shared_ptr<RenderPass>& result =
       render_passes_.back().inline_pass_context->GetRenderPass();
   if (!result) {
-    // Failure to produce a render pass should be explained by specific errors
-    // in `InlinePassContext::GetRenderPass()`, so avoid log spam and don't
-    // append a validation log here.
+    // Failure to produce a render pass should be explained by specific
+    // errors in `InlinePassContext::GetRenderPass()`, so avoid log spam and
+    // don't append a validation log here.
     return;
   }
 
@@ -1766,9 +1794,9 @@ std::shared_ptr<Texture> Canvas::FlipBackdrop(Point global_pass_position,
   // happens to have a backdrop filter or advanced blend, than that backdrop
   // filter/blend will sample from an uninitialized texture.
   //
-  // By calling `pass_context.GetRenderPass` here, we force the texture to pass
-  // through at least one RenderPass with the correct clear configuration before
-  // any sampling occurs.
+  // By calling `pass_context.GetRenderPass` here, we force the texture to
+  // pass through at least one RenderPass with the correct clear
+  // configuration before any sampling occurs.
   //
   // In cases where there are no contents, we
   // could instead check the clear color and initialize a 1x2 CPU texture
@@ -1780,8 +1808,8 @@ std::shared_ptr<Texture> Canvas::FlipBackdrop(Point global_pass_position,
            "the backdrop texture and apply an advanced blend or backdrop "
            "filter.";
     // Note: adding this render pass ensures there are no later crashes from
-    // unbalanced save layers. Ideally, this method would return false and the
-    // renderer could handle that by terminating dispatch.
+    // unbalanced save layers. Ideally, this method would return false and
+    // the renderer could handle that by terminating dispatch.
     render_passes_.push_back(LazyRenderingConfig(
         renderer_, std::move(rendering_config.entity_pass_target),
         std::move(rendering_config.inline_pass_context)));
@@ -1805,8 +1833,8 @@ std::shared_ptr<Texture> Canvas::FlipBackdrop(Point global_pass_position,
   if (should_use_onscreen) {
     ColorAttachment color0 = render_target_.GetColorAttachment(0);
     // When MSAA is being used, we end up overriding the entire backdrop by
-    // drawing the previous pass texture, and so we don't have to clear it and
-    // can use kDontCare.
+    // drawing the previous pass texture, and so we don't have to clear it
+    // and can use kDontCare.
     color0.load_action = color0.resolve_texture != nullptr
                              ? LoadAction::kDontCare
                              : LoadAction::kLoad;
@@ -1825,7 +1853,8 @@ std::shared_ptr<Texture> Canvas::FlipBackdrop(Point global_pass_position,
         renderer_, std::move(rendering_config.entity_pass_target),
         std::move(rendering_config.inline_pass_context)));
     // If the current texture is being cached for a BDF we need to ensure we
-    // don't recycle it during recording; remove it from the entity pass target.
+    // don't recycle it during recording; remove it from the entity pass
+    // target.
     if (should_remove_texture) {
       render_passes_.back().entity_pass_target->RemoveSecondary();
     }
@@ -1835,11 +1864,11 @@ std::shared_ptr<Texture> Canvas::FlipBackdrop(Point global_pass_position,
 
   // Eagerly restore the BDF contents.
 
-  // If the pass context returns a backdrop texture, we need to draw it to the
-  // current pass. We do this because it's faster and takes significantly less
-  // memory than storing/loading large MSAA textures. Also, it's not possible
-  // to blit the non-MSAA resolve texture of the previous pass to MSAA
-  // textures (let alone a transient one).
+  // If the pass context returns a backdrop texture, we need to draw it to
+  // the current pass. We do this because it's faster and takes
+  // significantly less memory than storing/loading large MSAA textures.
+  // Also, it's not possible to blit the non-MSAA resolve texture of the
+  // previous pass to MSAA textures (let alone a transient one).
   Rect size_rect = Rect::MakeSize(input_texture->GetSize());
   auto msaa_backdrop_contents = TextureContents::MakeRect(size_rect);
   msaa_backdrop_contents->SetStencilEnabled(false);
@@ -1957,9 +1986,9 @@ void Canvas::EndReplay() {
       /*is_onscreen=*/!requires_readback_ && is_onscreen_);
   backdrop_data_.clear();
 
-  // If requires_readback_ was true, then we rendered to an offscreen texture
-  // instead of to the onscreen provided in the render target. Now we need to
-  // draw or blit the offscreen back to the onscreen.
+  // If requires_readback_ was true, then we rendered to an offscreen
+  // texture instead of to the onscreen provided in the render target. Now
+  // we need to draw or blit the offscreen back to the onscreen.
   if (requires_readback_) {
     BlitToOnscreen(/*is_onscreen_=*/is_onscreen_);
   }
