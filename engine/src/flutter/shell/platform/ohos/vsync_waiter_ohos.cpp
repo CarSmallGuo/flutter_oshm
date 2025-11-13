@@ -71,10 +71,12 @@ void VsyncWaiterOHOS::UpdateDisplayRefreshRate(int64_t period) {
     }
 
     if (PlatformViewOHOSNapi::display_refresh_rate != refresh_rate) {
-      TRACE_EVENT0("flutter", "ChangeRefreshRate");
-      FML_DLOG(INFO) << "refresh_rate change:"
-                     << PlatformViewOHOSNapi::display_refresh_rate << "->"
-                     << refresh_rate;
+      std::ostringstream oss;
+      oss << "{" << PlatformViewOHOSNapi::display_refresh_rate << "->"
+          << refresh_rate << "}";
+      std::string ossStr = oss.str();
+      TRACE_EVENT1("flutter", "ChangeRefreshRate", "from", ossStr.c_str());
+      FML_DLOG(INFO) << "refresh_rate change:" << ossStr.c_str();
       PlatformViewOHOSNapi::display_refresh_rate = refresh_rate;
     }
   }

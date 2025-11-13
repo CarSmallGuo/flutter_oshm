@@ -206,6 +206,6 @@ export const nativeAnimationVoting: (type: number, velocity: number) => void;
 
 export const nativeVideoVoting: (seconds: number, frameCount: number) => void;
 
-export const nativePrefetchFramesCfg: (void) => void;
+export const nativePrefetchFramesCfg: () => void;
 
-export const nativeCheckLTPOSwitchState: (void) => number;
+export const nativeCheckLTPOSwitchState: () => number;

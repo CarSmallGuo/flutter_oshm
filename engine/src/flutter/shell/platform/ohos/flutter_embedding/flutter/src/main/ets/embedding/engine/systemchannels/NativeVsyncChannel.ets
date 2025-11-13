@@ -41,26 +41,26 @@ export default class NativeVsyncChannel implements MethodCallHandler {
     onMethodCall(call: MethodCall, result: MethodResult): void {
         let method: string = call.method;
         try {
-        switch (method) {
-            case "isEnable":
-                // 是否开启DVsync
-                let isEnable: boolean = call.argument('isEnable');
-                this.flutterNapi.SetDVsyncSwitch(isEnable);
-                break;
-            case "sendVelocity":
-                // 发送动画的速率
-                let type: string = call.argument('type');
-                let velocity: number = call.argument('velocity');
-                if (type == "translate") {
-                FlutterNapi.animationVoting(AnimationVotingType.TRANSLATE, velocity);
-                }
-                break;
-            case "checkLTPOSwtichState":
-                // 查询ltpo功能开启状态
-                result.success(FlutterNapi.checkLTPOSwitchState());
-                break;
+            switch (method) {
+                case "isEnable":
+                    // 是否开启DVsync
+                    let isEnable: boolean = call.argument('isEnable');
+                    this.flutterNapi.SetDVsyncSwitch(isEnable);
+                    break;
+                case "sendVelocity":
+                    // 发送动画的速率
+                    let type: string = call.argument('type');
+                    let velocity: number = call.argument('velocity');
+                    if (type == "translate") {
+                    FlutterNapi.animationVoting(AnimationVotingType.TRANSLATE, velocity);
+                    }
+                    break;
+                case "checkLTPOSwtichState":
+                    // 查询ltpo功能开启状态
+                    result.success(FlutterNapi.checkLTPOSwitchState());
+                    break;
                 default:
-                break;
+                    break;
             }
         } catch (error) {
             result.error("error", "UnHandled error: " + JSON.stringify(error), null)

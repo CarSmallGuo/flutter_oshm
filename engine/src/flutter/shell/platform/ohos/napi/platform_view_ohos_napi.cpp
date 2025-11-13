@@ -1117,6 +1117,8 @@ napi_value PlatformViewOHOSNapi::nativeUpdateRefreshRate(
     auto newSet = std::make_shared<std::set<int>>(*all_refresh_rates);
     newSet->insert(refreshRate);
     std::atomic_store(&all_refresh_rates, newSet);
+    FML_LOG(INFO) << "PlatformViewOHOSNapi: Add new refresh rate "
+                  << refreshRate;
   }
   return nullptr;
 }
