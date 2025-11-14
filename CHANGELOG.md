@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.3.17
+- 修复3.7Channel内存泄漏问题 ([ae08b4f0](https://gitcode.com/openharmony-tpc/flutter_engine/commit/ae08b4f03af2ef2deb9efa6570fe07276aa9b029?ref=dev&prId=1046))
 ## 6.0.0.702
 - 编译和上传debug引擎产物时，改为不使用unoptimized选项 ([d3f04dde](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d3f04dde8d471c970979785f505e1f927e891866?ref=dev&prId=1025))
 ## 6.0.0.701
