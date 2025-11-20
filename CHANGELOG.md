@@ -1,4 +1,7 @@
 # Changelog
+## 6.0.2.121
+- 当系统触发低内存事件时，提高IplrVkFenceWait和IplrVkResMgr线程的优先级 ([83d26244](https://gitcode.com/openharmony-tpc/flutter_engine/commit/83d2624423b634ac32eef979d7358b795e8a4fac?ref=memory_level&prId=1059))
+- pick3.27解决debug模式下调试dart代码出现appfreeze ([f7cc44df](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f7cc44df69506026f5d6377596c49aa0e4ca3fb8?ref=oh-3.22.0&prId=1066))
 ## 6.0.3.17
 - 修改image黑色背景的问题 ([f80e2076](https://gitcode.com/openharmony-tpc/flutter_engine/commit/5a6e1b8060539698cbf305d499848572e767fc17?ref=oh-3.22.0&prId=1057))
 - 修改HAR_VERSION的提示等级 ([8d48de06](https://gitcode.com/openharmony-tpc/flutter_engine/commit/8d48de06a6cf7461df4656e60329ac0e10851ec1?ref=oh-3.22.0&prId=1055))
