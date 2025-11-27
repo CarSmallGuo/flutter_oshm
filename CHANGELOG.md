@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.122
+- 修改IplrVkResMgr和IplrVkFenceWait线程的优先级变动逻辑为只在OHOS_MEMORY_LEVEL_CRITICAL(可用内存极低)时提高优先级 ([1966d11d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1966d11d1092fefd8f32d3525d9b299a94ba6e89?ref=oh-3.22.0&prId=1075))
 ## 6.0.2.121
 - 当系统触发低内存事件时，提高IplrVkFenceWait和IplrVkResMgr线程的优先级 ([83d26244](https://gitcode.com/openharmony-tpc/flutter_engine/commit/83d2624423b634ac32eef979d7358b795e8a4fac?ref=memory_level&prId=1059))
 - pick3.27解决debug模式下调试dart代码出现appfreeze ([f7cc44df](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f7cc44df69506026f5d6377596c49aa0e4ca3fb8?ref=oh-3.22.0&prId=1066))
