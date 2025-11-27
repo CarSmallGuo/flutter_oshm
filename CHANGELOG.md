@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.121
+- 使用原子变量解决外接纹理设置pixelmap时线程冲突的问题 ([73192db1](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73192db1c769be7e6e25b3c6782b313a2ebbbec4?ref=pixelmap_atomic&prId=1058))
 ## 6.0.3.17
 - 修复3.7Channel内存泄漏问题 ([ae08b4f0](https://gitcode.com/openharmony-tpc/flutter_engine/commit/ae08b4f03af2ef2deb9efa6570fe07276aa9b029?ref=dev&prId=1046))
 ## 6.0.0.702
