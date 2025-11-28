@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.122
+- 修复flutter3.7编译的release应用无法在windows模拟器上运行的问题 ([f66f7869](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f66f7869a46f20bc70c4631efb853c0c26e71223?ref=dev&prId=1074))
 ## 6.0.2.121
 - 使用原子变量解决外接纹理设置pixelmap时线程冲突的问题 ([73192db1](https://gitcode.com/openharmony-tpc/flutter_engine/commit/73192db1c769be7e6e25b3c6782b313a2ebbbec4?ref=pixelmap_atomic&prId=1058))
 ## 6.0.3.17
