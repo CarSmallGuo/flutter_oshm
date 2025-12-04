@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.3.20
+- 优化候选词位置为光标的右下角，修改获取坐标方式 ([e27d46d4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e27d46d431dda06e20ae2c1ef947ed8ca22370c3?ref=dev))
+- 修复多个flutterview情况下，鼠标和手势事件分发错误的问题 ([fd36ec8a](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fd36ec8ac9dbc552fd38567e200300125cecc307?ref=dev&prId=1081))
+- 解决上下分屏打开固定态软键盘后切换左右分屏页面上缩问题 ([3ffc455d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/3ffc455da57a80e362aa8d41dad2f11d3e5cc01b?ref=dev&prId=1083))
 ## 6.0.2.122
 - 修复flutter3.7编译的release应用无法在windows模拟器上运行的问题 ([f66f7869](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f66f7869a46f20bc70c4631efb853c0c26e71223?ref=dev&prId=1074))
 ## 6.0.2.121
