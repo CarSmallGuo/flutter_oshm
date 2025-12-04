@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.3.20
+- 优化候选词位置为光标的右下角，修改获取坐标方式 ([14a59457](https://gitcode.com/openharmony-tpc/flutter_engine/commit/14a594571105b363bf41e61602629ecdc85c8be5?ref=oh-3.22.0&prId=1070))
+- 修复多个flutterview情况下，鼠标和手势事件分发错误的问题 ([b0fdd3dc](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b0fdd3dc5c3a8c06039ab2714156096d5379c656?ref=oh-3.22.0&prId=1084))
+- 【cp】解决上下分屏打开固定态软键盘后切换左右分屏页面上缩问题 ([bf8957a6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/bf8957a6edc03a1e847e1af1025b719ee74d1d82?ref=oh-3.22.0&prId=1090))
 ## 6.0.2.122
 - 修改IplrVkResMgr和IplrVkFenceWait线程的优先级变动逻辑为只在OHOS_MEMORY_LEVEL_CRITICAL(可用内存极低)时提高优先级 ([1966d11d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1966d11d1092fefd8f32d3525d9b299a94ba6e89?ref=oh-3.22.0&prId=1075))
 ## 6.0.2.121
