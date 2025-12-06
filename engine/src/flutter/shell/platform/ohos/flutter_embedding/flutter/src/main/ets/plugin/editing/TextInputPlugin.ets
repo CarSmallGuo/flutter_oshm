@@ -250,7 +250,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
           editingState.selectionEnd);
       });
     } else {
-      this.cacheFuncIsNotAttach.push({key: "setCursorSsetEditingStateizeAndPosition", value: editingState});
+      this.cacheFuncIsNotAttach.push({key: "setEditingState", value: editingState});
     }
     if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
       this.previewTextChangeSelection(editingState);
