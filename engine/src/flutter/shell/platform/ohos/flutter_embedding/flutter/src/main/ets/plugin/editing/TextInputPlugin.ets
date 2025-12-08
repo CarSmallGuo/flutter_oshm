@@ -428,11 +428,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   // awakened by the two input boxes when a soft keyboard is already suspended
   // and switching input boxes
   hasSecureKeyboardInSwitch(): boolean {
-    if (this.lastInputType === inputMethod.TextInputType.VISIBLE_PASSWORD ||
-      this.configuration?.inputType?.type === inputMethod.TextInputType.VISIBLE_PASSWORD) {
-      return true;
-    }
-    return false;
+    return this.lastInputType === inputMethod.TextInputType.VISIBLE_PASSWORD ||
+    this.configuration?.inputType?.type === inputMethod.TextInputType.VISIBLE_PASSWORD;
   }
 
   canShowTextInput(): boolean {
