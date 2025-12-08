@@ -126,8 +126,8 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     { textInputType: inputMethod.TextInputType.TEXT, enterKeyType: inputMethod.EnterKeyType.NONE };
   private keyboardFocusState: boolean = false;
   private focusViewId: string = "";
-  private isAttach: boolean = false;
-  private cacheFuncIsNotAttach: Array<ESObject> = [];
+  private isInputMethodAttached: boolean = false;
+  private cacheFuncIsNotAttached: Array<ESObject> = [];
 
   constructor(plugin: TextInputPlugin | Any, viewId: string) {
     this.textConfig = {
@@ -215,7 +215,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   setCursorSizeAndPosition(cursorInfo: inputMethod.CursorInfo) {
-    if (this.isAttach) {
+    if (this.isInputMethodAttached) {
       try {
         this.inputMethodController.updateCursor(cursorInfo, (err: BusinessError) => {
           if (err) {
@@ -227,7 +227,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         Log.e(TextInputMethodHandlerImpl.TAG, "Failed to updateCursor:" + JSON.stringify(err));
       }
     } else {
-      this.cacheFuncIsNotAttach.push({key: "setCursorSizeAndPosition", value: cursorInfo});
+      this.cacheFuncIsNotAttached.push({key: "setCursorSizeAndPosition", value: cursorInfo});
     }
   }
 
@@ -240,7 +240,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
     this.mEditable.setIsCursorIdxOutOfPreviewTextRange(false);
     this.mEditable.updateTextInputState(editingState);
     // notify current cursor index or selection range to the InputMethodFramework
-    if (this.isAttach) {
+    if (this.isInputMethodAttached) {
       this.inputMethodController.changeSelection("", -1, -1, (err: BusinessError) => {
         if (err) {
           Log.e(TextInputMethodHandlerImpl.TAG, `Failed to changeSelection, code: ${err.code}, message: ${err.message}`);
@@ -250,7 +250,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
           editingState.selectionEnd);
       });
     } else {
-      this.cacheFuncIsNotAttach.push({key: "setEditingState", value: editingState});
+      this.cacheFuncIsNotAttached.push({key: "setEditingState", value: editingState});
     }
     if (sdkApiVersion >= PREIVEW_TEXT_SUPPORT_API) {
       this.previewTextChangeSelection(editingState);
@@ -311,7 +311,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
 
   private async hideTextInput(): Promise<void> {
     await this.inputMethodController.detach().then(() => {
-      this.isAttach = false;
+      this.isInputMethodAttached = false;
       this.keyboardStatus = inputMethod.KeyboardStatus.HIDE;
       this.cancelListenKeyBoardEvent();
     }).catch((err: BusinessError) => {
@@ -328,12 +328,12 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
       }
       if (deviceInfo.sdkApiVersion >= INPUT_SUPPORT_API) { 
         await this.inputMethodController.attach(showKeyboard, this.textConfig, this.getRequestReason()).then(()=>{
-          this.isAttach = true;
+          this.isInputMethodAttached = true;
           this.cacheMethodCall();
         });
       } else {
         await this.inputMethodController.attach(showKeyboard, this.textConfig).then(()=>{
-          this.isAttach = true;
+          this.isInputMethodAttached = true;
           this.cacheMethodCall();
         });
       }
@@ -362,7 +362,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   cacheMethodCall() {
-    this.cacheFuncIsNotAttach.forEach((item: ESObject) => {
+    this.cacheFuncIsNotAttached.forEach((item: ESObject) => {
       switch(item.key) {
         case "setCursorSizeAndPosition":
           this.setCursorSizeAndPosition(item.value);
@@ -374,7 +374,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
           break;
       }
     })
-    this.cacheFuncIsNotAttach.length = 0;
+    this.cacheFuncIsNotAttached.length = 0;
   }
 
   handleChangeFocus(focusState: boolean) {
@@ -397,7 +397,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         if(focusState && isPhysicalKeyboard && this.keyboardFocusState) {
           this.cancelListenKeyBoardEvent();
           this.inputMethodController.detach().then(async () =>{
-            this.isAttach = false;
+            this.isInputMethodAttached = false;
             await this.attach(true);
             this.listenKeyBoardEvent();
           })
