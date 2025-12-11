@@ -1,4 +1,8 @@
 # Changelog
+## 6.0.3.21
+- 分屏时在应用间输入框焦点相互切换，切至flutter输入字符后候选词显示位置有误 ([2d055323](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2d0553237cf172b8d3eb5e66595db2f30948f645?ref=oh-3.22.0&prId=1104))
+- 解决attach异步以及多输入框候选词跟随的问题 ([f09cd956](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f09cd956dfdd9077ebc765816b51994d7e40e64d?ref=oh-3.22.0&prId=1095))
+- 增加copyResource方法中的异常捕获，增加try catch及异常日志 ([4fc54722](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4fc54722599b1c8280f1ee2a184cf66d8296609e?ref=oh-3.22.0&prId=1088))
 ## 6.0.3.20
 - 优化候选词位置为光标的右下角，修改获取坐标方式 ([14a59457](https://gitcode.com/openharmony-tpc/flutter_engine/commit/14a594571105b363bf41e61602629ecdc85c8be5?ref=oh-3.22.0&prId=1070))
 - 修复多个flutterview情况下，鼠标和手势事件分发错误的问题 ([b0fdd3dc](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b0fdd3dc5c3a8c06039ab2714156096d5379c656?ref=oh-3.22.0&prId=1084))
