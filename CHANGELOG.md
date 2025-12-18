@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.125
+- 修复切换输入框时，软键盘类型存在安全类键盘时出现键盘无法唤起的问题 ([163683d2](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1097/commit))
 ## 6.0.3.21
 - 分屏时在应用间输入框焦点相互切换，切至flutter输入字符后候选词显示位置有误 ([2d055323](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2d0553237cf172b8d3eb5e66595db2f30948f645?ref=oh-3.22.0&prId=1104))
 - 解决attach异步以及多输入框候选词跟随的问题 ([f09cd956](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f09cd956dfdd9077ebc765816b51994d7e40e64d?ref=oh-3.22.0&prId=1095))
