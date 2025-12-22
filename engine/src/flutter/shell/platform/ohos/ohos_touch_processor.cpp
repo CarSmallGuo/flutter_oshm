@@ -731,4 +731,27 @@ void OhosTouchProcessor::HandleVirtualTouchEvent(
   ohos_shell_holder->GetPlatformView()->OnTouchEvent(touchPacketString, size);
   return;
 }
+
+void OhosTouchProcessor::cancelActivePointers(int64_t shell_holderID) {
+  if (activeFingerIds_.empty()) {
+    return;
+  }
+  auto ohos_shell_holder = reinterpret_cast<OHOSShellHolder*>(shell_holderID);
+  // The operations of activeFingerIds_ should be all on the main thread, so
+  // there is no concurrency issue here.
+  std::unique_ptr<flutter::PointerDataPacket> packet =
+      std::make_unique<flutter::PointerDataPacket>(activeFingerIds_.size());
+  int index = 0;
+  for (auto id : activeFingerIds_) {
+    PointerData pointerData;
+    pointerData.Clear();
+    pointerData.embedder_id = id;
+    pointerData.device = id;
+    pointerData.change = PointerData::Change::kCancel;
+    packet->SetPointerData(index++, pointerData);
+  }
+  reinterpret_cast<OHOSShellHolder*>(shell_holderID)
+      ->GetPlatformView()
+      ->DispatchPointerDataPacket(std::move(packet));
+}
 }  // namespace flutter

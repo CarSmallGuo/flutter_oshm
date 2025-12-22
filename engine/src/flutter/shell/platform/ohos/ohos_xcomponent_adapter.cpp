@@ -526,6 +526,10 @@ void XComponentBase::DetachFlutterEngine() {
   if (provider_ != nullptr && shellholder_ptr_) {
     shellholder_ptr_->SetAccessibilityProvider(nullptr);
   }
+  // send a cancel event to the gesture being processed when destroying
+  // xcomponent to avoid the issue of gesture residue when reusing the
+  // engine by a new FlutterPage.
+  ohosTouchProcessor_.cancelActivePointers(std::stoll(shellholderId_));
 
   shellholderId_ = "";
   shellholder_ptr_ = nullptr;
