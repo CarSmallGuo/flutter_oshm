@@ -126,6 +126,10 @@ napi_value OhosMain::Init(napi_env env, napi_callback_info info) {
     }
   }
 
+#if (FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG)
+  settings.merged_platform_ui_thread = Settings::MergedPlatformUIThread::kDisabled;
+#endif
+
   settings.task_observer_add =
       [](intptr_t key, const fml::closure& callback) -> fml::TaskQueueId {
     FML_DLOG(INFO) << "task_observer_add:" << (int64_t)key;
