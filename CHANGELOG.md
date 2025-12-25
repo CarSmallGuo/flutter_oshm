@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.23
+- 同步3.7版本中ets的单元测试代码 ([e89b8989](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1115/commit))
 ## 6.0.3.22
 - 性能雷达 滑动丢帧上报 ([5b360f76](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1119/commit))
 - 修复切换输入框时，软键盘类型存在安全类键盘时出现键盘无法唤起的问题 ([163683d2](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1097/commit))
