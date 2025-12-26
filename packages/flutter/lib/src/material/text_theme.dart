@@ -230,6 +230,21 @@ class TextTheme with Diagnosticable {
   /// content body, like captions.
   final TextStyle? labelSmall;
 
+  /// The default text style for [Material].
+  @Deprecated(
+    'Use bodyMedium instead. '
+    'This feature was deprecated after v3.1.0-0.0.pre.',
+  )
+  TextStyle? get bodyText2 => bodyMedium;
+
+  /// Used for the primary text in app bars and dialogs (e.g., [AppBar.title]
+  /// and [AlertDialog.title]).
+  @Deprecated(
+    'Use titleLarge instead. '
+    'This feature was deprecated after v3.1.0-0.0.pre.',
+  )
+  TextStyle? get headline6 => titleLarge;
+
   /// Creates a copy of this text theme but with the given fields replaced with
   /// the new values.
   ///
