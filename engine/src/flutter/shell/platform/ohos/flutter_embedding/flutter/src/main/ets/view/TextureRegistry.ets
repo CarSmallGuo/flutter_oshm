@@ -9,6 +9,10 @@
 */
 import image from '@ohos.multimedia.image';
 
+/**
+ * Registry for managing textures used by Flutter.
+ * Textures can be created from surface textures, image receivers, or pixel maps.
+ */
 export interface TextureRegistry {
 
   createSurfaceTexture(): SurfaceTextureEntry;
@@ -47,6 +51,9 @@ export interface TextureRegistry {
   onTrimMemory(level: number): void;
 }
 
+/**
+ * Entry representing a surface texture registered with the texture registry.
+ */
 export interface SurfaceTextureEntry {
   getTextureId(): number;
 
@@ -62,10 +69,23 @@ export interface SurfaceTextureEntry {
   release(): void;
 }
 
+/**
+ * Listener for frame consumption events.
+ */
 export interface OnFrameConsumedListener {
+  /**
+   * Called when a frame has been consumed.
+   */
   onFrameConsumed(): void;
 }
 
+/**
+ * Listener for memory trim events.
+ */
 export interface OnTrimMemoryListener {
+  /**
+   * Called when memory should be trimmed.
+   * @param level - The memory trim level
+   */
   onTrimMemory(level: number): void;
 }

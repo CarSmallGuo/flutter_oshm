@@ -14,6 +14,10 @@ import Any from '../common/Any';
 
 const TAG: string = "PlatformViewWrapper";
 
+/**
+ * Wrapper for platform views that manages layout and touch handling.
+ * This class wraps a DynamicView model and provides layout management.
+ */
 export class PlatformViewWrapper {
   private prevLeft: number = 0;
   private prevTop: number = 0;
@@ -24,28 +28,56 @@ export class PlatformViewWrapper {
   private touchProcessor: OhosTouchProcessor | null = null;
   private model: DVModel | undefined;
 
+  /**
+   * Sets the touch processor for handling touch events.
+   * @param newTouchProcessor - The OhosTouchProcessor instance
+   */
   public setTouchProcessor(newTouchProcessor: OhosTouchProcessor): void {
     this.touchProcessor = newTouchProcessor;
   }
 
+  /**
+   * Constructs a new PlatformViewWrapper instance.
+   */
   constructor() {
   }
 
+  /**
+   * Gets the DynamicView model associated with this wrapper.
+   * @returns The DVModel instance
+   */
   public getDvModel(): DVModel {
     return this.model!;
   }
 
+  /**
+   * Sets a parameter value in the DVModelParameters.
+   * @param params - The parameters object to modify
+   * @param key - The parameter key
+   * @param element - The value to set
+   */
   setParams: (params: DVModelParameters, key: string, element: Any) => void =
     (params: DVModelParameters, key: string, element: Any): void => {
       let params2 = params as Record<string, Any>;
       params2[key] = element;
     }
+
+  /**
+   * Gets a parameter value from the DVModelParameters.
+   * @param params - The parameters object to read from
+   * @param element - The parameter key
+   * @returns The parameter value, or undefined if not found
+   */
   getParams: (params: DVModelParameters, element: string) => string | Any =
     (params: DVModelParameters, element: string): string | Any => {
       let params2 = params as Record<string, Any>;
       return params2[element];
     }
 
+  /**
+   * Sets the layout parameters for the platform view.
+   * @param parameters - The layout parameters to apply
+   */
   public setLayoutParams(parameters: DVModelParameters): void {
     if (!this.model) {
       return;
@@ -62,15 +94,30 @@ export class PlatformViewWrapper {
     this.setParams(this.model.params, "height", this.getParams(parameters, "height"));
   }
 
+  /**
+   * Adds a DynamicView model to this wrapper.
+   * @param model - The DVModel to add
+   */
   public addDvModel(model: DVModel): void {
     this.model = model
   }
 }
 
+/**
+ * Parameters for DynamicView model creation.
+ * This class holds the basic structure for creating a DynamicView model.
+ */
 class DVModelParam {
+  /** The component type */
   compType: string
+  /** Array of child components */
   children: []
 
+  /**
+   * Constructs a new DVModelParam instance.
+   * @param compType - The component type
+   * @param children - Array of child components
+   */
   constructor(compType: string, children: []) {
     this.compType = compType;
     this.children = children;
