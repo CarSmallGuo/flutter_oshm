@@ -50,7 +50,7 @@ export default class MethodCall {
     } else if (this.args instanceof Map) {
       return (this.args as Map<Any, Any>).has(key);
     } else if (ToolUtils.isObj(this.args)) {
-      return this.args.hasOwnProperty(key);
+      return Reflect.has(this.args, key);
     } else {
       throw new Error("ClassCastException");
     }
