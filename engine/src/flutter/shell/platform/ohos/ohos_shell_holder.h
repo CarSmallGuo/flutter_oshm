@@ -121,6 +121,8 @@ class OHOSShellHolder {
 
   std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
 
+  std::string bundle_name_;
+
   OHOSShellHolder(const flutter::Settings& settings,
                   const std::shared_ptr<PlatformViewOHOSNapi>& napi_facade,
                   const std::shared_ptr<ThreadHost>& thread_host,

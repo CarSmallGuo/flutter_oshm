@@ -5,6 +5,15 @@
  *
  */
 
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+#include <qos/qos.h>
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/wait.h>
+
+#include "bundle/native_interface_bundle.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
 #include "flutter/fml/native_library.h"
 #include "flutter/shell/common/rasterizer.h"
@@ -19,14 +28,54 @@
 #include "third_party/skia/src/ports/skia_ohos/SkFontMgr_ohos.h"
 #include "txt/platform.h"
 
-#include <qos/qos.h>
-#include <sys/resource.h>
-#include <sys/time.h>
-
 namespace flutter {
 
 std::string OHOSLastFontPath = "";
 static constexpr int64_t kImplicitViewId = 0;
+
+static std::string GetBundleName() {
+  OH_NativeBundle_ApplicationInfo appInfo = OH_NativeBundle_GetCurrentApplicationInfo();
+  if (appInfo.bundleName != nullptr && strlen(appInfo.bundleName) > 0) {
+    std::string bundle_name = std::string(appInfo.bundleName);
+    free(appInfo.bundleName);  // Free the allocated memory
+    return bundle_name;
+  }
+  return "";
+}
+
+static void ExecuteAttachCommand(const std::string& bundle_name) {
+  std::string command = "hdc shell \"aa attach -b " + bundle_name + "\"";
+  FML_LOG(INFO) << "Executing attach command: " << command;
+  int result = std::system(command.c_str());
+  if (result != 0) {
+    if (result == -1) {
+      FML_LOG(WARNING) << "Failed to execute attach command: system() call failed, errno: " 
+                       << errno << " (" << strerror(errno) << ")";
+    } else {
+      FML_LOG(WARNING) << "Failed to execute attach command, return code: " << result
+                       << " (exit status: " << WEXITSTATUS(result) << ")";
+    }
+  } else {
+    FML_LOG(INFO) << "Successfully executed attach command for bundle: " << bundle_name;
+  }
+}
+
+static void ExecuteDetachCommand(const std::string& bundle_name) {
+  std::string command = "hdc shell \"aa detach -b " + bundle_name + "\"";
+  FML_LOG(INFO) << "Executing detach command: " << command;
+  int result = std::system(command.c_str());
+  if (result != 0) {
+    if (result == -1) {
+      FML_LOG(WARNING) << "Failed to execute detach command: system() call failed, errno: " 
+                       << errno << " (" << strerror(errno) << ")";
+    } else {
+      FML_LOG(WARNING) << "Failed to execute detach command, return code: " << result
+                       << " (exit status: " << WEXITSTATUS(result) << ")";
+    }
+  } else {
+    FML_LOG(INFO) << "Successfully executed detach command for bundle: " << bundle_name;
+  }
+}
 
 static void OHOSPlatformThreadConfigSetter(
     const fml::Thread::ThreadConfig& config) {
@@ -276,6 +325,15 @@ OHOSShellHolder::OHOSShellHolder(
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   local_font_path_ = OHOSLastFontPath;
   FML_DCHECK(platform_view_);
+
+#if (FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG)
+  bundle_name_ = GetBundleName();
+  if (!bundle_name_.empty()) {
+    ExecuteAttachCommand(bundle_name_);
+  } else {
+    FML_LOG(ERROR) << "Bundle name is empty, skipping attach command";
+  }
+#endif
 }
 
 OHOSShellHolder::OHOSShellHolder(
@@ -300,10 +358,18 @@ OHOSShellHolder::OHOSShellHolder(
   bridge_mutex_ = std::make_shared<std::mutex>();
   platform_view_->SetSemanticsBridge(bridge_, bridge_mutex_);
   local_font_path_ = OHOSLastFontPath;
+  bundle_name_ = "";
 }
 
 OHOSShellHolder::~OHOSShellHolder() {
   FML_LOG(INFO) << "MHN enter ~OHOSShellHolder()";
+
+#if (FLUTTER_RUNTIME_MODE == FLUTTER_RUNTIME_MODE_DEBUG)
+  if (!bundle_name_.empty()) {
+    ExecuteDetachCommand(bundle_name_);
+  }
+#endif
+
   std::function<void(size_t)> watchdogResetFunc = watchdogPair_.second;
   size_t watchdogIndex = watchdogPair_.first;
   if (watchdogIndex != 0 && watchdogResetFunc) {
