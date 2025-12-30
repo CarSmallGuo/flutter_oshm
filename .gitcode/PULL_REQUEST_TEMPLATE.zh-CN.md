@@ -1,25 +1,28 @@
-**IssueNo**:
+<!-- Please remove all comments before submitting to avoid them being included in merge commit message -->
+## Why are these changes being made?
 
-**Description**:
-(提交描述)
 
-**Feature or Bugfix**:
-- [ ] Feature
-- [ ] Bugfix
- 
-**Binary Source**:
-- [ ] No
-- [ ] yes 
+## Changelog
+<!-- List user-visible changes in a concise manner. Use one of the following verbs in past tense:
+- added
+- fixed
+- deprecated
+- removed
+- optimized
+Include [breaking] prefix for breaking changes -->
 
-**预测试**:
-- [ ] Pass
-- [ ] Fail
-- [ ] 评估不涉及
+## Test Plan
 
-**合入前自检**:
-- [ ] 不涉及非法兼容性变更；若涉及，已通过相应评审。
-- [ ] 不涉及性能或已进行性能测试且无性能劣化。
-- [ ] 符合对应的编码规范。
-- [ ] 不涉及文档更新，或已更新了文档。
-- [ ] 针对可测试性要求，已增加必要的自测用例、合理的日志记录或Trace信息。
-- [ ] 不存在非法的文件引入，包括图片和代码等。
+
+## Checklist
+- [ ] No illegal compatibility changes are involved; if any are, they have passed the corresponding review.
+- [ ] No performance issues are present or have been tested and there is no performance degradation.
+- [ ] Compliant with the corresponding coding standards.
+- [ ] No document updates are required, or the documents have been updated.
+- [ ] In terms of testability requirements, necessary self-test cases, reasonable log recording or Trace information have been added.
+- [ ] No illegal file introductions exist, including images and code, etc.
+- [ ] Check the Branches that need to be merged.
+  - [ ] oh-3.32.4-dev
+  - [ ] oh-3.27.4-dev
+  - [ ] 3.22.0-ohos
+  - [ ] dev
