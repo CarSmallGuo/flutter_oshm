@@ -47,6 +47,17 @@ import 'widget_inspector.dart';
 
 export 'dart:ui' show AppLifecycleState, Locale;
 
+enum _LTPOSwitchStatus {
+  // ltpo功能未开启
+  ltpoOff,
+
+  // ltpo功能开启
+  ltpoOn,
+
+  // ltpo功能未初始化
+  ltpoNotInit,
+}
+
 // Examples can assume:
 // late FlutterView myFlutterView;
 // class MyApp extends StatelessWidget { const MyApp({super.key}); @override Widget build(BuildContext context) => const Placeholder(); }
@@ -459,6 +470,8 @@ mixin WidgetsBinding
       return true;
     }());
     platformMenuDelegate = DefaultPlatformMenuDelegate();
+
+    addPersistentFrameCallback(_sendAllTranslateVelocity);
   }
 
   /// The current [WidgetsBinding], if one has been created.
@@ -1056,6 +1069,58 @@ mixin WidgetsBinding
     for (final WidgetsBindingObserver observer in List<WidgetsBindingObserver>.of(_observers)) {
       observer.didHaveMemoryPressure();
     }
+  }
+
+  _LTPOSwitchStatus _ltpoSwitchStatus = _LTPOSwitchStatus.ltpoNotInit;
+  int _sendTranslateVelocityCount = 0;
+  double _maxTranslateVelocity = 0.0;
+
+  void _sendAllTranslateVelocity(Duration timeStamp) {
+    if (_ltpoSwitchStatus != _LTPOSwitchStatus.ltpoOn) {
+      return;
+    }
+
+    if (_sendTranslateVelocityCount == 0) {
+      return;
+    }
+
+
+    SystemChannels.nativeVsync.invokeMethod(
+      'sendVelocity', {'type': 'translate', 'velocity': _maxTranslateVelocity}
+    );
+    _sendTranslateVelocityCount = 0;
+    _maxTranslateVelocity = 0.0;
+  }
+
+  Future<int> _checkLTPOSwitchStatus() async {
+    return await SystemChannels.nativeVsync.invokeMethod<int>('checkLTPOSwtichState') as int;
+  }
+
+  // 一帧时间内可被调用多次
+  void sendTranslateVelocity(double velocity, bool isTimeSpanTween) {
+    if (_ltpoSwitchStatus  == _LTPOSwitchStatus.ltpoNotInit) {
+      _checkLTPOSwitchStatus().then((switchStatus) {
+        _ltpoSwitchStatus = _LTPOSwitchStatus.values[switchStatus];
+      });
+    }
+
+    if (_ltpoSwitchStatus != _LTPOSwitchStatus.ltpoOn) {
+      return;
+    }
+
+    double physicalVelocity = velocity.abs();
+    if (isTimeSpanTween) {
+      double physicalSizeMean =
+        platformDispatcher.implicitView!.physicalSize.width + platformDispatcher.implicitView!.physicalSize.height;
+      physicalSizeMean = physicalSizeMean / 2;
+      physicalVelocity = physicalVelocity * physicalSizeMean;
+    }
+    _sendTranslateVelocityCount++;
+
+    if (physicalVelocity > _maxTranslateVelocity) {
+      _maxTranslateVelocity = physicalVelocity;
+    }
+    return;
   }
 
   bool _needToReportFirstFrame = true;
