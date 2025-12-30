@@ -26,6 +26,8 @@ class VsyncWaiterOHOS final : public VsyncWaiter {
 
   ~VsyncWaiterOHOS() override;
 
+  void VSyncVotingFrameRate(void);
+
  private:
   thread_local static bool firstCall;
   // |VsyncWaiter|

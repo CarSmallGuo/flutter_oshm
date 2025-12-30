@@ -6,22 +6,23 @@
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_OHOS_VSYNC_VOTING_MGR_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_OHOS_VSYNC_VOTING_MGR_H_
 
-#include <json/json.h>
 #include <cstdint>
 #include <map>
 #include <memory>
+#include <mutex>
 
+#include <json/json.h>
 
 #include <native_vsync/native_vsync.h>
-#include "flutter/fml/time/time_point.h"
 
+#include "flutter/fml/time/time_point.h"
 #include "flutter/shell/platform/ohos/ohos_asset_provider.h"
 
 namespace flutter {
 using namespace std;
 using SetExpectedFrameRateRangeFunc_ =
-    int (*)(OH_NativeVSync* nativeVsync,
-            OH_NativeVSync_ExpectedRateRange* range);
+  int (*)(OH_NativeVSync* nativeVsync,
+          OH_NativeVSync_ExpectedRateRange* range);
 
 enum class LTPOSwitchState {
   LTPO_SWITCH_OFF = 0,
@@ -41,8 +42,23 @@ enum class VVMTouchType {
   TOUCH_TYPE_UP_3_SEC_AFTER,
 };
 
+enum class VVMVotingType {
+  VOTING_TYPE_NOTHING,
+  VOTING_TYPE_TOUCH_DOWN,
+  VOTING_TYPE_TOUCH_UP_FPS_60,
+  VOTING_TYPE_TOUCH_UP_FPS_120,
+  VOTING_TYPE_COMMON_PLATFORMVIEW,
+  VOTING_TYPE_ANIMATION,
+  VOTING_TYPE_VIDEO,
+};
+
+enum class VVMVotingFrameRateRole {
+  ROLE_SELF,
+  ROLE_EX_MODULE,
+};
+
 class OhosVsyncVotingMgr {
- public:
+public:
   OhosVsyncVotingMgr();
 
   ~OhosVsyncVotingMgr();
@@ -63,7 +79,7 @@ class OhosVsyncVotingMgr {
 
   void AttachNativeVsync(string handleName, OH_NativeVSync* handle);
 
-  void DettachNativeVsync(string handleName);
+  void DetachNativeVsync(string handleName);
 
   void VotingByNativeVsync(OH_NativeVSync* handle);
 
@@ -75,8 +91,7 @@ class OhosVsyncVotingMgr {
 
   LTPOSwitchState CheckVotingSwitchState(void);
 
- private:
-
+private:
   int ParseFramesCfgImpl(void);
 
   void VoteANTranslate(double velocity);
@@ -85,13 +100,21 @@ class OhosVsyncVotingMgr {
 
   void ParseTranslate(const Json::Value& arr);
 
- private:
+  int VoteFinalFrameRateByPriority(void);
+
+  int DelayFrameRateDropForStability(
+    int nextFrameRate,
+    VVMVotingFrameRateRole type = VVMVotingFrameRateRole::ROLE_EX_MODULE
+  );
+
+  int VotingExpectedRateRange(
+    int resultFrameRate,
+    OH_NativeVSync_ExpectedRateRange* range
+  );
+
+private:
   // The expected voting frame rate from animation.
   atomic<int> animationVoting_ = 0;
-
-  // The temporary voting frame rate from animation.
-  // Needed to further decide on the final frame rate of the animation.
-  atomic<int> animationVotingTemp_ = 0;
 
   // The expected voting frame rate from touch event.
   atomic<int> touchVoting_ = 0;
@@ -115,15 +138,21 @@ class OhosVsyncVotingMgr {
 
   unique_ptr<OHOSAssetProvider> asset_provider_;
 
-  vector<map<string, int>> framesSet;
-
-  int animationVotingVsyncTimes_ = 0;
+  vector<map<string, int> > framesSet_;
 
   // pointing to the lib of OH_NativeVSync_SetExpectedFrameRateRange
   void* libHandle_;
 
+  int delayFrameRateDropTimes_ = 0;
+
   // call the OH_NativeVSync_SetExpectedFrameRateRange function
   SetExpectedFrameRateRangeFunc_ setExpectedFrameRateRangeFunc_ = nullptr;
+
+  VVMVotingType votingType_ = VVMVotingType::VOTING_TYPE_NOTHING;
+
+  int expectedDropFrameRate_ = 0;
+
+  std::mutex nativeVsyncMapMutex_;
 };  // class OhosVsyncVotingMgr
 
 }  // namespace flutter

@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
 
 import 'animation.dart';
 import 'curves.dart';
@@ -960,9 +961,14 @@ class AnimationController extends Animation<double>
       stop(canceled: false);
     }
 
+    bool isTimeSpanTween = false;
+    if (!upperBound.isInfinite && upperBound <= 1.0) {
+      isTimeSpanTween = true;
+    }
+
     switch (defaultTargetPlatform) {
       case TargetPlatform.ohos:
-        SchedulerBinding.instance.sendTranslateVelocity(velocity);
+        WidgetBinding.instance.sendTranslateVelocity(velocity, isTimeSpanTween);
         break;
       case TargetPlatform.android:
       case TargetPlatform.iOS:
