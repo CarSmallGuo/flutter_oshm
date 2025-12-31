@@ -58,6 +58,8 @@ class OhosTouchProcessor {
   PointerButtonMouse getPointerButtonFromMouse(
       OH_NativeXComponent_MouseEventButton mouseButton);
 
+  void cancelActivePointers(int64_t shell_holderID);
+
  public:
   OH_NativeXComponent_TouchPointToolType touchType_;
 
