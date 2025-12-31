@@ -21,7 +21,7 @@ Include [breaking] prefix for breaking changes -->
 - [ ] No document updates are required, or the documents have been updated.
 - [ ] In terms of testability requirements, necessary self-test cases, reasonable log recording or Trace information have been added.
 - [ ] No illegal file introductions exist, including images and code, etc.
-- [ ] Check the Branches that need to be merged.
+- [ ] The branches that need to be merged have been confirmed.
   - [ ] oh-3.35.7-dev
   - [ ] oh-3.32.4-dev
   - [ ] oh-3.27.4-dev
