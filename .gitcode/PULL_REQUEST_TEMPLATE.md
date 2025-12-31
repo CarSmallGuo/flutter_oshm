@@ -22,6 +22,7 @@ Include [breaking] prefix for breaking changes -->
 - [ ] In terms of testability requirements, necessary self-test cases, reasonable log recording or Trace information have been added.
 - [ ] No illegal file introductions exist, including images and code, etc.
 - [ ] Check the Branches that need to be merged.
+  - [ ] oh-3.35.7-dev
   - [ ] oh-3.32.4-dev
   - [ ] oh-3.27.4-dev
   - [ ] 3.22.0-ohos
