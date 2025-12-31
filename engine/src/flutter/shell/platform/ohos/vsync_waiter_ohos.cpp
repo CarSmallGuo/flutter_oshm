@@ -38,7 +38,7 @@ VsyncWaiterOHOS::~VsyncWaiterOHOS() {
   std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
       OhosVsyncVotingMgr::GetInstance();
   if (votingMgr != nullptr) {
-    votingMgr->DettachNativeVsync(std::string("VsyncWaiterOHOS"));
+    votingMgr->DetachNativeVsync(std::string("VsyncWaiterOHOS"));
   }
 
   OH_NativeVSync_Destroy(vsync_handle_);
@@ -97,16 +97,14 @@ void VsyncWaiterOHOS::AwaitVSync() {
     LOGE("AwaitVSync vsync_handle_ is nullptr");
     return;
   }
+
+  VSyncVotingFrameRate();
+
   auto* weak_this = new std::weak_ptr<VsyncWaiter>(shared_from_this());
   OH_NativeVSync* handle = vsync_handle_;
 
   fml::TaskRunner::RunNowOrPostTask(
       task_runners_.GetUITaskRunner(), [weak_this, handle]() {
-        std::shared_ptr<OhosVsyncVotingMgr> votingMgr =
-            OhosVsyncVotingMgr::GetInstance();
-        if (votingMgr != nullptr) {
-          votingMgr->VotingByNativeVsync(handle);
-        }
         int32_t ret = 0;
         if (0 != (ret = OH_NativeVSync_RequestFrameWithMultiCallback(
                       handle, &OnVsyncFromOHOS, weak_this))) {
@@ -191,6 +189,19 @@ void VsyncWaiterOHOS::SetDvsyncSwitch(bool enableDvsync) {
     return;
   }
   nativeDvsyncFunc_(vsync_handle_, enableDvsync);
+}
+
+void VsyncWaiterOHOS::VSyncVotingFrameRate() {
+  OH_NativeVSync* handle = vsync_handle_;
+
+  fml::TaskRunner::RunNowOrPostTask(
+    task_runners_.GetIOTaskRunner(), [handle]() {
+      std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+      if (votingMgr != nullptr) {
+        votingMgr->VotingByNativeVsync(handle);
+      }
+    }
+  );
 }
 
 }  // namespace flutter
