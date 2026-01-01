@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.25
+- Fix the issue where pasting is not possible after cutting ([2a8b02f6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2a8b02f681b91a45a9e6709344e847f7f0ff74e5?ref=oh-3.22.0))
 ## 6.1.0.23
 - 同步3.7版本中ets的单元测试代码 ([e89b8989](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1115/commit))
 ## 6.0.3.22
