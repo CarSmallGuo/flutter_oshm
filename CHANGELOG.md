@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.25
+- Handling HarmonyOS abnormal touch event | When destroying xcomponent, send a cancel signal to the gesture currently being processed([15b84fac](https://gitcode.com/openharmony-tpc/flutter_engine/commit/15b84fac8f085fba258c9d1e8bc6e3c94c90c897?ref=dev))
 ## 6.0.3.21
 - 分屏时在应用间输入框焦点相互切换，切至flutter输入字符后候选词显示位置有误 ([31796eb5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/31796eb5fdfeed7044ad0bb2e13075f4bea186de?ref=dev&prId=1106))
 - 解决attach异步以及多输入框候选词跟随的问题 ([0b0fc376](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0b0fc376764ec8376f20cc32d3dd19725f2e0616?ref=dev&prId=1073))
