@@ -15,34 +15,45 @@ import PlatformViewRegistry from '../../../plugin/platform/PlatformViewRegistry'
 import { TextureRegistry } from '../../../view/TextureRegistry';
 import FlutterEngine from '../FlutterEngine';
 
+/**
+ * Interface for Flutter plugins.
+ * Plugins provide a way to extend Flutter functionality with platform-specific code.
+ */
 export interface FlutterPlugin {
-  //获取唯一的类名 类似安卓的Class<? extends FlutterPlugin ts无法实现只能用户自定义
+  /**
+   * Gets the unique class name of this plugin.
+   * Similar to Android's Class<? extends FlutterPlugin>, but in TypeScript this must be user-defined.
+   * @returns The unique class name of this plugin
+   */
   getUniqueClassName(): string
 
   /**
-   * This {@code FlutterPlugin} has been associated with a {@link
-   * io.flutter.embedding.engine.FlutterEngine} instance.
+   * This FlutterPlugin has been associated with a FlutterEngine instance.
    *
-   * <p>Relevant resources that this {@code FlutterPlugin} may need are provided via the {@code
-   * binding}. The {@code binding} may be cached and referenced until {@link
-   * #onDetachedFromEngine(FlutterPluginBinding)} is invoked and returns.
+   * Relevant resources that this FlutterPlugin may need are provided via the binding.
+   * The binding may be cached and referenced until onDetachedFromEngine is invoked and returns.
+   * @param binding - The FlutterPluginBinding providing access to engine resources
    */
   onAttachedToEngine(binding: FlutterPluginBinding): void;
 
   /**
-   * This {@code FlutterPlugin} has been removed from a {@link
-   * io.flutter.embedding.engine.FlutterEngine} instance.
+   * This FlutterPlugin has been removed from a FlutterEngine instance.
    *
-   * <p>The {@code binding} passed to this method is the same instance that was passed in {@link
-   * #onAttachedToEngine(FlutterPluginBinding)}. It is provided again in this method as a
-   * convenience. The {@code binding} may be referenced during the execution of this method, but it
+   * The binding passed to this method is the same instance that was passed in
+   * onAttachedToEngine. It is provided again in this method as a convenience.
+   * The binding may be referenced during the execution of this method, but it
    * must not be cached or referenced after this method returns.
    *
-   * <p>{@code FlutterPlugin}s should release all resources in this method.
+   * FlutterPlugins should release all resources in this method.
+   * @param binding - The FlutterPluginBinding that was provided in onAttachedToEngine
    */
   onDetachedFromEngine(binding: FlutterPluginBinding): void;
 }
 
+/**
+ * Binding that provides Flutter plugins with access to Flutter engine resources.
+ * This class holds references to the engine, messenger, assets, and registries that plugins may need.
+ */
 export class FlutterPluginBinding {
   private applicationContext: common.Context;
   private flutterEngine: FlutterEngine;
@@ -51,6 +62,15 @@ export class FlutterPluginBinding {
   private textureRegistry: TextureRegistry;
   private platformViewRegistry: PlatformViewRegistry;
 
+  /**
+   * Constructs a new FlutterPluginBinding instance.
+   * @param applicationContext - The application context
+   * @param flutterEngine - The FlutterEngine instance
+   * @param binaryMessenger - The BinaryMessenger for platform communication
+   * @param flutterAssets - The FlutterAssets for accessing Flutter assets
+   * @param textureRegistry - The TextureRegistry for managing textures
+   * @param platformViewRegistry - Optional PlatformViewRegistry, will be created if not provided
+   */
   constructor(applicationContext: common.Context, flutterEngine: FlutterEngine, binaryMessenger: BinaryMessenger,
     flutterAssets: FlutterAssets, textureRegistry: TextureRegistry, platformViewRegistry?: PlatformViewRegistry) {
     this.applicationContext = applicationContext;
@@ -61,26 +81,50 @@ export class FlutterPluginBinding {
     this.platformViewRegistry = platformViewRegistry ?? new EmptyPlatformViewRegistry();
   }
 
+  /**
+   * Gets the application context.
+   * @returns The application context
+   */
   getApplicationContext(): common.Context {
     return this.applicationContext;
   }
 
+  /**
+   * Gets the FlutterEngine instance.
+   * @returns The FlutterEngine instance
+   */
   getFlutterEngine(): FlutterEngine {
     return this.flutterEngine;
   }
 
+  /**
+   * Gets the BinaryMessenger for platform communication.
+   * @returns The BinaryMessenger instance
+   */
   getBinaryMessenger(): BinaryMessenger {
     return this.binaryMessenger;
   }
 
+  /**
+   * Gets the FlutterAssets for accessing Flutter assets.
+   * @returns The FlutterAssets instance
+   */
   getFlutterAssets(): FlutterAssets {
     return this.flutterAssets;
   }
 
+  /**
+   * Gets the TextureRegistry for managing textures.
+   * @returns The TextureRegistry instance
+   */
   getTextureRegistry(): TextureRegistry {
     return this.textureRegistry;
   }
 
+  /**
+   * Gets the PlatformViewRegistry for managing platform views.
+   * @returns The PlatformViewRegistry instance
+   */
   public getPlatformViewRegistry(): PlatformViewRegistry {
     return this.platformViewRegistry;
   }
@@ -90,38 +134,55 @@ export class FlutterPluginBinding {
 export interface FlutterAssets {
   /**
    * Returns the relative file path to the Flutter asset with the given name, including the file's
-   * extension, e.g., {@code "myImage.jpg"}.
+   * extension, e.g., "myImage.jpg".
    *
-   * <p>The returned file path is relative to the Ohos app's standard assets directory.
-   * Therefore, the returned path is appropriate to pass to Ohos's {@code ResourceManage}, but
+   * The returned file path is relative to the OpenHarmony app's standard assets directory.
+   * Therefore, the returned path is appropriate to pass to OpenHarmony's ResourceManager, but
    * the path is not appropriate to load as an absolute path.
+   * @param assetFileName - The name of the asset file
+   * @returns The relative file path to the asset
    */
   getAssetFilePathByName(assetFileName: string): string;
 
   /**
-   * Same as {@link #getAssetFilePathByName(String)} but with added support for an explicit
-   * Ohos {@code bundleName}.
+   * Same as getAssetFilePathByName but with added support for an explicit bundleName.
+   * @param assetFileName - The name of the asset file
+   * @param bundleName - The bundle name
+   * @returns The relative file path to the asset
    */
   getAssetFilePathByName(assetFileName: string, bundleName: string): string;
 
   /**
    * Returns the relative file path to the Flutter asset with the given subpath, including the
-   * file's extension, e.g., {@code "/dir1/dir2/myImage.jpg"}.
+   * file's extension, e.g., "/dir1/dir2/myImage.jpg".
    *
-   * <p>The returned file path is relative to the Ohos app's standard assets directory.
-   * Therefore, the returned path is appropriate to pass to Ohos's {@code ResourceManage}, but
+   * The returned file path is relative to the OpenHarmony app's standard assets directory.
+   * Therefore, the returned path is appropriate to pass to OpenHarmony's ResourceManager, but
    * the path is not appropriate to load as an absolute path.
+   * @param assetSubpath - The subpath of the asset
+   * @returns The relative file path to the asset
    */
   getAssetFilePathBySubpath(assetSubpath: string): string;
 
   /**
-   * Same as {@link #getAssetFilePathBySubpath(String)} but with added support for an explicit
-   * Ohos {@code bundleName}.
+   * Same as getAssetFilePathBySubpath but with added support for an explicit bundleName.
+   * @param assetSubpath - The subpath of the asset
+   * @param bundleName - The bundle name
+   * @returns The relative file path to the asset
    */
   getAssetFilePathBySubpath(assetSubpath: string, bundleName: string): string;
 }
 
+/**
+ * Empty implementation of PlatformViewRegistry that does nothing.
+ */
 class EmptyPlatformViewRegistry implements PlatformViewRegistry {
+  /**
+   * Attempts to register a view factory, but always returns false.
+   * @param viewTypeId - The view type identifier
+   * @param factory - The PlatformViewFactory to register
+   * @returns Always returns false
+   */
   registerViewFactory(viewTypeId: string, factory: PlatformViewFactory): boolean {
     return false;
   }
