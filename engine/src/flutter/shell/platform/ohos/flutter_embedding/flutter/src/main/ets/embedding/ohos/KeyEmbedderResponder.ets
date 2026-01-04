@@ -10,34 +10,66 @@ import { Responder } from './KeyboardManager';
 import KeyboardMap, { KeyPair, ModifierGoal } from './KeyboardMap';
 import Log from '../../util/Log';
 
+/**
+ * Task runner for executing event tasks asynchronously.
+ */
 class EventTaskRunner {
   private tasks: Array<() => void> = [];
 
+  /**
+   * Constructs a new EventTaskRunner instance.
+   */
   constructor() {
   }
 
+  /**
+   * Adds a task to be executed later.
+   * @param task - The task function to add
+   */
   public addTask(task: () => void): void {
     this.tasks.push(task);
   }
 
+  /**
+   * Runs all queued tasks.
+   */
   public runTasks(): void {
     this.tasks.forEach(task => task());
   }
 }
 
+/**
+ * Responder for handling key events using the embedder API.
+ * This class converts OpenHarmony key events to Flutter key data format and sends them to Flutter.
+ */
 export default class KeyEmbedderResponder implements Responder {
   private static TAG = "KeyEmbedderResponder";
   private messenger: BinaryMessenger;
   private pressingRecords: Map<number, number> = new Map<number, number>();
 
+  /**
+   * Constructs a new KeyEmbedderResponder instance.
+   * @param binaryMessenger - The BinaryMessenger for sending key events to Flutter
+   */
   constructor(binaryMessenger: BinaryMessenger) {
     this.messenger = binaryMessenger;
   }
 
+  /**
+   * Combines a key value with a plane value.
+   * @param key - The key value
+   * @param plane - The plane value
+   * @returns The combined key value
+   */
   private keyOfPlane(key: number, plane: number): number {
     return plane | (key & KeyboardMap.kValueMask);
   }
 
+  /**
+   * Gets the event type from a key event.
+   * @param event - The key event
+   * @returns The event type (KDOWN, KUP, or KREPEAT)
+   */
   private getEventType(event: KeyEvent): Type {
     let physicalKey: number = this.getPhysicalKey(event);
     let isPressed: boolean = this.pressingRecords.has(physicalKey);
@@ -53,6 +85,11 @@ export default class KeyEmbedderResponder implements Responder {
     }
   }
 
+  /**
+   * Gets the logical key code from a key event.
+   * @param event - The key event
+   * @returns The logical key code
+   */
   private getLogicalKey(event: KeyEvent): number {
     let keyCode: number = event.keyCode;
     let logicalKey: number | undefined = KeyboardMap.toLogicalKey.get(keyCode);
@@ -62,8 +99,12 @@ export default class KeyEmbedderResponder implements Responder {
     return this.keyOfPlane(keyCode, KeyboardMap.kOhosPlane);
   }
 
-  /** Should use ScanCode here, but cannot access it from KeyEvent yet.
-   * Use KeyCode instead and need correct it in the future.
+  /**
+   * Gets the physical key code from a key event.
+   * Should use ScanCode here, but cannot access it from KeyEvent yet.
+   * Use KeyCode instead and need to correct it in the future.
+   * @param event - The key event
+   * @returns The physical key code
    */
   private getPhysicalKey(event: KeyEvent): number {
     let keyCode: number = event.keyCode;
@@ -74,6 +115,11 @@ export default class KeyEmbedderResponder implements Responder {
     return this.keyOfPlane(keyCode, KeyboardMap.kOhosPlane);
   }
 
+  /**
+   * Updates the pressing keys record.
+   * @param physicalKey - The physical key code
+   * @param logicalKey - The logical key code, or null if the key is released
+   */
   updatePressingKeys(physicalKey: number, logicalKey: number | null): void {
     if (logicalKey != null) { // press
       if (this.pressingRecords.has(physicalKey)) {
@@ -88,6 +134,15 @@ export default class KeyEmbedderResponder implements Responder {
     }
   }
 
+  /**
+   * Synchronizes modifier key states to match expected states.
+   * @param goal - The modifier goal to synchronize
+   * @param truePressed - Whether the modifier key is actually pressed
+   * @param logicalKey - The logical key code
+   * @param physicalKey - The physical key code
+   * @param event - The key event
+   * @param postSyncEvents - Task runner for post-synchronization events
+   */
   synchronizeModifierKey(goal: ModifierGoal,
     truePressed: boolean,
     logicalKey: number,
@@ -163,6 +218,13 @@ export default class KeyEmbedderResponder implements Responder {
     }
   }
 
+  /**
+   * Synthesizes a key event.
+   * @param isDown - Whether the key is down
+   * @param timestamp - The event timestamp
+   * @param logicalKey - The logical key code
+   * @param physicalKey - The physical key code
+   */
   synthesizeEvent(isDown: boolean, timestamp: number,
     logicalKey: number, physicalKey: number) {
     const data: KeyData = new KeyData();
@@ -180,10 +242,19 @@ export default class KeyEmbedderResponder implements Responder {
     this.sendKeyEvent(data);
   }
 
+  /**
+   * Sends a key event to Flutter.
+   * @param data - The KeyData to send
+   */
   sendKeyEvent(data: KeyData) {
     this.messenger.send(KeyData.CHANNEL, data.toBytes());
   }
 
+  /**
+   * Handles a key event from OpenHarmony.
+   * @param event - The key event to handle
+   * @returns Whether the event was handled
+   */
   handleKeyEvent(event: KeyEvent): boolean {
     if (event.keyCode == 0) {
       return false;
@@ -259,6 +330,10 @@ export default class KeyEmbedderResponder implements Responder {
     return true;
   }
 
+  /**
+   * Gets the currently pressed keys.
+   * @returns A map of physical key codes to logical key codes
+   */
   public getPressedKeys(): Map<number, number> {
     return new Map<number, number>(this.pressingRecords);
   }
