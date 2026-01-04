@@ -21,14 +21,26 @@ import FlutterManager from '../ohos/FlutterManager';
 
 const TAG = "FlutterEngineGroup"
 
+/**
+ * Manages a group of Flutter engines that share resources.
+ * This class allows creating multiple engines from a single parent engine,
+ * enabling efficient resource sharing and faster engine creation.
+ */
 export default class FlutterEngineGroup {
   private activeEngines: ArrayList<FlutterEngine> = new ArrayList<FlutterEngine>();
 
+  /**
+   * Constructs a new FlutterEngineGroup instance.
+   */
   constructor() {
 
   }
 
-
+  /**
+   * Checks and initializes the FlutterLoader if not already initialized.
+   * @param context - The application context
+   * @param args - Command-line arguments for Dart VM initialization
+   */
   checkLoader(context: common.Context, args: Array<string>) {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     if (!loader.initialized) {
@@ -37,6 +49,12 @@ export default class FlutterEngineGroup {
     }
   }
 
+  /**
+   * Creates and runs a Flutter engine based on the provided options.
+   * If no engines exist, creates a new engine. Otherwise, spawns from the first engine.
+   * @param options - Configuration options for engine creation
+   * @returns The created or spawned FlutterEngine instance
+   */
   createAndRunEngineByOptions(options: Options) {
     let engine: FlutterEngine | null = null;
     let context: common.Context = options.getContext();
@@ -85,10 +103,20 @@ export default class FlutterEngineGroup {
     return engine;
   }
 
+  /**
+   * Creates a new FlutterEngine instance.
+   * @param context - The application context
+   * @param platformViewsController - The platform views controller for the engine
+   * @returns A new FlutterEngine instance
+   */
   createEngine(context: common.Context, platformViewsController: PlatformViewsController): FlutterEngine {
     return new FlutterEngine(context, null, null, platformViewsController);
   }
 
+  /**
+   * Gets the default (first) engine in this group.
+   * @returns The default FlutterEngine, or null if no engines exist
+   */
   getDefaultEngine(): FlutterEngine | null {
     let engine: FlutterEngine | null = null;
     if (this.activeEngines.length != 0) {
@@ -98,11 +126,20 @@ export default class FlutterEngineGroup {
   }
 }
 
+/**
+ * Implementation of EngineLifecycleListener for managing engine lifecycle in a group.
+ */
 class EngineLifecycleListenerImpl implements EngineLifecycleListener {
   private platformViewsController: PlatformViewsController;
   private activeEngines: ArrayList<FlutterEngine> = new ArrayList();
   private engine: FlutterEngine | null;
 
+  /**
+   * Constructs a new EngineLifecycleListenerImpl instance.
+   * @param platformViewsController - The platform views controller
+   * @param activeEngines - List of active engines in the group
+   * @param engine - The engine this listener is associated with
+   */
   constructor(
     platformViewsController: PlatformViewsController,
     activeEngines: ArrayList<FlutterEngine>,
@@ -112,15 +149,25 @@ class EngineLifecycleListenerImpl implements EngineLifecycleListener {
     this.engine = engine;
   }
 
+  /**
+   * Called before the engine restarts.
+   */
   onPreEngineRestart(): void {
     this.platformViewsController.onPreEngineRestart();
   }
 
+  /**
+   * Called when the engine is about to be destroyed.
+   * Removes the engine from the active engines list.
+   */
   onEngineWillDestroy(): void {
     this.activeEngines.remove(this.engine);
   }
 }
 
+/**
+ * Configuration options for creating a Flutter engine in a group.
+ */
 export class Options {
   private context: common.Context;
   private dartEntrypoint: DartEntrypoint | null = null;
@@ -129,54 +176,107 @@ export class Options {
   private platformViewsController: PlatformViewsController | null = null;
   private waitForRestorationData: boolean = false;
 
+  /**
+   * Constructs a new Options instance.
+   * @param context - The application context
+   */
   constructor(context: common.Context) {
     this.context = context;
   }
 
+  /**
+   * Gets the application context.
+   * @returns The context
+   */
   getContext(): common.Context {
     return this.context;
   }
 
+  /**
+   * Gets the Dart entrypoint configuration.
+   * @returns The DartEntrypoint, or null if not set
+   */
   getDartEntrypoint(): DartEntrypoint | null {
     return this.dartEntrypoint;
   }
 
+  /**
+   * Gets the initial route for navigation.
+   * @returns The initial route string
+   */
   getInitialRoute(): string {
     return this.initialRoute;
   }
 
+  /**
+   * Gets the Dart entrypoint arguments.
+   * @returns Array of entrypoint arguments
+   */
   getDartEntrypointArgs(): Array<string> {
     return this.dartEntrypointArgs;
   }
 
+  /**
+   * Gets whether to wait for restoration data.
+   * @returns true if waiting for restoration data, false otherwise
+   */
   getWaitForRestorationData(): boolean {
     return this.waitForRestorationData;
   }
 
+  /**
+   * Gets the platform views controller.
+   * @returns The PlatformViewsController, or null if not set
+   */
   getPlatformViewsController(): PlatformViewsController | null {
     return this.platformViewsController;
   }
 
+  /**
+   * Sets the Dart entrypoint configuration.
+   * @param dartEntrypoint - The DartEntrypoint to set
+   * @returns This Options instance for method chaining
+   */
   setDartEntrypoint(dartEntrypoint: DartEntrypoint): Options {
     this.dartEntrypoint = dartEntrypoint;
     return this;
   }
 
+  /**
+   * Sets the initial route for navigation.
+   * @param initialRoute - The initial route string
+   * @returns This Options instance for method chaining
+   */
   setInitialRoute(initialRoute: string): Options {
     this.initialRoute = initialRoute;
     return this;
   }
 
+  /**
+   * Sets the Dart entrypoint arguments.
+   * @param dartEntrypointArgs - Array of entrypoint arguments
+   * @returns This Options instance for method chaining
+   */
   setDartEntrypointArgs(dartEntrypointArgs: Array<string>): Options {
     this.dartEntrypointArgs = dartEntrypointArgs;
     return this;
   }
 
+  /**
+   * Sets whether to wait for restoration data.
+   * @param waitForRestorationData - Whether to wait for restoration data
+   * @returns This Options instance for method chaining
+   */
   setWaitForRestorationData(waitForRestorationData: boolean): Options {
     this.waitForRestorationData = waitForRestorationData;
     return this;
   }
 
+  /**
+   * Sets the platform views controller.
+   * @param platformViewsController - The PlatformViewsController to set
+   * @returns This Options instance for method chaining
+   */
   setPlatformViewsController(platformViewsController: PlatformViewsController): Options {
     this.platformViewsController = platformViewsController;
     return this;
