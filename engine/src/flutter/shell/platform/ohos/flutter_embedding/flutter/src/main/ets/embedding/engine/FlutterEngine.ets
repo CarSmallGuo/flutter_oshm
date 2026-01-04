@@ -39,7 +39,9 @@ import NativeVsyncChannel from './systemchannels/NativeVsyncChannel';
 const TAG = "FlutterEngine";
 
 /**
- * 操作FlutterEngin相关
+ * Main class for managing Flutter engine operations.
+ * This class handles engine initialization, lifecycle management, channel setup,
+ * plugin registration, and communication with the native Flutter engine.
  */
 export default class FlutterEngine implements EngineLifecycleListener {
   private engineLifecycleListeners = new Set<EngineLifecycleListener>();
@@ -67,13 +69,12 @@ export default class FlutterEngine implements EngineLifecycleListener {
   private nativeVsyncChannel: NativeVsyncChannel | null = null;
 
   /**
-   * 需要初始化的工作：
-   * 1、初始化DartExecutor
-   * 2、初始化所有channel
-   * 3、初始化plugin
-   * 4、初始化flutterLoader
-   * 5、初始化flutterNapi
-   * 6、engineLifecycleListeners
+   * Constructs a new FlutterEngine instance.
+   * Initializes DartExecutor, channels, plugins, FlutterLoader, FlutterNapi, and lifecycle listeners.
+   * @param context - The application context
+   * @param flutterLoader - Optional FlutterLoader instance, will be created if null
+   * @param flutterNapi - Optional FlutterNapi instance, will be created if null
+   * @param platformViewsController - Optional PlatformViewsController, will be created if null
    */
   constructor(context: common.Context, flutterLoader: FlutterLoader | null, flutterNapi: FlutterNapi | null,
     platformViewsController: PlatformViewsController | null) {
@@ -101,6 +102,13 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.platformViewsController.attach(context, this.renderer, this.dartExecutor);
   }
 
+  /**
+   * Initializes the Flutter engine.
+   * Sets up all channels, plugins, and attaches to the native engine.
+   * @param context - The application context
+   * @param dartVmArgs - Optional Dart VM arguments
+   * @param waitForRestorationData - Whether to wait for restoration data
+   */
   init(context: common.Context, dartVmArgs: Array<string> | null, waitForRestorationData: boolean) {
     if (!this.flutterNapi.isAttached()) {
       this.flutterLoader.startInitialization(context)
@@ -136,6 +144,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
     Log.d(TAG, "Call init finished.")
   }
 
+  /**
+   * Attaches this engine to the native NAPI.
+   * @throws Error if attachment fails
+   */
   private attachToNapi(): void {
     Log.d(TAG, "Attaching to NAPI.");
     this.flutterNapi.attachToNative();
@@ -144,6 +156,18 @@ export default class FlutterEngine implements EngineLifecycleListener {
     }
   }
 
+  /**
+   * Spawns a new Flutter engine from this engine.
+   * The spawned engine shares resources with the parent engine.
+   * @param context - The application context
+   * @param dartEntrypoint - The Dart entrypoint configuration
+   * @param initialRoute - The initial route for navigation
+   * @param dartEntrypointArgs - Arguments for the Dart entrypoint
+   * @param platformViewsController - The platform views controller
+   * @param waitForRestorationData - Whether to wait for restoration data
+   * @returns The spawned FlutterEngine instance
+   * @throws Error if this engine is not fully constructed
+   */
   spawn(context: common.Context,
     dartEntrypoint: DartEntrypoint,
     initialRoute: string,
@@ -171,88 +195,170 @@ export default class FlutterEngine implements EngineLifecycleListener {
     return flutterEngine
   }
 
+  /**
+   * Checks if this engine is attached to the native NAPI.
+   * @returns true if attached, false otherwise
+   */
   private isAttachedToNapi(): boolean {
     return this.flutterNapi.isAttached();
   }
 
+  /**
+   * Processes any pending messages from the native side.
+   */
   processPendingMessages() {
     if (this.flutterNapi.isAttached()) {
       this.flutterNapi.processPendingMessages();
     }
   }
 
+  /**
+   * Gets the lifecycle channel for managing application lifecycle events.
+   * @returns The LifecycleChannel instance, or null if not initialized
+   */
   getLifecycleChannel(): LifecycleChannel | null {
     return this.lifecycleChannel;
   }
 
+  /**
+   * Gets the navigation channel for managing navigation events.
+   * @returns The NavigationChannel instance, or null if not initialized
+   */
   getNavigationChannel(): NavigationChannel | null {
     return this.navigationChannel;
   }
 
+  /**
+   * Gets the text input channel for managing text input events.
+   * @returns The TextInputChannel instance, or null if not initialized
+   */
   getTextInputChannel(): TextInputChannel | null {
     return this.textInputChannel;
   }
 
+  /**
+   * Gets the platform channel for platform-specific communication.
+   * @returns The PlatformChannel instance, or null if not initialized
+   */
   getPlatformChannel(): PlatformChannel | null {
     return this.platformChannel;
   }
 
+  /**
+   * Gets the system channel for system-level communication.
+   * @returns The SystemChannel instance, or null if not initialized
+   */
   getSystemChannel(): SystemChannel | null {
     return this.systemChannel;
   }
 
+  /**
+   * Gets the localization channel for managing locale information.
+   * @returns The LocalizationChannel instance, or null if not initialized
+   */
   getLocaleChannel(): LocalizationChannel | null {
     return this.localeChannel;
   }
 
+  /**
+   * Gets the mouse cursor channel for managing cursor changes.
+   * @returns The MouseCursorChannel instance, or null if not initialized
+   */
   getMouseCursorChannel(): MouseCursorChannel | null {
     return this.mouseCursorChannel;
   }
 
+  /**
+   * Gets the FlutterNapi instance for native communication.
+   * @returns The FlutterNapi instance
+   */
   getFlutterNapi(): FlutterNapi {
     return this.flutterNapi;
   }
 
+  /**
+   * Gets the FlutterRenderer instance for rendering operations.
+   * @returns The FlutterRenderer instance
+   */
   getFlutterRenderer(): FlutterRenderer {
     return this.renderer;
   }
 
+  /**
+   * Gets the DartExecutor instance for executing Dart code.
+   * @returns The DartExecutor instance
+   */
   getDartExecutor(): DartExecutor {
     return this.dartExecutor
   }
 
+  /**
+   * Gets the plugin registry for managing Flutter plugins.
+   * @returns The PluginRegistry instance, or null if not initialized
+   */
   getPlugins(): PluginRegistry | null {
     return this.pluginRegistry;
   }
 
+  /**
+   * Gets the ability control surface for managing ability-related operations.
+   * @returns The AbilityControlSurface instance, or null if not initialized
+   */
   getAbilityControlSurface(): AbilityControlSurface | null {
     return this.pluginRegistry;
   }
 
+  /**
+   * Gets the settings channel for managing application settings.
+   * @returns The SettingsChannel instance, or null if not initialized
+   */
   getSettingsChannel() {
     return this.settingsChannel;
   }
 
+  /**
+   * Gets the FlutterLoader instance for loading Flutter assets.
+   * @returns The FlutterLoader instance
+   */
   getFlutterLoader() {
     return this.flutterLoader;
   }
 
+  /**
+   * Called before the engine restarts.
+   * Notifies all registered lifecycle listeners.
+   */
   onPreEngineRestart(): void {
     this.engineLifecycleListeners.forEach(listener => listener.onPreEngineRestart())
   }
 
+  /**
+   * Called when the engine is about to be destroyed.
+   */
   onEngineWillDestroy(): void {
 
   }
 
+  /**
+   * Adds a lifecycle listener to be notified of engine lifecycle events.
+   * @param listener - The EngineLifecycleListener to add
+   */
   addEngineLifecycleListener(listener: EngineLifecycleListener): void {
     this.engineLifecycleListeners.add(listener);
   }
 
+  /**
+   * Removes a lifecycle listener from the list of registered listeners.
+   * @param listener - The EngineLifecycleListener to remove
+   */
   removeEngineLifecycleListener(listener: EngineLifecycleListener): void {
     this.engineLifecycleListeners.delete(listener);
   }
 
+  /**
+   * Destroys the Flutter engine and releases all resources.
+   * Notifies listeners, detaches from ability, and cleans up all components.
+   */
   destroy(): void {
     Log.d(TAG, "Destroying.");
     this.engineLifecycleListeners.forEach(listener => listener.onEngineWillDestroy())
@@ -264,37 +370,72 @@ export default class FlutterEngine implements EngineLifecycleListener {
     this.flutterNapi.detachFromNativeAndReleaseResources();
   }
 
+  /**
+   * Gets the restoration channel for managing state restoration.
+   * @returns The RestorationChannel instance, or null if not initialized
+   */
   getRestorationChannel(): RestorationChannel | null {
     return this.restorationChannel;
   }
 
+  /**
+   * Gets the accessibility channel for managing accessibility features.
+   * @returns The AccessibilityChannel instance, or null if not initialized
+   */
   getAccessibilityChannel(): AccessibilityChannel | null {
     return this.accessibilityChannel;
   }
 
+  /**
+   * Gets the localization plugin for managing locale information.
+   * @returns The LocalizationPlugin instance, or null if not initialized
+   */
   getLocalizationPlugin(): LocalizationPlugin | null {
     return this.localizationPlugin;
   }
 
+  /**
+   * Gets the system languages from the native side.
+   */
   getSystemLanguages(): void {
-    return this.flutterNapi.getSystemLanguages();
+    this.flutterNapi.getSystemLanguages();
   }
 
+  /**
+   * Gets the platform views controller for managing platform views.
+   * @returns The PlatformViewsController instance, or null if not initialized
+   */
   getPlatformViewsController(): PlatformViewsController | null {
     return this.platformViewsController;
   }
 
+  /**
+   * Gets the native VSync channel for managing vertical synchronization.
+   * @returns The NativeVsyncChannel instance, or null if not initialized
+   */
   getNativeVsyncChannel(): NativeVsyncChannel | null {
     return this.nativeVsyncChannel;
   }
 
+  /**
+   * Prefetches frame configuration for improved performance.
+   */
   async prefetchFramesCfg(): Promise<void> {
     FlutterNapi.prefetchFramesCfg();
   }
 }
 
+/**
+ * Interface for listening to Flutter engine lifecycle events.
+ */
 export interface EngineLifecycleListener {
+  /**
+   * Called before the engine restarts.
+   */
   onPreEngineRestart(): void;
 
+  /**
+   * Called when the engine is about to be destroyed.
+   */
   onEngineWillDestroy(): void;
 }
