@@ -527,7 +527,7 @@ deps = {
    Var('flutter_git') + '/third_party/pyyaml.git' + '@' + '03c67afd452cdff45b41bfe65e19a2fb5b80a0e8',
 
   'engine/src/flutter/third_party/swiftshader':
-  Var('ohos_git') + '/fluttertpc_swiftshader.git' + '@' + '10623c351c58d1ff497ef73203b70605d1b713df',
+   Var('ohos_git') + '/fluttertpc_swiftshader.git' + '@' + '10623c351c58d1ff497ef73203b70605d1b713df',
 
   'engine/src/flutter/third_party/angle':
   Var('ohos_git') + '/fluttertpc_angle.git' + '@' + '55b272d34b7d8208e5eebc92e179833fd7f5864e',
