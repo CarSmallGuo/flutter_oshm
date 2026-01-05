@@ -15,6 +15,32 @@ BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
 # 目标分支
 TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
 
+# 检查环境
+function check_env() {
+    echo "检查环境"
+    # 配置环境变量
+    # command-line-tools
+    export TOOL_HOME=/home/tools/command-line-tools
+    export DEVECO_SDK_HOME=$TOOL_HOME/sdk
+    export PATH=$DEVECO_SDK_HOME/default/openharmony/toolchains:$TOOL_HOME/ohpm/bin:$TOOL_HOME/hvigor/bin:$TOOL_HOME/tool/node/bin:$PATH
+    # Flutter
+    export PUB_CACHE=/home/tools/Flutter/PUB
+    export PUB_HOSTED_URL=https://pub.flutter-io.cn
+    export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+    # Flutter gclient
+    export PATH=/home/tools/depot_tools:$PATH
+    export DEPOT_TOOLS_UPDATE=0
+    export GCLIENT_SUPPRESS_GIT_VERSION_WARNING=1
+    # Flutter cipd
+    export CIPD_CACHE_DIR=/home/tools/cipd_cache
+    export CIPD_HTTP_USER_AGENT_PREFIX="offline"
+    export CIPD_NO_SELF_UPDATE=true
+    # llvm
+    export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
+    echo "$ set"
+    set
+}
+
 # 同步项目依赖
 function gclient_sync() {
     echo "同步项目依赖"
@@ -155,6 +181,8 @@ function upload_to_obs() {
 
 function compile() {
     echo "开始编译"
+    check_env
+
     pack_flutter
     if [ $? -ne 0 ]; then
         echo "Failed to execute: pack_flutter"
