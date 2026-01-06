@@ -33,6 +33,10 @@
 #include "flutter/shell/platform/ohos/types.h"
 #include "unicode/uchar.h"
 
+#include "flutter/fml/platform/ohos/ohos_trace_event.h"
+
+#include "flutter/fml/platform/ohos/ohos_trace_event.h"
+
 #define OHOS_SHELL_HOLDER (reinterpret_cast<OHOSShellHolder*>(shell_holder))
 namespace flutter {
 
@@ -273,6 +277,8 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
     int reponse_id,
     std::unique_ptr<fml::Mapping> data) {
   FML_DLOG(INFO) << "FlutterViewHandlePlatformMessageResponse";
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
   napi_status status;
   napi_value callbackParam[2];
   status = napi_create_int64(env_, reponse_id, callbackParam);
@@ -287,8 +293,6 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessageResponse(
         env_, (void*)data->GetMapping(), data->GetSize());
   }
 
-  napi_handle_scope scope;
-  napi_open_handle_scope(env_, &scope);
   status = fml::napi::InvokeJsMethod(
       env_, ref_napi_obj_, "handlePlatformMessageResponse", 2, callbackParam);
   if (status != napi_ok) {
@@ -302,7 +306,8 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
     std::unique_ptr<flutter::PlatformMessage> message) {
   FML_DLOG(INFO) << "FlutterViewHandlePlatformMessage message channal "
                  << message->channel().c_str();
-
+  napi_handle_scope scope;
+  napi_open_handle_scope(env_, &scope);
   napi_value callbackParam[4];
   napi_status status;
 
@@ -310,6 +315,7 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
                                    message->channel().size(), callbackParam);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_string_utf8 err " << status;
+    napi_close_handle_scope(env_, scope);
     return;
   }
 
@@ -319,6 +325,7 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
   status = napi_create_int64(env_, reponse_id, &callbackParam[2]);
   if (status != napi_ok) {
     FML_DLOG(ERROR) << "napi_create_int64 err " << status;
+    napi_close_handle_scope(env_, scope);
     return;
   }
   if (message->hasData()) {
@@ -329,6 +336,10 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
                                      &callbackParam[3]);
     if (status != napi_ok) {
       FML_DLOG(ERROR) << "napi_create_string_utf8 err " << status;
+      if (mapData) {
+        delete mapData;
+      }
+      napi_close_handle_scope(env_, scope);
       return;
     }
     if (mapData) {
@@ -338,8 +349,6 @@ void PlatformViewOHOSNapi::FlutterViewHandlePlatformMessage(
     callbackParam[3] = nullptr;
   }
 
-  napi_handle_scope scope;
-  napi_open_handle_scope(env_, &scope);
   status = fml::napi::InvokeJsMethod(env_, ref_napi_obj_,
                                      "handlePlatformMessage", 4, callbackParam);
   if (status != napi_ok) {
@@ -2847,6 +2856,66 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
       resourceManager->setQosOnLowMemory(lowMemoryLevel);
     }
   }
+  return nullptr;
+}
+
+napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_callback_info info)
+{
+  size_t argc = 2;
+  napi_value args[2] = {nullptr};
+
+  napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, " << ret;
+    return nullptr;
+  }
+
+  int64_t shell_holder;
+  ret = napi_get_value_int64(env, args[0], &shell_holder);
+  if (ret != napi_ok) {
+    FML_DLOG(ERROR) << "PlatformViewOHOSNapi::nativeSetSemanticsEnabled "
+                       "napi_get_value_int64 error:"
+                    << ret;
+    return nullptr;
+  }
+
+  int32_t type;
+  ret = napi_get_value_int32(env, args[1], &type);
+  if (ret != napi_ok) {
+    FML_LOG(ERROR) << "nativeSetAnimationStatus type "
+                      "napi_get_value_int32 error, " << ret;
+    return nullptr;
+  }
+
+  FML_LOG(ERROR) << "nativeSetAnimationStatus type = " << type;
+  auto status = static_cast<ScrollingStatus>(type);
+  switch (status) {
+    case ScrollingStatus::kScrollStart:
+      fml::tracing::TraceEventSetAnimationStatus(type);
+      break;
+    case ScrollingStatus::kScrollEnd:
+      fml::tracing::TraceEventSetAnimationStatus(type);
+        OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
+          OhosThreadType::kIO,
+          []{ fml::hiappevent::OhosHiappEventDDL::GetInstance()->FlushScroll(); }
+        );
+      break;
+    default:
+      break;
+  }
+  // std::shared_ptr<OhosVsyncVotingMgr> votingMgr = OhosVsyncVotingMgr::GetInstance();
+  // if (votingMgr == nullptr) {
+  //   return nullptr;
+  // }
+
+  // switch (type) {
+  //   case static_cast<int>(AnimationType::AN_TYPE_TRANSLATE):
+  //     votingMgr->VoteAnimationValue(AnimationType::AN_TYPE_TRANSLATE,
+  //       PlatformViewOHOSNapi::display_density_pixels, velocity);
+  //     break;
+  //   default:
+  //     break;
+  // }
   return nullptr;
 }
 
