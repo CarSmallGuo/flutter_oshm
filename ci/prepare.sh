@@ -1,18 +1,23 @@
-# ci预编译脚本
-# 预编译命令为：sh ./third_party/flutter_flutter/ci/prepare.sh
+#! /bin/bash
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+#
+# USE IN CI
+# preCompile：sh ./third_party/flutter_flutter/ci/prepare.sh
 
 ROOT_DIR=$(pwd)
-# 项目目录
+# Project directory
 PROJECT_DIR="$ROOT_DIR/third_party"
-# 引擎目录
+# Engine directory
 ENGINE_DIR="$PROJECT_DIR/flutter_flutter/engine"
-# 归档目录
+# Archive directory
 ARCHIVE_DIR="$ROOT_DIR/Archive/out"
-# 备份目录
+# Backup directory
 BACKUP_DIR="$ROOT_DIR/Backup"
-# repo 缓存仓库
+# repo cache repository
 REPO_CACHE_DIR="/home/tools/Flutter/repo"
-# fluttertpc仓库列表
+# fluttertpc repository list
 FLUTTERTPC_REPOS=(
   fluttertpc_angle
   fluttertpc_boringssl_gen
@@ -33,16 +38,16 @@ FLUTTERTPC_REPOS=(
 TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
 TARGET_TESTER_BRANCH="main"
 
-# 检查环境
+# Check environment
 function check_env() {
-    echo "检查环境"
+    echo "Check environment"
     echo "$ uname -a"
     uname -a
     echo "$ cat /etc/os-release"
     cat /etc/os-release
     echo "$ id -un"
     id -un
-    # 配置环境变量
+    # Set environment variables
     # command-line-tools
     export TOOL_HOME=/home/tools/command-line-tools
     export DEVECO_SDK_HOME=$TOOL_HOME/sdk
@@ -64,7 +69,7 @@ function check_env() {
     echo "$ env"
     env
     # set
-    echo "检查工具"
+    echo "Check tools"
     echo "$ node -v"
     node -v
     echo "$ npm -v"
@@ -77,18 +82,20 @@ function check_env() {
     hdc -v
     echo "$ git --version"
     git --version
+    git config --global user.name "Flutter CI"
+    git config --global user.email "flutter_ci@huawei.com"
     echo "$ git config -l"
     git config -l
     echo "$ java -version"
     java -version
-    echo "$ 检查网络"
+    echo "$ Check network"
     echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 $PUB_HOSTED_URL"
     curl -s -o /dev/null -w "%{http_code}\n" -m 5 $PUB_HOSTED_URL
     echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 $FLUTTER_STORAGE_BASE_URL"
     curl -s -o /dev/null -w "%{http_code}\n" -m 5 $FLUTTER_STORAGE_BASE_URL
     echo "$ curl -s -o /dev/null -w \"%{http_code}\n\" -m 5 https://chrome-infra-packages.appspot.com/prpc/cipd.Repository/GetInstanceURL"
     curl -s -o /dev/null -w "%{http_code}\n" -m 5 https://chrome-infra-packages.appspot.com/prpc/cipd.Repository/GetInstanceURL
-    echo "检查项目文件"
+    echo "Check project files"
     echo "$ pwd"
     pwd
     echo "$ cd $PROJECT_DIR"
@@ -99,20 +106,20 @@ function check_env() {
     mkdir -p $BACKUP_DIR
 }
 
-# 同步缓存
+# Sync cache
 function sync_cache() {
-    echo "同步缓存"
-    # 刷新CIPD缓存时间，避免缓存过期被删除
+    echo "Sync cache"
+    # Refresh CIPD cache time to avoid cache expiration
     echo "$ find $CIPD_CACHE_DIR -type f -exec touch {} +"
     find $CIPD_CACHE_DIR -type f -exec touch {} +
-    # 刷新FLUTTERTPC仓库
+    # Refresh FLUTTERTPC repositories
     echo "$ cd $REPO_CACHE_DIR"
     cd $REPO_CACHE_DIR
     for repo in "${FLUTTERTPC_REPOS[@]}"; do
         echo "Fetching in $repo"
         (cd "$repo" && git fetch --all)
     done
-    echo "$ 检查缓存"
+    echo "$ Check cache"
     echo "$ ls -al $REPO_CACHE_DIR"
     ls -al $REPO_CACHE_DIR
     echo "$ ls -1A \"$REPO_CACHE_DIR\" | wc -l"
@@ -123,17 +130,17 @@ function sync_cache() {
     ls -1A "$CIPD_CACHE_DIR/instances" | wc -l
 }
 
-# 恢复engine
+# restore engine
 function maybe_restore_engine() {
     if [ ! -d $ENGINE_DIR/src/flutter ]; then
         cp -a $BACKUP_DIR/src $ENGINE_DIR
     fi
 }
 
-# 准备SDK
+# Prepare SDK
 function prepare_flutter() {
-    echo "准备项目文件"
-    echo "变基"
+    echo "Prepare project files"
+    echo "Rebase"
     echo "$ cd $PROJECT_DIR/flutter_flutter"
     cd $PROJECT_DIR/flutter_flutter
     echo "$ git fetch --all"
@@ -150,27 +157,27 @@ function prepare_flutter() {
     git status
     git diff
 
-    # 获取commitid
+    # Get commit id
     COMMIT_ID=$(git rev-parse HEAD)
     echo "COMMIT_ID: $COMMIT_ID"
-    # 写入 commitid 文件
+    # Write commit id file
     echo $COMMIT_ID > $ARCHIVE_DIR/engine.ohos.har.version
     echo $COMMIT_ID > $ARCHIVE_DIR/engine.ohos.version
 
-    # 备份（gclient sync失败时可能会将src里面的flutter文件夹删除，或src文件夹被污染）
+    # Backup (gclient sync may delete the flutter folder in src or pollute the src folder)
     echo "$ rm -rf $BACKUP_DIR/src"
     rm -rf $BACKUP_DIR/src
     echo "$ cp -a $ENGINE_DIR/src $BACKUP_DIR/src"
     cp -a $ENGINE_DIR/src $BACKUP_DIR/src
 }
 
-# 准备Tester
+# Prepare Tester
 function prepare_tester() {
-    echo "准备Tester"
+    echo "Prepare Tester"
     echo "$ cd $PROJECT_DIR/flutter_tester"
     cd $PROJECT_DIR/flutter_tester
     if [ $? -ne 0 ]; then
-        echo "flutter_tester 不存在"
+        echo "flutter_tester does not exist"
         return 1
     fi
     echo "$ git branch -a"
@@ -183,7 +190,7 @@ function prepare_tester() {
     git pull --rebase
 }
 
-# 入口
+# Entry
 function prepare() {
     check_env
     sync_cache
@@ -201,7 +208,7 @@ function prepare() {
         return 1
     fi
 
-    echo "准备阶段完成"
+    echo "Preparation stage completed"
 }
 
 prepare $@

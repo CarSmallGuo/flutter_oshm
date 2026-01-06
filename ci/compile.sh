@@ -1,24 +1,29 @@
-# ci编译脚本
-# 编译命令为：sh ./third_party/flutter_flutter/ci/compile.sh
+#! /bin/bash
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+#
+# USE IN CI
+# compileCMD：sh ./third_party/flutter_flutter/ci/compile.sh
 
 ROOT_DIR=$(pwd)
-# 项目目录
+# Project directory
 PROJECT_DIR="$ROOT_DIR/third_party"
-# 引擎目录
+# Engine directory
 ENGINE_DIR="$PROJECT_DIR/flutter_flutter/engine"
-# 归档目录
+# Archive directory
 ARCHIVE_DIR="$ROOT_DIR/Archive/out"
-# 编译模式，随机从debug、profile和release中选择一个
+# Build mode, randomly select one from debug, profile and release
 MODES=("debug" "profile" "release")
 BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
 
-# 目标分支
+# Target branch
 TARGET_FLUTTER_BRANCH="oh-3.35.7-dev"
 
-# 检查环境
+# Check environment
 function check_env() {
-    echo "检查环境"
-    # 配置环境变量
+    echo "Check environment"
+    # Set environment variables
     # command-line-tools
     export TOOL_HOME=/home/tools/command-line-tools
     export DEVECO_SDK_HOME=$TOOL_HOME/sdk
@@ -41,12 +46,12 @@ function check_env() {
     set
 }
 
-# 同步项目依赖
+# Sync project dependencies
 function gclient_sync() {
-    echo "同步项目依赖"
+    echo "Sync project dependencies"
     echo "$ cd $PROJECT_DIR/flutter_flutter"
     cd $PROJECT_DIR/flutter_flutter
-    echo "同步 .gclient"
+    echo "Sync .gclient"
     echo "$ cp -a ./ci/resources/. ."
     cp -a ./ci/resources/. .
     echo "$ ls -al"
@@ -66,7 +71,7 @@ function gclient_sync() {
         return 1
     fi
 
-    # 临时，替换下载地址
+    # Temporary, replace download URL
     sed -i 's|https://commondatastorage.googleapis.com|file:///home/tools/Flutter/repo/binary|g' $ENGINE_DIR/src/build/linux/sysroot_scripts/install-sysroot.py
 
     echo "$ gclient runhooks"
@@ -76,21 +81,21 @@ function gclient_sync() {
         return 1
     fi
 
-    # 3.7 以上跳过单元测试模块
+    # Skip unit test module for versions above 3.7
     if [ "$TARGET_FLUTTER_BRANCH" = "dev" ]; then
-        echo "无需跳过单元测试模块"
+        echo "No need to skip unit test module"
         return 0
     fi
     sed -i 's|enable_unittests = current_toolchain == host_toolchain \|\| is_fuchsia \|\| is_mac|enable_unittests = false|g' $ENGINE_DIR/src/flutter/testing/testing.gni
 }
 
-# 编译 engine，随机从debug、profile和release中选择一个
+# Compile engine, randomly select one from debug, profile and release
 function compile_engine_random() {
-    echo "构建模式：$BUILD_MODE"
+    echo "Build mode: $BUILD_MODE"
     echo "$ cd $ENGINE_DIR"
     cd $ENGINE_DIR
 
-    echo "开始编译engine"
+    echo "Start compiling engine"
     echo "$ ./ohos -t $BUILD_MODE"
     ./ohos -t $BUILD_MODE
     if [ $? -ne 0 ]; then
@@ -98,7 +103,7 @@ function compile_engine_random() {
         return 1
     fi
 
-    # 3.7 需要额外编译host
+    # 3.7 needs to compile host additionally
     if [ "$TARGET_FLUTTER_BRANCH" = "dev" ]; then
         echo "$ ./ohos -t $BUILD_MODE -n host"
         ./ohos -t $BUILD_MODE -n host
@@ -108,19 +113,19 @@ function compile_engine_random() {
         fi
     fi
 
-    # 归档
+    # Archive
     (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
 }
 
-# 编译 engine，全量
+# Compile engine, full build
 function compile_engine_all() {
-    echo "编译 engine，全量"
+    echo "Compile engine, full build"
     echo "$ cd $ENGINE_DIR"
     cd $ENGINE_DIR
 
-    echo "开始编译engine"
+    echo "Start compiling engine"
     if [ "$TARGET_FLUTTER_BRANCH" = "dev" ]; then
-        # 3.7 需要额外编译host
+        # 3.7 needs to compile host additionally
         echo "$ ./ohos && ./ohos -n host && ./ohos --ohos-cpu x64"
         ./ohos && ./ohos -n host && ./ohos --ohos-cpu x64
     else
@@ -128,27 +133,27 @@ function compile_engine_all() {
         ./ohos && ./ohos --ohos-cpu x64
     fi
     if [ $? -ne 0 ]; then
-        echo "engine 编译失败"
+        echo "Engine compilation failed"
         return 1
     fi
 
-    # 归档
+    # Archive
     (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
 }
 
-# 打包SDK
+# Pack SDK
 function pack_flutter() {
-    echo "打包SDK"
+    echo "Pack SDK"
     echo "$ cd $PROJECT_DIR/flutter_flutter"
     cd $PROJECT_DIR/flutter_flutter
     echo "$ zip -r $ARCHIVE_DIR/flutter.ohos.zip *"
     zip -r $ARCHIVE_DIR/sdk-$TARGET_FLUTTER_BRANCH.zip *
 }
 
-# 编译Tester
+# Compile Tester
 function compile_tester() {
-    echo "编译Tester"
-    # 检查 flutter 环境
+    echo "Compile Tester"
+    # Check flutter environment
     export PATH=$PROJECT_DIR/flutter_flutter/bin:$PATH
     echo "$ echo \$PATH"
     echo $PATH
@@ -158,14 +163,14 @@ function compile_tester() {
     echo "$ cd $PROJECT_DIR/flutter_tester"
     cd $PROJECT_DIR/flutter_tester
     if [ "$TARGET_FLUTTER_BRANCH" = "dev" ]; then
-        # 3.7版本不需要--local-engine-host
+        # 3.7 does not need --local-engine-host
         echo "$ flutter build hap --$BUILD_MODE --local-engine-src-path=$ENGINE_DIR/src --local-engine=ohos_${BUILD_MODE}_arm64"
         flutter build hap --$BUILD_MODE --local-engine-src-path=$ENGINE_DIR/src --local-engine=ohos_${BUILD_MODE}_arm64
     else
         echo "$ flutter build hap --$BUILD_MODE --local-engine-src-path=$ENGINE_DIR/src --local-engine=ohos_${BUILD_MODE}_arm64 --local-engine-host=host_$BUILD_MODE"
         flutter build hap --$BUILD_MODE --local-engine-src-path=$ENGINE_DIR/src --local-engine=ohos_${BUILD_MODE}_arm64 --local-engine-host=host_$BUILD_MODE
     fi
-    # 归档
+    # Archive
     cp $PROJECT_DIR/flutter_tester/ohos/entry/build/default/outputs/default/entry-default-unsigned.hap $ARCHIVE_DIR/entry-default-unsigned.hap
     if [ $? -ne 0 ]; then
         echo "Failed to execute: flutter build hap --$BUILD_MODE"
@@ -173,14 +178,14 @@ function compile_tester() {
     fi
 }
 
-# 上传到obs
+# Upload to obs
 function upload_to_obs() {
-    echo "上传到obs"
-    # 待完成
+    echo "Upload to obs"
+    # To be done
 }
 
 function compile() {
-    echo "开始编译"
+    echo "Start compilation"
     check_env
 
     pack_flutter
@@ -196,16 +201,16 @@ function compile() {
     fi
 
     if [ -z "${PR_URL}" ]; then
-        # PR_URL 为空，说明是每日构建，需要编译全量
-        echo "PR_URL 为空，说明是每日构建，需要编译全量"
+        # PR_URL is empty, indicates daily build, needs full compilation
+        echo "PR_URL is empty, indicates daily build, needs full compilation"
         compile_engine_all
     else
-        # 门禁
-        echo "PR_URL 不为空，说明是门禁构建，需要编译随机"
+        # Gatekeeper
+        echo "PR_URL is not empty, indicates gatekeeper build, needs random compilation"
         compile_engine_random
     fi
     if [ $? -ne 0 ]; then
-        echo "engine 编译失败"
+        echo "Engine compilation failed"
         return 1
     fi
     
@@ -214,14 +219,14 @@ function compile() {
         echo "Failed to execute: compile_tester"
         return 1
     fi
-    echo "编译阶段完成"
+    echo "Compilation stage completed"
 }
 
 compile $@
 if [ $? -ne 0 ]; then
-    # 后台删除，src文件夹已被污染
+    # Delete in background, src folder has been polluted
     (rm -rf $ENGINE_DIR/src &)
-    echo "编译阶段失败"
+    echo "Compilation stage failed"
     exit 1
 fi
 exit 0
