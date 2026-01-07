@@ -789,8 +789,7 @@ OS getNativeOSFromTargetPlatform(TargetPlatform platform) {
     case TargetPlatform.ohos_arm:
     case TargetPlatform.ohos_arm64:
     case TargetPlatform.ohos_x64:
-      // todo: 修改为 OS.ohos
-      return OS.android;
+      return OS.ohos;
     case TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OS.macOS;
