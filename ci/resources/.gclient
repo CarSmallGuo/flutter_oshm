@@ -1,3 +1,7 @@
+# Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE_HW file.
+
 solutions = [
   {
     "deps_file": "DEPS_ohos",
@@ -12,7 +16,7 @@ solutions = [
       "engine/src/flutter/third_party/boringssl/src": "/home/tools/Flutter/repo/boringssl@8d8df26fc54f6e5fb0bf404a76ce973c0413eafc",
       "engine/src/flutter/third_party/brotli": "/home/tools/Flutter/repo/brotli@350100a5bb9d9671aca85213b2ec7a70a361b0cd",
       "engine/src/flutter/third_party/cpu_features/src": "/home/tools/Flutter/repo/cpu_features@936b9ab5515dead115606559502e3864958f7f6e",
-      "engine/src/flutter/third_party/dart": "/home/tools/Flutter/repo/fluttertpc_dart_sdk@c69ebf0edf7413a635388a3ce3a190202c43bb30",
+      "engine/src/flutter/third_party/dart": "/home/tools/Flutter/repo/fluttertpc_dart_sdk@c32ce6225512c19c7cc3333fed8f589e0abcb910",
       "engine/src/flutter/third_party/dart/third_party/binaryen/src": "/home/tools/Flutter/repo/binaryen@b4bdcc33115b31758c56b83bb9de4642c411a042",
       "engine/src/flutter/third_party/dart/third_party/pkg/core": "/home/tools/Flutter/repo/core@7a80178ca72b01b0efb99a9a9a654d83ca21d6b7",
       "engine/src/flutter/third_party/dart/third_party/pkg/dart_style": "/home/tools/Flutter/repo/dart_style@100db45075abdd66fd8788b205243e90ff0595df",
