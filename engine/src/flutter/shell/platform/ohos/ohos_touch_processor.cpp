@@ -24,6 +24,7 @@ constexpr int DEFAULT_PANZOOM_DEVICE_ID = -103;
 constexpr int TOUCH_UP_PERFORMANCE_SECTION = 3000;
 constexpr double ZOOM_IN = 10.0 / 8.0;
 constexpr double ZOOM_OUT = 1.0 / ZOOM_IN;
+constexpr double MOUSE_BOUNDARY_OFFSET = 0.1;
 
 // OH_NativeXComponent_MouseEvent对象没有deviceId成员变量或获取deviceId的接口
 // ，该常量(DEFAULT_MOUSE_DEVICE_ID)是用于对pointerData.device进行赋值
@@ -652,23 +653,22 @@ void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
       
       // Adjust coordinates to be outside the boundary (slightly beyond to ensure
       // hit-test won't hit MouseRegions inside the application)
-      const double boundaryOffset = 0.1;
       if (minDist == distToLeft) {
         // Outside left boundary
-        lastMoveEvent.x = -boundaryOffset;
+        lastMoveEvent.x = -MOUSE_BOUNDARY_OFFSET;
         lastMoveEvent.y = lastMouseY_;
       } else if (minDist == distToRight) {
         // Outside right boundary
-        lastMoveEvent.x = windowWidth + boundaryOffset;
+        lastMoveEvent.x = windowWidth + MOUSE_BOUNDARY_OFFSET;
         lastMoveEvent.y = lastMouseY_;
       } else if (minDist == distToTop) {
         // Outside top boundary
         lastMoveEvent.x = lastMouseX_;
-        lastMoveEvent.y = -boundaryOffset;
+        lastMoveEvent.y = -MOUSE_BOUNDARY_OFFSET;
       } else {
         // Outside bottom boundary
         lastMoveEvent.x = lastMouseX_;
-        lastMoveEvent.y = windowHeight + boundaryOffset;
+        lastMoveEvent.y = windowHeight + MOUSE_BOUNDARY_OFFSET;
       }
     } else {
       // If window size information is not available, use original coordinates
