@@ -623,6 +623,64 @@ void OhosTouchProcessor::VsyncVotingTouchDown(int64_t shellHolderID) {
   ohos_shell_holder->GetPlatformView()->RunTask(OhosThreadType::kIO, task);
 }
 
+void OhosTouchProcessor::SendFinalMoveEventBeforeLeave(
+    int64_t shell_holderID,
+    OH_NativeXComponent* component,
+    OH_NativeXComponent_MouseEvent mouseEvent,
+    double windowWidth,
+    double windowHeight) {
+  // Before sending the leave event, send a final move event with boundary coordinates
+  // This allows MouseTracker to correctly compare states and trigger exit events
+  if (lastMouseX_ >= 0 && lastMouseY_ >= 0) {
+    // Create a copy of the last move event
+    OH_NativeXComponent_MouseEvent lastMoveEvent = mouseEvent;
+    lastMoveEvent.action = OH_NATIVEXCOMPONENT_MOUSE_MOVE;
+    lastMoveEvent.timestamp = lastMouseTimestamp_;
+    
+    // Adjust coordinates to be outside the nearest boundary to ensure hit-test
+    // won't hit MouseRegions inside the application
+    // Determine the nearest boundary based on the last position
+    if (windowWidth > 0 && windowHeight > 0) {
+      // Calculate distances to each boundary
+      double distToLeft = lastMouseX_;
+      double distToRight = windowWidth - lastMouseX_;
+      double distToTop = lastMouseY_;
+      double distToBottom = windowHeight - lastMouseY_;
+      
+      // Find the nearest boundary
+      double minDist = std::min({distToLeft, distToRight, distToTop, distToBottom});
+      
+      // Adjust coordinates to be outside the boundary (slightly beyond to ensure
+      // hit-test won't hit MouseRegions inside the application)
+      const double boundaryOffset = 0.1;
+      if (minDist == distToLeft) {
+        // Outside left boundary
+        lastMoveEvent.x = -boundaryOffset;
+        lastMoveEvent.y = lastMouseY_;
+      } else if (minDist == distToRight) {
+        // Outside right boundary
+        lastMoveEvent.x = windowWidth + boundaryOffset;
+        lastMoveEvent.y = lastMouseY_;
+      } else if (minDist == distToTop) {
+        // Outside top boundary
+        lastMoveEvent.x = lastMouseX_;
+        lastMoveEvent.y = -boundaryOffset;
+      } else {
+        // Outside bottom boundary
+        lastMoveEvent.x = lastMouseX_;
+        lastMoveEvent.y = windowHeight + boundaryOffset;
+      }
+    } else {
+      // If window size information is not available, use original coordinates
+      lastMoveEvent.x = lastMouseX_;
+      lastMoveEvent.y = lastMouseY_;
+    }
+    
+    // Send the final move event
+    HandleMouseEvent(shell_holderID, component, lastMoveEvent, 0.0, false, windowWidth, windowHeight);
+  }
+}
+
 void OhosTouchProcessor::HandleMouseEvent(
     int64_t shell_holderID,
     OH_NativeXComponent* component,
@@ -632,56 +690,7 @@ void OhosTouchProcessor::HandleMouseEvent(
     double windowWidth,
     double windowHeight) {
   if (isLeave) {
-    // Before sending the leave event, send a final move event with boundary coordinates
-    // This allows MouseTracker to correctly compare states and trigger exit events
-    if (lastMouseX_ >= 0 && lastMouseY_ >= 0) {
-      // Create a copy of the last move event
-      OH_NativeXComponent_MouseEvent lastMoveEvent = mouseEvent;
-      lastMoveEvent.action = OH_NATIVEXCOMPONENT_MOUSE_MOVE;
-      lastMoveEvent.timestamp = lastMouseTimestamp_;
-      
-      // Adjust coordinates to be outside the nearest boundary to ensure hit-test
-      // won't hit MouseRegions inside the application
-      // Determine the nearest boundary based on the last position
-      if (windowWidth > 0 && windowHeight > 0) {
-        // Calculate distances to each boundary
-        double distToLeft = lastMouseX_;
-        double distToRight = windowWidth - lastMouseX_;
-        double distToTop = lastMouseY_;
-        double distToBottom = windowHeight - lastMouseY_;
-        
-        // Find the nearest boundary
-        double minDist = std::min({distToLeft, distToRight, distToTop, distToBottom});
-        
-        // Adjust coordinates to be outside the boundary (slightly beyond to ensure
-        // hit-test won't hit MouseRegions inside the application)
-        const double boundaryOffset = 0.1;
-        if (minDist == distToLeft) {
-          // Outside left boundary
-          lastMoveEvent.x = -boundaryOffset;
-          lastMoveEvent.y = lastMouseY_;
-        } else if (minDist == distToRight) {
-          // Outside right boundary
-          lastMoveEvent.x = windowWidth + boundaryOffset;
-          lastMoveEvent.y = lastMouseY_;
-        } else if (minDist == distToTop) {
-          // Outside top boundary
-          lastMoveEvent.x = lastMouseX_;
-          lastMoveEvent.y = -boundaryOffset;
-        } else {
-          // Outside bottom boundary
-          lastMoveEvent.x = lastMouseX_;
-          lastMoveEvent.y = windowHeight + boundaryOffset;
-        }
-      } else {
-        // If window size information is not available, use original coordinates
-        lastMoveEvent.x = lastMouseX_;
-        lastMoveEvent.y = lastMouseY_;
-      }
-      
-      // Send the final move event
-      HandleMouseEvent(shell_holderID, component, lastMoveEvent, 0.0, false, windowWidth, windowHeight);
-    }
+    SendFinalMoveEventBeforeLeave(shell_holderID, component, mouseEvent, windowWidth, windowHeight);
   } else {
     // Store the last mouse position (for non-leave events)
     lastMouseX_ = mouseEvent.x;
