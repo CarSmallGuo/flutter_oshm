@@ -112,6 +112,8 @@ function sync_cache() {
     # Refresh CIPD cache time to avoid cache expiration
     echo "$ find $CIPD_CACHE_DIR -type f -exec touch {} +"
     find $CIPD_CACHE_DIR -type f -exec touch {} +
+    echo "$ rm $CIPD_CACHE_DIR/instances/state.db"
+    rm $CIPD_CACHE_DIR/instances/state.db
     # Refresh FLUTTERTPC repositories
     echo "$ cd $REPO_CACHE_DIR"
     cd $REPO_CACHE_DIR
