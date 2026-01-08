@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.26
+- Flutter支持Column自适应调整 ([32136a7e](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/32136a7e9da09b623cd094eb071d14b1cd63a89e?ref=3.22.0-ohos))
 ## 6.1.0.25
 - Fix the issue where pasting is not possible after cutting ([2a8b02f6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2a8b02f681b91a45a9e6709344e847f7f0ff74e5?ref=oh-3.22.0))
 ## 6.1.0.23
