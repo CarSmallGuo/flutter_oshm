@@ -60,6 +60,8 @@ function check_env() {
     hdc -v
     echo "$ git --version"
     git --version
+    git config --global user.name "Flutter CI"
+    git config --global user.email "flutter_ci@huawei.com"
     echo "$ git config -l"
     git config -l
     echo "$ java -version"
