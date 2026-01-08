@@ -384,7 +384,7 @@ class AlertDialog extends StatelessWidget {
     this.clipBehavior = Clip.none,
     this.shape,
     this.alignment,
-    this.scrollable = false,
+    this.scrollable,
   }) : assert(clipBehavior != null);
 
   /// An optional icon to display at the top of the dialog.
@@ -619,7 +619,7 @@ class AlertDialog extends StatelessWidget {
   /// to overflow. Both [title] and [content] are wrapped in a scroll view,
   /// allowing all overflowed content to be visible while still showing the
   /// button bar.
-  final bool scrollable;
+  final bool? scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -627,6 +627,9 @@ class AlertDialog extends StatelessWidget {
     final ThemeData theme = Theme.of(context);
     final DialogTheme dialogTheme = DialogTheme.of(context);
     final DialogTheme defaults = theme.useMaterial3 ? _DialogDefaultsM3(context) : _DialogDefaultsM2(context);
+
+    final bool effectiveScrollable = scrollable ?? 
+      (Theme.of(context).platform == TargetPlatform.ohos ? true : false);
 
     String? label = semanticLabel;
     switch (theme.platform) {
@@ -751,7 +754,7 @@ class AlertDialog extends StatelessWidget {
     }
 
     List<Widget> columnChildren;
-    if (scrollable) {
+    if (effectiveScrollable) {
       columnChildren = <Widget>[
         if (title != null || content != null)
           Flexible(
