@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.2010
+- fix: MouseRegion onExit is not triggered when moving the cursor in and out fast ([e42c1328](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e42c1328c53e8bf93c176c2b367dfcb9e7e0f836?ref=3_32_pc_mouse&prId=1150))
 ## 6.0.2.125
 - 修复切换输入框时，软键盘类型存在安全类键盘时出现键盘无法唤起的问题 ([163683d2](https://gitcode.com/openharmony-tpc/flutter_engine/pull/1097/commit))
 ## 6.0.3.21
