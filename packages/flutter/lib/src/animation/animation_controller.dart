@@ -12,6 +12,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/physics.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/semantics.dart';
+import 'package:flutter/widgets.dart';
 
 import 'animation.dart';
 import 'curves.dart';
@@ -946,6 +947,19 @@ class AnimationController extends Animation<double>
     }
   }
 
+  /// This value represents whether the current animation interval is a ratio.
+  ///
+  /// If [upperBound] is not Infinite, and it less than 1.0,
+  /// consider it as an interval ratio.
+  bool get isIntervalRatio {
+    if (!upperBound.isInfinite &&
+        upperBound <= 1.0 &&
+        _simulation is _InterpolationSimulation) {
+      return true;
+    }
+    return false;
+  }
+
   void _tick(Duration elapsed) {
     _lastElapsedDuration = elapsed;
     final double elapsedInSeconds =
@@ -962,7 +976,7 @@ class AnimationController extends Animation<double>
 
     switch (defaultTargetPlatform) {
       case TargetPlatform.ohos:
-        SchedulerBinding.instance.sendTranslateVelocity(velocity);
+        WidgetsBinding.instance.recordTranslateVelocity(velocity, isIntervalRatio);
         break;
       case TargetPlatform.android:
       case TargetPlatform.iOS:
