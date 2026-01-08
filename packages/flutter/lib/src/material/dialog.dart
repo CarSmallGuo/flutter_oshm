@@ -396,7 +396,7 @@ class AlertDialog extends StatelessWidget {
     this.clipBehavior = Clip.none,
     this.shape,
     this.alignment,
-    this.scrollable = false,
+    this.scrollable,
   });
 
   /// Creates an adaptive [AlertDialog] based on whether the target platform is
@@ -455,7 +455,7 @@ class AlertDialog extends StatelessWidget {
     Clip clipBehavior,
     ShapeBorder? shape,
     AlignmentGeometry? alignment,
-    bool scrollable,
+    bool? scrollable,
     ScrollController? scrollController,
     ScrollController? actionScrollController,
     Duration insetAnimationDuration,
@@ -701,7 +701,7 @@ class AlertDialog extends StatelessWidget {
   /// to overflow. Both [title] and [content] are wrapped in a scroll view,
   /// allowing all overflowed content to be visible while still showing the
   /// button bar.
-  final bool scrollable;
+  final bool? scrollable;
 
   @override
   Widget build(BuildContext context) {
@@ -710,6 +710,9 @@ class AlertDialog extends StatelessWidget {
 
     final DialogTheme dialogTheme = DialogTheme.of(context);
     final DialogTheme defaults = theme.useMaterial3 ? _DialogDefaultsM3(context) : _DialogDefaultsM2(context);
+
+    final bool effectiveScrollable = scrollable ?? 
+      (Theme.of(context).platform == TargetPlatform.ohos ? true : false);
 
     String? label = semanticLabel;
     switch (theme.platform) {
@@ -836,7 +839,7 @@ class AlertDialog extends StatelessWidget {
     }
 
     List<Widget> columnChildren;
-    if (scrollable) {
+    if (effectiveScrollable) {
       columnChildren = <Widget>[
         if (title != null || content != null)
           Flexible(
@@ -924,7 +927,7 @@ class _AdaptiveAlertDialog extends AlertDialog {
     super.clipBehavior = Clip.none,
     super.shape,
     super.alignment,
-    super.scrollable = false,
+    super.scrollable,
     this.scrollController,
     this.actionScrollController,
     this.insetAnimationDuration = const Duration(milliseconds: 100),
