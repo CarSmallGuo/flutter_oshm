@@ -1,4 +1,10 @@
 # Changelog
+## 6.1.0.26
+- MouseRegion onExit is not triggered when moving the cursor in and out fast ([f1cd23e6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f1cd23e6e3ce061daa7ac471c381f5deb6208eeb?ref=3_22_dev_pc_mouse&prId=1153))
+- 滑动丢帧上报：报文时间字段修改为UTC时间戳格式、新增滑动丢帧上报过程中总帧数属性 ([810959c4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/810959c45d7eeb603979ba7809f24586956b2753?ref=oh-3.22.0))
+- Flutter支持Column自适应调整 ([c7126e6e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c7126e6ef085881a5340d41181ba750ad7a2395d?ref=oh-3.22.0_Column&prId=1141))
+- 报文时间修改为UTC时间戳、新增滑动丢帧上报过程中总帧数属性([76c42353](https://gitcode.com/openharmony-tpc/flutter_engine/commit/76c4235390a37b65621e8ada349ca996aa4ab505?ref=oh-3.22.0))
+- 更新fluttertpc_dart_sdk仓库版本为f1ce6576 ([f861914d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f861914df3c53e6372c7c4d5bf6d15bf06a95148?ref=oh-3.22.0&prId=1142))
 ## 6.1.0.25
 - Fix the issue where pasting is not possible after cutting ([2a8b02f6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2a8b02f681b91a45a9e6709344e847f7f0ff74e5?ref=oh-3.22.0))
 ## 6.1.0.23
