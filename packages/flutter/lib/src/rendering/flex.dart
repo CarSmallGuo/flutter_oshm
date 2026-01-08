@@ -11,6 +11,7 @@ import 'debug_overflow_indicator.dart';
 import 'layer.dart';
 import 'layout_helper.dart';
 import 'object.dart';
+import 'flex_overflow_strategy.dart';
 
 /// How the child is inscribed into the available space.
 ///
@@ -289,6 +290,7 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
     VerticalDirection verticalDirection = VerticalDirection.down,
     TextBaseline? textBaseline,
     Clip clipBehavior = Clip.none,
+    FlexOverflowStrategy? overflowStrategy,
   }) : assert(direction != null),
        assert(mainAxisAlignment != null),
        assert(mainAxisSize != null),
@@ -301,7 +303,9 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
        _textDirection = textDirection,
        _verticalDirection = verticalDirection,
        _textBaseline = textBaseline,
-       _clipBehavior = clipBehavior {
+       _clipBehavior = clipBehavior,
+       _overflowStrategy =
+            overflowStrategy ?? createDefaultOverflowStrategy(direction) {
     addAll(children);
   }
 
@@ -501,6 +505,20 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
       markNeedsSemanticsUpdate();
     }
   }
+
+  /// Strategy for handling overflow in this flex layout
+  FlexOverflowStrategy get overflowStrategy => _overflowStrategy;
+  FlexOverflowStrategy _overflowStrategy;
+  set overflowStrategy(FlexOverflowStrategy value) {
+    if (_overflowStrategy != value) {
+      _overflowStrategy.dispose();
+      _overflowStrategy = value;
+      markNeedsLayout();
+    }
+  }
+
+  /// Checks if the flex has overflow (public method for strategy use)
+  bool get hasOverflow => _overflow > precisionErrorTolerance;
 
   @override
   void setupParentData(RenderBox child) {
@@ -1076,6 +1094,8 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
       }
       child = childParentData.nextSibling;
     }
+
+    _overflowStrategy.handleOverflow(this, actualSize, allocatedSize);
   }
 
   @override
@@ -1150,6 +1170,7 @@ class RenderFlex extends RenderBox with ContainerRenderObjectMixin<RenderBox, Fl
   @override
   void dispose() {
     _clipRectLayer.layer = null;
+    _overflowStrategy.dispose();
     super.dispose();
   }
 
