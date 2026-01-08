@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.26
+- Flutter支持Column自适应调整([3a6b85fe](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/3a6b85fed37a4ceb00f940bca76212ec50124cac?ref=dev))
 ## 6.1.0.25
 - Handling HarmonyOS abnormal touch event | When destroying xcomponent, send a cancel signal to the gesture currently being processed([15b84fac](https://gitcode.com/openharmony-tpc/flutter_engine/commit/15b84fac8f085fba258c9d1e8bc6e3c94c90c897?ref=dev))
 ## 6.0.3.21
