@@ -526,3 +526,5 @@ export const nativeCheckLTPOSwitchState: () => number;
  * @param lowMemoryLevel - The low memory level
  */
 export const nativeSetQosOnLowMemory: (nativeShellHolderId: number, lowMemoryLevel: number) => void;
+
+export const nativeSetAnimationStatus: (nativeShellHolderId: number, animationStatus: number) => void;

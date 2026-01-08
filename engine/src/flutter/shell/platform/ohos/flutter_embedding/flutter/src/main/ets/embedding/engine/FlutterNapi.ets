@@ -1139,6 +1139,10 @@ export default class FlutterNapi {
   SetQosOnLowMemory(lowMemoryLevel: number): void {
     flutter.nativeSetQosOnLowMemory(this.nativeShellHolderId!, lowMemoryLevel);
   }
+
+  SetAnimationStatus(animationStatus: number): void {
+    flutter.nativeSetAnimationStatus(this.nativeShellHolderId!, animationStatus);
+  }
 }
 
 /**

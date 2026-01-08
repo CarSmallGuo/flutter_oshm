@@ -19,6 +19,8 @@ import bundleManager from '@ohos.bundle.bundleManager';
 import window from '@ohos.window';
 import Any from '../../../plugin/common/Any';
 import { BusinessError } from '@kit.BasicServicesKit';
+import FlutterNapi from '../FlutterNapi';
+import flutter from 'libflutter.so';
 
 /**
  * Channel for handling platform-level communication between Flutter and OpenHarmony.
@@ -27,6 +29,7 @@ import { BusinessError } from '@kit.BasicServicesKit';
 export default class PlatformChannel {
   private static TAG = "PlatformChannel";
   private static CHANNEL_NAME = "flutter/platform";
+  flutterNapi: FlutterNapi;
   /** The MethodChannel for platform-level communication with Flutter. */
   channel: MethodChannel;
   /** The platform message handler for processing platform requests, or null if not set. */
@@ -36,10 +39,11 @@ export default class PlatformChannel {
    * Constructs a new PlatformChannel instance.
    * @param dartExecutor - The DartExecutor for sending messages to Dart
    */
-  constructor(dartExecutor: DartExecutor) {
+  constructor(dartExecutor: DartExecutor, flutterNapi: FlutterNapi) {
     this.channel = new MethodChannel(dartExecutor, PlatformChannel.CHANNEL_NAME, JSONMethodCodec.INSTANCE);
     let callback = new PlatformMethodCallback(this);
     this.channel.setMethodCallHandler(callback);
+    this.flutterNapi = flutterNapi;
   }
 
   /**
@@ -412,6 +416,11 @@ export enum ScrollActivity {
   END = "end",
 }
 
+enum AnimationStatus {
+  SCROLL_START = 0,
+  SCROLL_END = 1,
+}
+
 /**
  * Method call handler for platform channel requests.
  */
@@ -634,9 +643,11 @@ class PlatformMethodCallback implements MethodCallHandler {
     switch(activityType) {
       case ScrollActivity.START:
         hiTraceMeter.startTrace('flutter::APP_LIST_FLING', 0);
+        this.platform.flutterNapi.SetAnimationStatus(AnimationStatus.SCROLL_START);
         break;
       case ScrollActivity.END:
         hiTraceMeter.finishTrace('flutter::APP_LIST_FLING', 0);
+        this.platform.flutterNapi.SetAnimationStatus(AnimationStatus.SCROLL_END);
         break;
     }
   }

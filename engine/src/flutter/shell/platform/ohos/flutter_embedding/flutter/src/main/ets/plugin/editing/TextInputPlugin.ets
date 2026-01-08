@@ -387,6 +387,9 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
   }
 
   private async showTextInput(): Promise<void> {
+    if (this.lastKind === undefined && this.configuration?.deviceKind !== undefined) {
+      this.lastKind = this.configuration.deviceKind;
+    }
     if (this.keyboardStatus == inputMethod.KeyboardStatus.SHOW) {
       // 增加键盘拉起状态时也调用attach，参数false则attach不会拉起键盘
       await this.attach(false);
@@ -396,10 +399,16 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
         } else {
           await this.inputMethodController.showTextInput();
         }
+        if (this.configuration?.deviceKind !== undefined) {
+          this.lastKind = this.configuration.deviceKind;
+        }
       }
       return;
     }
     await this.attach(true);
+    if (this.configuration?.deviceKind !== undefined) {
+      this.lastKind = this.configuration.deviceKind;
+    }
     if (!this.imcFlag) {
       this.listenKeyBoardEvent();
     }
@@ -514,6 +523,7 @@ class TextInputMethodHandlerImpl implements TextInputMethodHandler {
    */
   setTextInputClient(client: number, configuration: Configuration | null): void {
     if (configuration) {
+      this.lastKind = this.configuration?.deviceKind;
       this.configuration = configuration;
       if (configuration.inputType) {
         this.textConfig.inputAttribute.textInputType = configuration.inputType.type;
