@@ -1,4 +1,8 @@
 # Changelog
+## 6.1.0.26
+- fix: MouseRegion onExit is not triggered when moving the cursor in and out fas ([f5894108](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f5894108d82a1685bb283f0f4791bec6ad2d6bb0?ref=dev_pc_mouse&prId=1152))
+- Flutter支持Column自适应调整 ([6784189b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6784189bd93423e055db138056df89e86a8fc184?ref=dev_column&prId=1145))
+- Add CI script ([d07baa95](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d07baa954d0f87b63510aa500e2d7fd4e11262ef?ref=dev))
 ## 6.1.0.25
 - Handling HarmonyOS abnormal touch event | When destroying xcomponent, send a cancel signal to the gesture currently being processed([15b84fac](https://gitcode.com/openharmony-tpc/flutter_engine/commit/15b84fac8f085fba258c9d1e8bc6e3c94c90c897?ref=dev))
 ## 6.0.3.21
