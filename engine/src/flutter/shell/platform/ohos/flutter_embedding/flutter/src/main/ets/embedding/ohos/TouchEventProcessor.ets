@@ -389,6 +389,8 @@ export default class TouchEventProcessor {
       pressure: 0,
       tiltX: mousePacket.x,
       tiltY: mousePacket.y,
+      rawDeltaX: mousePacket.x,
+      rawDeltaY: mousePacket.y,
     } as MouseEvent;
 
     return mouseEvent;
