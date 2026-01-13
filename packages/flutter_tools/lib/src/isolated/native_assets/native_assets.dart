@@ -25,6 +25,7 @@ import 'ios/native_assets.dart';
 import 'linux/native_assets.dart';
 import 'macos/native_assets.dart';
 import 'macos/native_assets_host.dart';
+import 'ohos/native_assets.dart';
 import 'windows/native_assets.dart';
 
 /// The assets produced by a Dart build and the dependencies of those assets.
@@ -109,10 +110,12 @@ Future<DartBuildResult> runFlutterSpecificDartBuild({
   if (!await buildDir.exists()) {
     // Ensure the folder exists so the native build system can copy it even
     // if there's no native assets.
+    globals.printStatus('yqf buildDir does not exist, creating it ========== 112');
     await buildDir.create(recursive: true);
   }
-
+  globals.printStatus('yqf runFlutterSpecificDartBuild targetOS: $targetOS');
   if (!await _nativeBuildRequired(buildRunner)) {
+    globals.printStatus('yqf _nativeBuildRequired is false, writing native assets yaml');
     return const DartBuildResult.empty();
   }
 
@@ -144,6 +147,7 @@ Future<void> installCodeAssets({
   required FileSystem fileSystem,
   required Uri nativeAssetsFileUri,
 }) async {
+  globals.printStatus('yqf installCodeAssets start [149]');
   final OS targetOS = getNativeOSFromTargetPlatform(targetPlatform);
   final Uri buildUri = nativeAssetsBuildUri(projectUri, targetOS);
   final bool flutterTester = targetPlatform == TargetPlatform.tester;
@@ -404,6 +408,8 @@ Future<void> ensureNoNativeAssetsOrOsIsSupported(
 /// It should work for all macOS.
 Uri nativeAssetsBuildUri(Uri projectUri, OS os) {
   final String buildDir = getBuildDirectory();
+  globals.printStatus('clp nativeAssetsBuildUri ========== 506');
+  globals.printStatus('clp buildDir: $buildDir os: $os');
   return projectUri.resolve('$buildDir/native_assets/$os/');
 }
 
@@ -464,6 +470,8 @@ Map<FlutterCodeAsset, KernelAsset> assetTargetLocationsForOS(
       return assetTargetLocationsIOS(codeAssets);
     case OS.android:
       return assetTargetLocationsAndroid(codeAssets);
+    case OS.ohos:
+      return assetTargetLocationsOhos(codeAssets);
     default:
       throw UnimplementedError('This should be unreachable.');
   }
@@ -531,6 +539,7 @@ Future<void> _copyNativeCodeAssetsForOS(
         fileSystem,
       );
     case OS.android:
+    case OS.ohos:
       assert(codesignIdentity == null);
       await copyNativeCodeAssetsAndroid(buildUri, assetTargetLocations, fileSystem);
     default:
@@ -666,6 +675,7 @@ List<Architecture> _architecturesForOS(
           <DarwinArch>[DarwinArch.x86_64, DarwinArch.arm64];
       return darwinArchs.map(getNativeMacOSArchitecture).toList();
     case OS.android:
+    case OS.ohos:
       final String? androidArchsEnvironment = environmentDefines[kAndroidArchs];
       final List<AndroidArch> androidArchs = _androidArchs(targetPlatform, androidArchsEnvironment);
       return androidArchs.map(getNativeAndroidArchitecture).toList();
@@ -762,8 +772,7 @@ OS getNativeOSFromTargetPlatform(TargetPlatform platform) {
     case TargetPlatform.ohos_arm:
     case TargetPlatform.ohos_arm64:
     case TargetPlatform.ohos_x64:
-      // todo: 修改为 OS.ohos
-      return OS.android;
+      return OS.ohos;
     case TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OS.macOS;
