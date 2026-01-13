@@ -25,6 +25,7 @@ import 'ios/native_assets.dart';
 import 'linux/native_assets.dart';
 import 'macos/native_assets.dart';
 import 'macos/native_assets_host.dart';
+import 'ohos/native_assets.dart';
 import 'windows/native_assets.dart';
 
 /// The assets produced by a Dart build and the dependencies of those assets.
@@ -111,7 +112,6 @@ Future<DartBuildResult> runFlutterSpecificDartBuild({
     // if there's no native assets.
     await buildDir.create(recursive: true);
   }
-
   if (!await _nativeBuildRequired(buildRunner)) {
     return const DartBuildResult.empty();
   }
@@ -464,6 +464,8 @@ Map<FlutterCodeAsset, KernelAsset> assetTargetLocationsForOS(
       return assetTargetLocationsIOS(codeAssets);
     case OS.android:
       return assetTargetLocationsAndroid(codeAssets);
+    case OS.ohos:
+      return assetTargetLocationsOhos(codeAssets);
     default:
       throw UnimplementedError('This should be unreachable.');
   }
@@ -531,6 +533,7 @@ Future<void> _copyNativeCodeAssetsForOS(
         fileSystem,
       );
     case OS.android:
+    case OS.ohos:
       assert(codesignIdentity == null);
       await copyNativeCodeAssetsAndroid(buildUri, assetTargetLocations, fileSystem);
     default:
@@ -666,6 +669,7 @@ List<Architecture> _architecturesForOS(
           <DarwinArch>[DarwinArch.x86_64, DarwinArch.arm64];
       return darwinArchs.map(getNativeMacOSArchitecture).toList();
     case OS.android:
+    case OS.ohos:
       final String? androidArchsEnvironment = environmentDefines[kAndroidArchs];
       final List<AndroidArch> androidArchs = _androidArchs(targetPlatform, androidArchsEnvironment);
       return androidArchs.map(getNativeAndroidArchitecture).toList();
@@ -762,8 +766,7 @@ OS getNativeOSFromTargetPlatform(TargetPlatform platform) {
     case TargetPlatform.ohos_arm:
     case TargetPlatform.ohos_arm64:
     case TargetPlatform.ohos_x64:
-      // todo: 修改为 OS.ohos
-      return OS.android;
+      return OS.ohos;
     case TargetPlatform.tester:
       if (const LocalPlatform().isMacOS) {
         return OS.macOS;
