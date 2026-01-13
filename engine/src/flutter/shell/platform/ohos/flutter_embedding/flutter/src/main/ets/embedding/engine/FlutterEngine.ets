@@ -34,6 +34,7 @@ import AccessibilityChannel from './systemchannels/AccessibilityChannel';
 import LocalizationPlugin from '../../plugin/localization/LocalizationPlugin'
 import SettingsChannel from './systemchannels/SettingsChannel';
 import PlatformViewsController from '../../plugin/platform/PlatformViewsController';
+import PlatformViewsController2 from '../../plugin/platform/PlatformViewsController2';
 import { FlutterRenderer } from './renderer/FlutterRenderer';
 import NativeVsyncChannel from './systemchannels/NativeVsyncChannel';
 
@@ -89,6 +90,7 @@ export default class FlutterEngine implements EngineLifecycleListener {
   private localizationPlugin: LocalizationPlugin | null = null;
   private settingsChannel: SettingsChannel | null = null;
   private platformViewsController: PlatformViewsController;
+  private platformViewsController2: PlatformViewsController2;
   private nativeVsyncChannel: NativeVsyncChannel | null = null;
 
   /**
@@ -98,9 +100,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
    * @param flutterLoader - Optional FlutterLoader instance, will be created if null
    * @param flutterNapi - Optional FlutterNapi instance, will be created if null
    * @param platformViewsController - Optional PlatformViewsController, will be created if null
+   * @param platformViewsController2 - Optional PlatformViewsController2, will be created if null
    */
   constructor(context: common.Context, flutterLoader: FlutterLoader | null, flutterNapi: FlutterNapi | null,
-    platformViewsController: PlatformViewsController | null) {
+    platformViewsController: PlatformViewsController | null, platformViewsController2: PlatformViewsController2 | null = null) {
     const injector: FlutterInjector = FlutterInjector.getInstance();
     if (flutterNapi == null) {
       flutterNapi = FlutterInjector.getInstance().getFlutterNapi();
@@ -123,6 +126,12 @@ export default class FlutterEngine implements EngineLifecycleListener {
     }
     this.platformViewsController = platformViewsController;
     this.platformViewsController.attach(context, this.renderer, this.dartExecutor);
+
+    if (platformViewsController2 == null) {
+      platformViewsController2 = new PlatformViewsController2(this.platformViewsController.getRegistry());
+    }
+    this.platformViewsController2 = platformViewsController2;
+    this.platformViewsController2.attach(context, this.dartExecutor);
   }
 
   /**
@@ -427,6 +436,10 @@ export default class FlutterEngine implements EngineLifecycleListener {
    */
   getPlatformViewsController(): PlatformViewsController | null {
     return this.platformViewsController;
+  }
+
+  getPlatformViewsController2(): PlatformViewsController2 | null {
+    return this.platformViewsController2;
   }
 
   /**

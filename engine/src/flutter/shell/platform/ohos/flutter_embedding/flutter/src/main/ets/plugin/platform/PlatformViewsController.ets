@@ -123,6 +123,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     this.viewIdWithNodeController = new Map();
   }
 
+
   /**
    * Creates a platform view for hybrid composition mode.
    * @param request - The platform view creation request
@@ -547,7 +548,7 @@ export default class PlatformViewsController implements PlatformViewsHandler {
    * Gets the platform view registry.
    * @returns The PlatformViewRegistry instance
    */
-  public getRegistry(): PlatformViewRegistry {
+  public getRegistry(): PlatformViewRegistryImpl {
     return this.registry;
   }
 
