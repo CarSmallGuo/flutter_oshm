@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2025 Huawei Device Co., Ltd. All rights reserved.
+ * Use of this source code is governed by a BSD-style license that can be
+ * found in the LICENSE_HW file.
+ */
+
+
 /**
  * Remove JSON5-style comments from text.
  * Supports: // line comments, /* block comments *\/
