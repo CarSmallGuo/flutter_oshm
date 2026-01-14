@@ -290,6 +290,8 @@ class PlatformViewOHOSNapi {
                                             napi_callback_info info);
   static napi_value nativeSetAnimationStatus(napi_env env,
                                              napi_callback_info info);
+  static napi_value nativeNotifyPageChanged(napi_env env,
+                                            napi_callback_info info);
 
  private:
   static napi_env env_;
