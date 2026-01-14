@@ -34,6 +34,7 @@
 #include "unicode/uchar.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/fml/platform/ohos/dynamic_library_loader.h"
+#include "AbilityKit/ability_runtime/application_context.h"
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
 
