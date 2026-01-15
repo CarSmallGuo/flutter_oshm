@@ -58,7 +58,7 @@ std::unique_ptr<DynamicLibraryLoader> PlatformViewOHOSNapi::ability_runtime_load
 PlatformViewOHOSNapi::NotifyPageChangedFunc PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
 
 void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
-  static constexpr char ABILITY_RUNTIME_LIB_NAME[] = "libability_runtime.z.so";
+  static constexpr char ABILITY_RUNTIME_LIB_NAME[] = "libability_runtime.so";
   ability_runtime_loader_ = std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
   
   if (!ability_runtime_loader_->IsLoaded()) {
