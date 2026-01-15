@@ -52,6 +52,31 @@ double PlatformViewOHOSNapi::display_density_pixels = 1.0;
 napi_env PlatformViewOHOSNapi::env_;
 std::vector<std::string> PlatformViewOHOSNapi::system_languages;
 
+// Static members for dynamic library loading
+std::once_flag PlatformViewOHOSNapi::notify_page_changed_init_flag_;
+std::unique_ptr<DynamicLibraryLoader> PlatformViewOHOSNapi::ability_runtime_loader_;
+PlatformViewOHOSNapi::NotifyPageChangedFunc PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
+
+void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
+  static constexpr char ABILITY_RUNTIME_LIB_NAME[] = "libability_runtime.z.so";
+  ability_runtime_loader_ = std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
+  
+  if (!ability_runtime_loader_->IsLoaded()) {
+    FML_LOG(ERROR) << "Failed to load " << ABILITY_RUNTIME_LIB_NAME;
+    return;
+  }
+
+  std::vector<SymbolInfo> symbols = {
+      {"OH_AbilityRuntime_ApplicationContextNotifyPageChanged",
+       reinterpret_cast<void**>(&notify_page_changed_func_), 23},
+  };
+
+  if (!ability_runtime_loader_->LoadSymbols(symbols)) {
+    FML_LOG(ERROR) << "Failed to load OH_AbilityRuntime_ApplicationContextNotifyPageChanged symbol";
+    notify_page_changed_func_ = nullptr;
+  }
+}
+
 /**
  * @brief send  empty PlatformMessage
  * @note
@@ -2914,6 +2939,16 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
     return resultValue;
   }
 
+  // Initialize dynamic library loader once
+  std::call_once(notify_page_changed_init_flag_, InitNotifyPageChangedLoader);
+
+  if (notify_page_changed_func_ == nullptr) {
+    FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged function is not available";
+    napi_value resultValue;
+    napi_create_int32(env, 0, &resultValue);
+    return resultValue;
+  }
+
   napi_status ret;
   size_t argc = 3;
   napi_value args[3] = {nullptr};
@@ -2953,7 +2988,7 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   }
   
   // OH_AbilityRuntime_NotifyPageChanged requires IDE SDK version >= 23
-  int32_t result = OH_AbilityRuntime_ApplicationContextNotifyPageChanged(pageName.c_str(), pageNameLen, windowId);
+  int32_t result = notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
   if (result == 0) {
     FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error";
     napi_create_int32(env, result, &resultValue);
