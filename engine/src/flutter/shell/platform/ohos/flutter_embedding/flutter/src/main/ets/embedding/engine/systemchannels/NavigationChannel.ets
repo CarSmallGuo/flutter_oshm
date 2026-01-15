@@ -87,7 +87,7 @@ export default class NavigationChannel {
 class NavigationCallback implements MethodCallHandler {
   private static TAG = "NavigationChannel";
   private dartExecutor: DartExecutor;
-  pprivate context?: common.Context;
+  private context?: common.Context;
 
   constructor(dartExecutor: DartExecutor, context?: common.Context) {
     this.dartExecutor = dartExecutor;
