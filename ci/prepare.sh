@@ -116,6 +116,42 @@ function patch_cipd() {
     cd ./cipd && ./patch_cipd.sh
 }
 
+# Patch dev tool header file
+function patch_dev_tool() {
+    echo "Patch dev tool header file"
+    local header_file="/home/tools/command-line-tools/sdk/default/openharmony/native/sysroot/usr/include/AbilityKit/ability_runtime/application_context.h"
+    local target_line=297
+    
+    if [ ! -f "$header_file" ]; then
+        echo "Warning: Header file not found: $header_file"
+        echo "Skipping patch_dev_tool"
+        return 0
+    fi
+    
+    # Check if the function declaration already exists
+    if grep -q "OH_AbilityRuntime_ApplicationContextNotifyPageChanged" "$header_file"; then
+        echo "Function declaration already exists in $header_file"
+        return 0
+    fi
+    
+    # Insert the function declaration at line 297
+    echo "Inserting function declaration at line $target_line in $header_file"
+    # Create a temporary file with the function declaration
+    local temp_file=$(mktemp)
+    head -n $((target_line - 1)) "$header_file" > "$temp_file"
+    echo "AbilityRuntime_ErrorCode OH_AbilityRuntime_ApplicationContextNotifyPageChanged(const char* targetPageName," >> "$temp_file"
+    echo "    int32_t targetPageNameLength, int32_t windowId);" >> "$temp_file"
+    tail -n +$target_line "$header_file" >> "$temp_file"
+    mv "$temp_file" "$header_file"
+    
+    if [ $? -eq 0 ]; then
+        echo "Successfully patched $header_file"
+    else
+        echo "Failed to patch $header_file"
+        return 1
+    fi
+}
+
 # Sync cache
 function sync_cache() {
     echo "Sync cache"
@@ -206,6 +242,7 @@ function prepare_tester() {
 # Entry
 function prepare() {
     check_env
+    patch_dev_tool
     sync_cache
     maybe_restore_engine
 
