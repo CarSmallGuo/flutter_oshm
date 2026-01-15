@@ -116,40 +116,63 @@ function patch_cipd() {
     cd ./cipd && ./patch_cipd.sh
 }
 
-# Patch dev tool header file
-function patch_dev_tool() {
-    echo "Patch dev tool header file"
-    local header_file="/home/tools/command-line-tools/sdk/default/openharmony/native/sysroot/usr/include/AbilityKit/ability_runtime/application_context.h"
-    local target_line=297
-    
-    if [ ! -f "$header_file" ]; then
-        echo "Warning: Header file not found: $header_file"
-        echo "Skipping patch_dev_tool"
-        return 0
-    fi
-    
-    # Check if the function declaration already exists
-    if grep -q "OH_AbilityRuntime_ApplicationContextNotifyPageChanged" "$header_file"; then
-        echo "Function declaration already exists in $header_file"
-        return 0
-    fi
-    
-    # Insert the function declaration at line 297
-    echo "Inserting function declaration at line $target_line in $header_file"
-    # Create a temporary file with the function declaration
-    local temp_file=$(mktemp)
-    head -n $((target_line - 1)) "$header_file" > "$temp_file"
-    echo "AbilityRuntime_ErrorCode OH_AbilityRuntime_ApplicationContextNotifyPageChanged(const char* targetPageName," >> "$temp_file"
-    echo "    int32_t targetPageNameLength, int32_t windowId);" >> "$temp_file"
-    tail -n +$target_line "$header_file" >> "$temp_file"
-    mv "$temp_file" "$header_file"
-    
-    if [ $? -eq 0 ]; then
-        echo "Successfully patched $header_file"
-    else
-        echo "Failed to patch $header_file"
+function patch_sdk() {
+    # Daily build SDK  https://ci.openharmony.cn/workbench/cicd/dailybuild/dailylist
+    SDK_URL="https://cidownload.openharmony.cn/version/Daily_Version/OpenHarmony_6.1.0.28/20260115_120141/version-Daily_Version-OpenHarmony_6.1.0.28-20260115_120141-ohos-sdk-public.tar.gz"
+    echo "$ cd /home/tools/command-line-tools/sdk/default/"
+    cd /home/tools/command-line-tools/sdk/default/
+    mkdir download
+    echo "$ rm -r openharmony"
+    rm -r openharmony
+    echo "$ ls -al"
+    ls -al
+    cd download
+    echo "Starting to download daily build SDK"
+    echo "$ curl -sS -f -L -- $SDK_URL > sdk_openharmony.tar.gz"
+    curl -f -L -- "$SDK_URL" >sdk_openharmony.tar.gz
+    if [ $? -ne 0 ]; then
+        echo "[Error]: Download failed!!!"
         return 1
     fi
+    echo "[Success]: Download completed!!!"
+
+    echo "Starting to verify SDK"
+    local correct_SHA256="4a6ee8412028fe476d2042173265f8ebdfbc8973b97a5696757cabb5b8e4adb5"
+    local sdk_sum=$(sha256sum sdk_openharmony.tar.gz)
+    sdk_sum=${sdk_sum:0:64}
+    if [ "x$sdk_sum" != "x$correct_SHA256" ]; then
+        echo "tools_sum(no x) is : x$sdk_sum"
+        echo "SHA-256_command-line-tools(no x) is : x$correct_SHA256"
+        echo "Error: please change sdk_openharmony.tar.gz!!!"
+        return 1
+    fi
+    echo "[Success]: SDK verification passed!!!"
+
+    echo "Starting to extract daily build SDK"
+    echo "$ tar -zxvf ./sdk_openharmony.tar.gz"
+    tar -zxvf ./sdk_openharmony.tar.gz
+    echo "$ cd ./linux"
+    cd ./linux
+    if [ $? -ne 0 ]; then
+        echo "[Error]: linux directory not found!!!"
+        return 1
+    fi
+
+    echo "$ for file in ls ./"
+    for file in $(ls ./); do
+        echo "$ unzip -qo $file"
+        unzip -qo "$file"
+        if [ $? -ne 0 ]; then
+            echo "[Error]: Failed to extract $file!!!"
+            return 1
+        fi
+        echo "$ rm -f $file"
+        rm -f "$file"
+        echo "[Success]: $file extraction completed!!!"
+    done
+    echo "[Success]: Daily build SDK extraction completed!!!"
+
+    cd ../../ && mv download/linux openharmony
 }
 
 # Sync cache
@@ -241,8 +264,8 @@ function prepare_tester() {
 
 # Entry
 function prepare() {
+    patch_sdk
     check_env
-    patch_dev_tool
     sync_cache
     maybe_restore_engine
 
