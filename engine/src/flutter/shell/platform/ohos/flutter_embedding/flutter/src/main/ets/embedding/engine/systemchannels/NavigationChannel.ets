@@ -30,7 +30,7 @@ export default class NavigationChannel {
    * @param dartExecutor - The DartExecutor for sending messages to Dart
    * @param context - The application context
    */
-  constructor(dartExecutor: DartExecutor, context: common.Context) {
+  constructor(dartExecutor: DartExecutor, context?: common.Context) {
     this.channel = new MethodChannel(dartExecutor, "flutter/navigation", JSONMethodCodec.INSTANCE);
     // Provide a default handler that returns an empty response to any messages
     // on this channel.
@@ -87,9 +87,9 @@ export default class NavigationChannel {
 class NavigationCallback implements MethodCallHandler {
   private static TAG = "NavigationChannel";
   private dartExecutor: DartExecutor;
-  private context: common.Context;
+  pprivate context?: common.Context;
 
-  constructor(dartExecutor: DartExecutor, context: common.Context) {
+  constructor(dartExecutor: DartExecutor, context?: common.Context) {
     this.dartExecutor = dartExecutor;
     this.context = context;
   }
@@ -97,6 +97,13 @@ class NavigationCallback implements MethodCallHandler {
   onMethodCall(call: MethodCall, result: MethodResult) {
     if (this.dartExecutor == null || this.dartExecutor.flutterNapi == null) {
       Log.e(NavigationCallback.TAG, "dartExecutor or flutterNapi is null, cancel OHOS page change notification");
+      result.success(null);
+      return;
+    }
+
+    // Skip notification if context is not provided
+    if (this.context == null) {
+      Log.e(NavigationCallback.TAG, "context is not provided, skip OHOS page change notification");
       result.success(null);
       return;
     }
