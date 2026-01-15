@@ -1,4 +1,7 @@
 # Changelog
+## 6.1.0.27
+- feat: notify OHOS when navigate in Flutter ([2f928192](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2f9281926d5805c35160a199b2ee0ff1cf3a40ad?ref=dpi_dev&prId=1175))
+- patch cipd cache. ([f849f54c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/babba9612bb91b711899da5ea19465e3d66d7880?ref=dev&prId=1167))
 ## 6.1.0.26
 - fix: MouseRegion onExit is not triggered when moving the cursor in and out fas ([f5894108](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f5894108d82a1685bb283f0f4791bec6ad2d6bb0?ref=dev_pc_mouse&prId=1152))
 - Flutter支持Column自适应调整 ([6784189b](https://gitcode.com/openharmony-tpc/flutter_engine/commit/6784189bd93423e055db138056df89e86a8fc184?ref=dev_column&prId=1145))
