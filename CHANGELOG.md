@@ -1,4 +1,6 @@
 # Changelog
+## 6.0.2.2020
+- 增加json5文件注释特性解析支持 ([d0a6f781](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d0a6f7810efae9925a47d1b04cc2ae0147f2ee09?ref=3.22.0-ohos-release&prId=1162))
 ## 6.0.2.2010
 - fix: MouseRegion onExit is not triggered when moving the cursor in and out fast ([e42c1328](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e42c1328c53e8bf93c176c2b367dfcb9e7e0f836?ref=3_32_pc_mouse&prId=1150))
 ## 6.0.2.125
