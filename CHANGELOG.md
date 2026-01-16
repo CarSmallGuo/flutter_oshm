@@ -1,4 +1,11 @@
 # Changelog
+## 6.1.0.27
+- feat: notify OHOS when navigate in Flutter ([0335dd77](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0335dd774b3e62564f119215c82850890784e731?ref=dpi_3_22_dev&prId=1176))
+- 增加json5文件注释特性解析支持 ([390dc8ae](https://gitcode.com/openharmony-tpc/flutter_engine/commit/390dc8ae6c62067c761e7ef744d0cb08503d8ce7?ref=oh-3.22.0&prId=1155))
+- 滑动丢帧时间上报添加FRAME_ID属性与总帧数属性 ([db448985](https://gitcode.com/openharmony-tpc/flutter_engine/commit/db44898589d0c0467e10f6882ac01608f1763cdf?ref=hiappevent-scroll-322&prId=1172))
+- patch cipd cache ([9c3d6ba9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/9c3d6ba9f47e21da86802fac9269561378de9073?ref=oh-3.22.0&prId=1168))
+- fix:Fix DropdownButton focus highlight issue on touch devices ([fb521d35](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/fb521d35ae8aa6d549c54fdd82d5a0378dd26cb8?ref=3.22.0-ohos&prId=836))
+- support start-paused on ohos ([d3110605](https://gitcode.com/openharmony-tpc/flutter_flutter/commit/d311060504460f318bf5760648c27a97e78c2407?ref=3.22.0-ohos&prId=825))
 ## 6.1.0.26
 - MouseRegion onExit is not triggered when moving the cursor in and out fast ([f1cd23e6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f1cd23e6e3ce061daa7ac471c381f5deb6208eeb?ref=3_22_dev_pc_mouse&prId=1153))
 - 滑动丢帧上报：报文时间字段修改为UTC时间戳格式、新增滑动丢帧上报过程中总帧数属性 ([810959c4](https://gitcode.com/openharmony-tpc/flutter_engine/commit/810959c45d7eeb603979ba7809f24586956b2753?ref=oh-3.22.0))
