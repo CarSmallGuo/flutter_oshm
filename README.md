@@ -5,28 +5,25 @@ Flutter SDK 仓库
 
 ## 仓库说明
 1. 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
-2. 本仓库基于Flutter官方社区3.22.0版本构建
-   * [sdk基础版本链接](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
-   * [engine基础版本链接](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
+2. 本仓库基于Flutter官方社区3.32.0版本构建
+   * [sdk基础版本链接](https://github.com/flutter/flutter/tree/3.32.4)
 
 ## Flutter OH版本演进规划和分支策略
 您可以在[Flutter OH版本演进规划和分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)中了解更多关于我们对Flutter的OpenHarmony适配版本的说明。
 
 ## 升级指导
-1. 如果您的项目希望从鸿蒙3.7.12版本升级到3.22.0版本
+1. 如果您的项目希望从鸿蒙3.27.4版本升级到3.32.4版本
    * 环境依赖：两者环境配置一致，无需额外修改
-   * 从3.7.12->3.22.0的官方特性新增与变更请参考[Release Notes](https://docs.flutter.dev/release/release-notes)
+   * 从3.27.4->3.32.4的官方特性新增与变更请参考[Release Notes](https://docs.flutter.dev/release/release-notes)
    * 官方兼容性变更请参考[升级指导](https://docs.flutter.dev/release/breaking-changes)
-   * 兼容性变更说明请参考[变更说明](/release-notes/changelog/Flutter3.7_to_3.22_Breaking-changes.md)
-   * 渲染引擎：新增impeller-vulkan模式（默认，可切换为skia-gl）
    * 三方库
-      - 纯dart库请升级到指定版本以支持3.22.0
-      - [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
+      - 纯dart库请升级到指定版本以支持3.32.4
 
-2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.22.0版本，请参考剩余指导文档。
+2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.32.4版本，请参考剩余指导文档。
 
 ## 开发文档
 [参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
+[flutter嵌入层API文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/11_flutter_api_docs)
 
 ## 环境依赖
 
@@ -51,7 +48,7 @@ Flutter SDK 仓库
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
       ```
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定3.22.0-ohos分支，并配置环境
+  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定oh-3.32.4-dev分支，并配置环境
 
      ```sh
       export PUB_CACHE=D:/PUB
