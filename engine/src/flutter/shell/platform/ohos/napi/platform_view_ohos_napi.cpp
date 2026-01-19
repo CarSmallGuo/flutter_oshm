@@ -15,15 +15,15 @@
 #include <rawfile/raw_file_manager.h>
 #include <string>
 
-#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
-#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
-#include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
-#include "flutter/shell/platform/ohos/context/ohos_context.h"
+#include "AbilityKit/ability_runtime/application_context.h"
 #include "flutter/common/constants.h"
 #include "flutter/fml/make_copyable.h"
+#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
 #include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
 #include "flutter/fml/platform/ohos/napi_util.h"
+#include "flutter/impeller/renderer/backend/vulkan/context_vk.h"
 #include "flutter/lib/ui/plugins/callback_cache.h"
+#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/ohos_logging.h"
 #include "flutter/shell/platform/ohos/ohos_main.h"
 #include "flutter/shell/platform/ohos/ohos_shell_holder.h"
@@ -31,10 +31,9 @@
 #include "flutter/shell/platform/ohos/ohos_xcomponent_adapter.h"
 #include "flutter/shell/platform/ohos/surface/ohos_native_window.h"
 #include "flutter/shell/platform/ohos/types.h"
+#include "impeller/renderer/backend/vulkan/fence_waiter_vk.h"
+#include "impeller/renderer/backend/vulkan/resource_manager_vk.h"
 #include "unicode/uchar.h"
-#include "flutter/fml/platform/ohos/hiappevent/ohos_hiappevent.h"
-#include "flutter/fml/platform/ohos/dynamic_library_loader.h"
-#include "AbilityKit/ability_runtime/application_context.h"
 
 #include "flutter/fml/platform/ohos/ohos_trace_event.h"
 
@@ -54,13 +53,16 @@ std::vector<std::string> PlatformViewOHOSNapi::system_languages;
 
 // Static members for dynamic library loading
 std::once_flag PlatformViewOHOSNapi::notify_page_changed_init_flag_;
-std::unique_ptr<DynamicLibraryLoader> PlatformViewOHOSNapi::ability_runtime_loader_;
-PlatformViewOHOSNapi::NotifyPageChangedFunc PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
+std::unique_ptr<DynamicLibraryLoader>
+    PlatformViewOHOSNapi::ability_runtime_loader_;
+PlatformViewOHOSNapi::NotifyPageChangedFunc
+    PlatformViewOHOSNapi::notify_page_changed_func_ = nullptr;
 
 void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
   static constexpr char ABILITY_RUNTIME_LIB_NAME[] = "libability_runtime.so";
-  ability_runtime_loader_ = std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
-  
+  ability_runtime_loader_ =
+      std::make_unique<DynamicLibraryLoader>(ABILITY_RUNTIME_LIB_NAME);
+
   if (!ability_runtime_loader_->IsLoaded()) {
     FML_LOG(ERROR) << "Failed to load " << ABILITY_RUNTIME_LIB_NAME;
     return;
@@ -72,7 +74,9 @@ void PlatformViewOHOSNapi::InitNotifyPageChangedLoader() {
   };
 
   if (!ability_runtime_loader_->LoadSymbols(symbols)) {
-    FML_LOG(ERROR) << "Failed to load OH_AbilityRuntime_ApplicationContextNotifyPageChanged symbol";
+    FML_LOG(ERROR)
+        << "Failed to load "
+           "OH_AbilityRuntime_ApplicationContextNotifyPageChanged symbol";
     notify_page_changed_func_ = nullptr;
   }
 }
@@ -1957,8 +1961,8 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder,
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
 
-    // Notify GPU reclaim policy that surface is created
-    OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceCreated();
+  // Notify GPU reclaim policy that surface is created
+  OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceCreated();
 
   OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
@@ -1987,8 +1991,8 @@ void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
   OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
     fml::hiappevent::OhosHiappEventDDL::GetInstance()->Flush();
   });
-    // Update surface state for GPU reclaim policy
-    OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceDestroyed();
+  // Update surface state for GPU reclaim policy
+  OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceDestroyed();
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
 }
 
@@ -2838,7 +2842,8 @@ napi_value PlatformViewOHOSNapi::nativeCheckLTPOSwitchState(
   }
 
   napi_value napiVotingSwitchState;
-  napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState), &napiVotingSwitchState);
+  napi_create_uint32(env, static_cast<uint32_t>(votingSwitchState),
+                     &napiVotingSwitchState);
   return napiVotingSwitchState;
 }
 
@@ -2854,14 +2859,13 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
   NAPI_CALL(env, napi_get_value_int64(env, args[0], &shell_holder));
   NAPI_CALL(env, napi_get_value_int64(env, args[1], &lowMemoryLevel));
 
-  std::shared_ptr<OHOSContext> ohos_context = OHOS_SHELL_HOLDER
-                                                  ->GetPlatformView()
-                                                  ->GetOHOSContext();
-  if(ohos_context == nullptr) {
+  std::shared_ptr<OHOSContext> ohos_context =
+      OHOS_SHELL_HOLDER->GetPlatformView()->GetOHOSContext();
+  if (ohos_context == nullptr) {
     FML_LOG(ERROR) << "nativeSetQosOnLowMemory ohos_context is nullptr";
     return nullptr;
   }
-  if(ohos_context->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
+  if (ohos_context->RenderingApi() != OHOSRenderingAPI::kImpellerVulkan) {
     return nullptr;
   }
 
@@ -2885,14 +2889,16 @@ napi_value PlatformViewOHOSNapi::nativeSetQosOnLowMemory(
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(
+    napi_env env,
+    napi_callback_info info) {
   size_t argc = 2;
   napi_value args[2] = {nullptr};
 
   napi_status ret = napi_get_cb_info(env, info, &argc, args, nullptr, nullptr);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, " << ret;
+    FML_LOG(ERROR) << "nativeSetAnimationStatus napi_get_cb_info error, "
+                   << ret;
     return nullptr;
   }
 
@@ -2909,7 +2915,8 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   ret = napi_get_value_int32(env, args[1], &type);
   if (ret != napi_ok) {
     FML_LOG(ERROR) << "nativeSetAnimationStatus type "
-                      "napi_get_value_int32 error, " << ret;
+                      "napi_get_value_int32 error, "
+                   << ret;
     return nullptr;
   }
 
@@ -2917,20 +2924,15 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   auto status = static_cast<fml::hiappevent::ScrollingStatus>(type);
   switch (status) {
     case fml::hiappevent::ScrollingStatus::kScrollStart:
-      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-        OhosThreadType::kIO,
-        [] {
-          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollStart();
-        }
-      );
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
+        fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollStart();
+      });
       break;
     case fml::hiappevent::ScrollingStatus::kScrollEnd:
-      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(
-        OhosThreadType::kIO,
-        [] {
-          fml::hiappevent::OhosHiappEventDDL::GetInstance()->OnScrollEndAndFlush();
-        }
-      );
+      OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
+        fml::hiappevent::OhosHiappEventDDL::GetInstance()
+            ->OnScrollEndAndFlush();
+      });
       break;
     default:
       break;
@@ -2939,8 +2941,9 @@ napi_value PlatformViewOHOSNapi::nativeSetAnimationStatus(napi_env env, napi_cal
   return nullptr;
 }
 
-napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_callback_info info)
-{
+napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(
+    napi_env env,
+    napi_callback_info info) {
   FML_LOG(INFO) << "PlatformViewOHOSNapi::nativeNotifyPageChanged start";
   int apiVersion = DynamicLibraryLoader::GetApiVersion();
   if (apiVersion < 23) {
@@ -2954,7 +2957,8 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   std::call_once(notify_page_changed_init_flag_, InitNotifyPageChangedLoader);
 
   if (notify_page_changed_func_ == nullptr) {
-    FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged function is not available";
+    FML_LOG(ERROR) << "OH_AbilityRuntime_ApplicationContextNotifyPageChanged "
+                      "function is not available";
     napi_value resultValue;
     napi_create_int32(env, 0, &resultValue);
     return resultValue;
@@ -2976,7 +2980,8 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
   }
 
   if (argc < 3) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged wrong number of arguments, argc=" << argc;
+    FML_LOG(ERROR) << "nativeNotifyPageChanged wrong number of arguments, argc="
+                   << argc;
     napi_throw_type_error(env, nullptr, "Wrong number of arguments");
     return nullptr;
   }
@@ -2988,25 +2993,31 @@ napi_value PlatformViewOHOSNapi::nativeNotifyPageChanged(napi_env env, napi_call
 
   ret = napi_get_value_int32(env, args[1], &pageNameLen);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged pageNameLen napi_get_value_int32 error";
+    FML_LOG(ERROR)
+        << "nativeNotifyPageChanged pageNameLen napi_get_value_int32 error";
     return nullptr;
   }
 
   ret = napi_get_value_int32(env, args[2], &windowId);
   if (ret != napi_ok) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged windowId napi_get_value_int32 error";
+    FML_LOG(ERROR)
+        << "nativeNotifyPageChanged windowId napi_get_value_int32 error";
     return nullptr;
   }
-  
+
   // OH_AbilityRuntime_NotifyPageChanged requires IDE SDK version >= 23
-  int32_t result = notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
+  int32_t result =
+      notify_page_changed_func_(pageName.c_str(), pageNameLen, windowId);
   if (result == 0) {
-    FML_LOG(ERROR) << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error";
+    FML_LOG(ERROR)
+        << "nativeNotifyPageChanged OH_AbilityRuntime_NotifyPageChanged error";
     napi_create_int32(env, result, &resultValue);
     return resultValue;
   } else {
-    LOGD("nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: %d",
-         pageName.c_str(), pageNameLen, windowId);
+    LOGD(
+        "nativeNotifyPageChanged success, name: %s, pageNameLen: %d, windowId: "
+        "%d",
+        pageName.c_str(), pageNameLen, windowId);
     napi_create_int32(env, result, &resultValue);
     return resultValue;
   }
