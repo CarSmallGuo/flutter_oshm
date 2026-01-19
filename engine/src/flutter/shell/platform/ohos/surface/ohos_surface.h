@@ -56,6 +56,11 @@ class OHOSSurface {
 
   bool SetDisplayWindow(fml::RefPtr<OHOSNativeWindow> window);
 
+    fml::RefPtr<OHOSNativeWindow> GetNativeWindow() const
+    {
+        return native_window_;
+    }
+
   bool NeedNewFrame() { return need_schedule_frame_; }
 
   static void OnFrameAvailable(void* data);
