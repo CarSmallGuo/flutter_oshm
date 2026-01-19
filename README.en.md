@@ -15,6 +15,8 @@ You can learn more about our adaptation of Flutter for OpenHarmony in the [Flutt
 
 [Flutter_samples](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
+[Flutter Embedding API Documentation](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/11_flutter_api_docs)
+
 ## Environment Dependencies
 
 * Development system

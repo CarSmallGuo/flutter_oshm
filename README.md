@@ -15,6 +15,8 @@ Flutter SDK 仓库
 
 [参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
+[flutter嵌入层API文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs/11_flutter_api_docs)
+
 ## 环境依赖
 
 ### 开发系统
