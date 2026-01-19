@@ -13,34 +13,33 @@
  * limitations under the License.
  */
 
-
 #ifndef FLUTTER_SHELL_PLATFORM_OHOS_BACKGROUND_RESOURCE_CLEANUP_H_
 #define FLUTTER_SHELL_PLATFORM_OHOS_BACKGROUND_RESOURCE_CLEANUP_H_
 
 namespace flutter {
 
-    /**
-     * GPU reclaim level defines the intensity of GPU resource cleanup.
-     *
-     * kNone: No cleanup, foreground state, normal operation.
-     * kAggressive: Aggressive cleanup for background state or surface destroyed.
-     *              Actions: freeGpuResources, teardown onscreen/swapchain.
-     */
-    enum class GpuReclaimLevel {
-        kNone,       // Level 0: Foreground, normal operation
-        kAggressive  // Level 1: Background, release GPU resources
-    };
+/**
+ * GPU reclaim level defines the intensity of GPU resource cleanup.
+ *
+ * kNone: No cleanup, foreground state, normal operation.
+ * kAggressive: Aggressive cleanup for background state or surface destroyed.
+ *              Actions: freeGpuResources, teardown onscreen/swapchain.
+ */
+enum class GpuReclaimLevel {
+  kNone,       // Level 0: Foreground, normal operation
+  kAggressive  // Level 1: Background, release GPU resources
+};
 
-    /**
-     * Application lifecycle state.
-     */
-    enum class AppLifecycleState {
-        kResumed,   // App is in foreground and visible
-        kInactive,  // App is inactive (e.g., receiving a phone call)
-        kHidden,    // App is not visible but still running
-        kPaused,    // App is in background
-        kDetached   // App is detached
-    };
+/**
+ * Application lifecycle state.
+ */
+enum class AppLifecycleState {
+  kResumed,   // App is in foreground and visible
+  kInactive,  // App is inactive (e.g., receiving a phone call)
+  kHidden,    // App is not visible but still running
+  kPaused,    // App is in background
+  kDetached   // App is detached
+};
 
 }  // namespace flutter
 

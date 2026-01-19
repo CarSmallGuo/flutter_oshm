@@ -24,8 +24,8 @@
 #include "flutter/lib/ui/window/platform_message.h"
 #include "flutter/shell/common/platform_view.h"
 #include "flutter/shell/platform/ohos/accessibility/ohos_semantics_bridge.h"
-#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/background_resource_cleanup.h"
+#include "flutter/shell/platform/ohos/context/ohos_context.h"
 #include "flutter/shell/platform/ohos/napi/platform_view_ohos_napi.h"
 #include "flutter/shell/platform/ohos/ohos_external_texture_gl.h"
 #include "flutter/shell/platform/ohos/platform_message_handler_ohos.h"
@@ -178,22 +178,27 @@ class PlatformViewOHOS final : public PlatformView {
 
   void SimulateTouchEvent(SemanticsNodeExtend* node);
 
-    //--------------------------------------------------------------------------
-    /// @brief  GPU Resource Reclaim Policy APIs
-    //--------------------------------------------------------------------------
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy APIs
+  //--------------------------------------------------------------------------
 
-    /// @brief  Called when surface is created.
-    ///         Updates has_surface_ state and may trigger resource restoration.
-    void OnSurfaceCreated();
+  /// @brief  Called when surface is created.
+  ///         Updates has_surface_ state and may trigger resource restoration.
+  void OnSurfaceCreated();
 
-    /// @brief Called when surface is destroyed.
-    ///        Updates has_surface_ state; actual teardown is handled by NotifyDestroyed / reclaim policy.
-    void OnSurfaceDestroyed();
+  /// @brief Called when surface is destroyed.
+  ///        Updates has_surface_ state; actual teardown is handled by
+  ///        NotifyDestroyed / reclaim policy.
+  void OnSurfaceDestroyed();
 
-    /// @brief  Returns whether the frame gate is currently enabled.
-    ///         When frame gate is on, MarkTextureFrameAvailable should be blocked.
-    /// Thread-safe: Can be called from any thread.
-    bool IsFrameGateEnabled() const { return frame_gate_enabled_.load(std::memory_order_acquire); }
+  /// @brief  Returns whether the frame gate is currently enabled.
+  ///         When frame gate is on, MarkTextureFrameAvailable should be
+  ///         blocked.
+  /// Thread-safe: Can be called from any thread.
+  bool IsFrameGateEnabled() const {
+    return frame_gate_enabled_.load(std::memory_order_acquire);
+  }
+
  private:
   const std::shared_ptr<PlatformViewOHOSNapi> napi_facade_;
   std::shared_ptr<OHOSContext> ohos_context_;
@@ -224,70 +229,77 @@ class PlatformViewOHOS final : public PlatformView {
   int32_t accessibility_feature_flags_ = 0;
   bool is_accessibility_navigation_ = false;
 
-    //--------------------------------------------------------------------------
-    /// @brief  GPU Resource Reclaim Policy state
-    //--------------------------------------------------------------------------
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy state
+  //--------------------------------------------------------------------------
 
-    /// Current lifecycle state
-    AppLifecycleState lifecycle_state_ = AppLifecycleState::kDetached;
+  /// Current lifecycle state
+  AppLifecycleState lifecycle_state_ = AppLifecycleState::kDetached;
 
-    /// Whether surface is available (from SurfaceCreated/Destroyed)
-    bool has_surface_ = false;
+  /// Whether surface is available (from SurfaceCreated/Destroyed)
+  bool has_surface_ = false;
 
-    /// Whether onscreen context is valid (set false after TeardownOnScreenContext)
-    /// This is different from has_surface_ - surface can exist but context be torn down
-    /// Thread-safety: Read/written from multiple threads (platform, raster), use atomic.
-    std::atomic<bool> onscreen_context_valid_{true};
+  /// Whether onscreen context is valid (set false after
+  /// TeardownOnScreenContext) This is different from has_surface_ - surface can
+  /// exist but context be torn down Thread-safety: Read/written from multiple
+  /// threads (platform, raster), use atomic.
+  std::atomic<bool> onscreen_context_valid_{true};
 
-    /// Cached native window for rebuilding after aggressive teardown
-    fml::RefPtr<OHOSNativeWindow> cached_native_window_;
+  /// Cached native window for rebuilding after aggressive teardown
+  fml::RefPtr<OHOSNativeWindow> cached_native_window_;
 
-    /// Current GPU reclaim level
-    GpuReclaimLevel current_reclaim_level_ = GpuReclaimLevel::kNone;
+  /// Current GPU reclaim level
+  GpuReclaimLevel current_reclaim_level_ = GpuReclaimLevel::kNone;
 
-    /// Frame gate flag - when true, external texture frame updates are blocked
-    /// Thread-safety: Read from callback threads, written from platform thread, use atomic.
-    std::atomic<bool> frame_gate_enabled_{false};
+  /// Frame gate flag - when true, external texture frame updates are blocked
+  /// Thread-safety: Read from callback threads, written from platform thread,
+  /// use atomic.
+  std::atomic<bool> frame_gate_enabled_{false};
 
-    //--------------------------------------------------------------------------
-    /// @brief  GPU Resource Reclaim Policy internal methods
-    //--------------------------------------------------------------------------
+  //--------------------------------------------------------------------------
+  /// @brief  GPU Resource Reclaim Policy internal methods
+  //--------------------------------------------------------------------------
 
-    /// @brief  Evaluates current state and determines appropriate GPU reclaim level.
-    ///         This is the main policy decision function.
-    /// @return The calculated GpuReclaimLevel based on current state
-    GpuReclaimLevel EvaluateReclaimLevel() const;
+  /// @brief  Evaluates current state and determines appropriate GPU reclaim
+  /// level.
+  ///         This is the main policy decision function.
+  /// @return The calculated GpuReclaimLevel based on current state
+  GpuReclaimLevel EvaluateReclaimLevel() const;
 
-    /// @brief  Applies the given reclaim level, executing appropriate cleanup actions.
-    /// @param  level  The target GpuReclaimLevel to apply
-    void ApplyReclaimLevel(GpuReclaimLevel level);
+  /// @brief  Applies the given reclaim level, executing appropriate cleanup
+  /// actions.
+  /// @param  level  The target GpuReclaimLevel to apply
+  void ApplyReclaimLevel(GpuReclaimLevel level);
 
-    /// @brief  Executes kNone level actions (foreground restoration).
-    ///         Rebuilds onscreen/swapchain if needed, disables frame gate,
-    ///         restores cache limits.
-    void ExecuteReclaimNone();
+  /// @brief  Executes kNone level actions (foreground restoration).
+  ///         Rebuilds onscreen/swapchain if needed, disables frame gate,
+  ///         restores cache limits.
+  void ExecuteReclaimNone();
 
-    /// @brief  Executes kAggressive level actions (aggressive cleanup).
-    ///         freeGpuResources, teardown onscreen/swapchain.
-    void ExecuteReclaimAggressive();
+  /// @brief  Executes kAggressive level actions (aggressive cleanup).
+  ///         freeGpuResources, teardown onscreen/swapchain.
+  void ExecuteReclaimAggressive();
 
-    /// @brief  Handles rebuilding the onscreen context and surface after aggressive teardown.
-    void OnApplicationStateChange(const std::string& state);
+  /// @brief  Handles rebuilding the onscreen context and surface after
+  /// aggressive teardown.
+  void OnApplicationStateChange(const std::string& state);
 
-    /// @brief  Determines whether the onscreen context needs to be rebuilt.
-    /// @return true if the context should be rebuilt, false if not.
-    bool ShouldRebuildOnscreenContext() const;
+  /// @brief  Determines whether the onscreen context needs to be rebuilt.
+  /// @return true if the context should be rebuilt, false if not.
+  bool ShouldRebuildOnscreenContext() const;
 
-    /// @brief  Posts tasks to rebuild the onscreen context and surface.
-    void PostRebuildOnscreenContextTasks();
+  /// @brief  Posts tasks to rebuild the onscreen context and surface.
+  void PostRebuildOnscreenContextTasks();
 
-    /// @brief  Runs a task on the raster thread and waits for its completion.
-    /// @param  task  The closure to run on the raster thread.
-    void RunOnRasterAndWait(fml::closure task);
+  /// @brief  Runs a task on the raster thread and waits for its completion.
+  /// @param  task  The closure to run on the raster thread.
+  void RunOnRasterAndWait(fml::closure task);
 
-    /// @brief  Attempts to free Skia GPU resources associated with the given surface and context.
-    static void TryFreeSkiaGpuResources(const std::shared_ptr<OHOSSurface>& surface,
-                                        const std::shared_ptr<OHOSContext>& context);
+  /// @brief  Attempts to free Skia GPU resources associated with the given
+  /// surface and context.
+  static void TryFreeSkiaGpuResources(
+      const std::shared_ptr<OHOSSurface>& surface,
+      const std::shared_ptr<OHOSContext>& context);
 
   // |PlatformView|
   void UpdateSemantics(
