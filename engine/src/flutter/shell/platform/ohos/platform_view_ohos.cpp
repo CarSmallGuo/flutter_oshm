@@ -1030,10 +1030,9 @@ void PlatformViewOHOS::OnApplicationStateChange(const std::string& state) {
     current_reclaim_level_ = GpuReclaimLevel::kAggressive;
     ExecuteReclaimAggressive();
   } else if (returning_to_foreground) {
-    FML_LOG(INFO) << "GpuReclaim: RETURNING TO FOREGROUND" << ", will_rebuild="
-                  << (!onscreen_context_valid_.load(std::memory_order_acquire)
-                          ? "yes"
-                          : "no");
+    const bool will_rebuild =!onscreen_context_valid_.load(std::memory_order_acquire);
+    FML_LOG(INFO) << "GpuReclaim: RETURNING TO FOREGROUND, will_rebuild="
+                  << (will_rebuild ? "yes" : "no");
 
     // Evaluate and apply (will likely be kNone, triggering rebuild if needed)
     GpuReclaimLevel new_level = EvaluateReclaimLevel();
@@ -1138,18 +1137,14 @@ void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
       [weak_this, surface_ptr, native_window, task_runners]() {
         const bool set_window_result =
             surface_ptr && surface_ptr->SetDisplayWindow(native_window);
-        if (set_window_result) {
-          FML_LOG(INFO) << "GpuReclaim: [Raster] Surface REBUILT";
-        } else {
-          FML_LOG(ERROR)
-              << "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
+        if (!set_window_result) {
+          FML_LOG(ERROR)<< "GpuReclaim: [Raster] SetDisplayWindow failed during rebuild";
+          return;
         }
+        FML_LOG(INFO) << "GpuReclaim: [Raster] Surface REBUILT";
         fml::TaskRunner::RunNowOrPostTask(
             task_runners.GetPlatformTaskRunner(),
-            [weak_this, set_window_result]() {
-              if (!set_window_result) {
-                return;
-              }
+            [weak_this]() {
               auto* ohos_view = static_cast<PlatformViewOHOS*>(weak_this.get());
               if (!ohos_view) {
                 return;
@@ -1164,8 +1159,7 @@ void PlatformViewOHOS::PostRebuildOnscreenContextTasks() {
 void PlatformViewOHOS::ExecuteReclaimAggressive() {
   // Skip if already torn down (e.g., NotifyDestroyed was called first)
   if (!onscreen_context_valid_.load(std::memory_order_acquire)) {
-    FML_LOG(INFO)
-        << "GpuReclaim: ExecuteAggressive skipped - context already invalid";
+    FML_LOG(INFO) << "GpuReclaim: ExecuteAggressive skipped - context already invalid";
     return;
   }
 
@@ -1226,7 +1220,7 @@ void PlatformViewOHOS::TryFreeSkiaGpuResources(
 
   if (!surface->ResourceContextMakeCurrent()) {
     FML_LOG(WARNING) << "GpuReclaim: [Raster] Make context current fail, skip "
-                        "freeGpuResources";
+                     << "freeGpuResources";
     return;
   }
 
