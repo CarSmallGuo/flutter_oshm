@@ -1333,7 +1333,6 @@ class _DropdownButtonState<T> extends State<DropdownButton<T>> with WidgetsBindi
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && focusNode != null && focusNode!.hasFocus) {
               focusNode!.unfocus();
-              print('luqi: unfocus() called');
             }
           });
         });
