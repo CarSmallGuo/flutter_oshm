@@ -1330,6 +1330,10 @@ class _DropdownButtonState<T> extends State<DropdownButton<T>> with WidgetsBindi
         // Frame 2: Focus state propagation and widget tree rebuild.
         // After these two frames, unfocus() can take effect properly.
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Check if widget is still valid before scheduling the second frame callback
+          if (!mounted || focusNode == null) {
+            return;
+          }
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && focusNode != null && focusNode!.hasFocus) {
               focusNode!.unfocus();
