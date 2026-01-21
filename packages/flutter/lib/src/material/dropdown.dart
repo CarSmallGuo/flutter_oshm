@@ -1325,7 +1325,21 @@ class _DropdownButtonState<T> extends State<DropdownButton<T>> with WidgetsBindi
       widget.onChanged?.call(newValue.result);
       // Only unfocus in touch mode to preserve keyboard navigation and accessibility
       if (defaultTargetPlatform == TargetPlatform.ohos && FocusManager.instance.highlightMode == FocusHighlightMode.touch) {
-        focusNode?.unfocus();
+        // Use double addPostFrameCallback to wait for InkWell's gesture handling to complete.
+        // Frame 1: InkWell's tap gesture and ink splash animation processing.
+        // Frame 2: Focus state propagation and widget tree rebuild.
+        // After these two frames, unfocus() can take effect properly.
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          // Check if widget is still valid before scheduling the second frame callback
+          if (!mounted || focusNode == null) {
+            return;
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted && focusNode != null && focusNode!.hasFocus) {
+              focusNode!.unfocus();
+            }
+          });
+        });
       }
     });
 
