@@ -1959,8 +1959,11 @@ void PlatformViewOHOSNapi::SurfaceCreated(int64_t shell_holder,
                                           int height) {
   auto native_window = fml::MakeRefCounted<OHOSNativeWindow>(
       static_cast<OHNativeWindow*>(window));
+
   OHOS_SHELL_HOLDER->GetPlatformView()->UpdateDisplaySize(width, height);
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyCreate(std::move(native_window));
+  // Notify GPU reclaim policy that surface is created
+  OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceCreated();
 }
 
 void PlatformViewOHOSNapi::SurfacePreload(int64_t shell_holder,
@@ -1983,6 +1986,8 @@ void PlatformViewOHOSNapi::SurfaceChanged(int64_t shell_holder,
 }
 
 void PlatformViewOHOSNapi::SurfaceDestroyed(int64_t shell_holder) {
+  // Update surface state for GPU reclaim policy
+  OHOS_SHELL_HOLDER->GetPlatformView()->OnSurfaceDestroyed();
   OHOS_SHELL_HOLDER->GetPlatformView()->NotifyDestroyed();
 
   OHOS_SHELL_HOLDER->GetPlatformView()->RunTask(OhosThreadType::kIO, [] {
