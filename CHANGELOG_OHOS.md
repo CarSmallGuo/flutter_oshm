@@ -1,4 +1,12 @@
 # Changelog
+
+## 3.27.4-ohos-1.0.3
+- 增加json5文件注释特性解析支持,([9bbadbe705](https://gitcode.com/openharmony-tpc/flutter_engine/commit/9bbadbe705f208385c0ef71664053523b3bb8cdc))
+- 解决上下分屏打开固定态软键盘后切换左右分屏页面上缩问题,([d448b3cefc](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d448b3cefc79ccb451b3b1be654a04056585835e))
+- 修复输入框导致的闪动的问题,([270a83ae76](https://gitcode.com/openharmony-tpc/flutter_engine/commit/270a83ae766fbe507bceb84bc9aa2561500a3d32))
+- fix: MouseRegion onExit is not triggered when moving the cursor in and out fast,([af4c37d569](https://gitcode.com/openharmony-tpc/flutter_engine/commit/af4c37d569d5b54b72314372cec4a227e422945e))
+- LTPO增加100ms性能兜底，优化代码,([f8ecb0cb3e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/f8ecb0cb3ecedc8cfa55d78cc623a5f062b38639))
+
 ## 3.27.4-ohos-1.0.2
 - 【3.27】【性能雷达】滑动丢帧上报 ([06fa9961](https://gitcode.com/openharmony-tpc/flutter_engine/commit/06fa996109f1ebead460a62cd7c0ba7450bf18b3?ref=pr_1116&prId=1120))
 - 同步性能雷达特性到flutter3.27版本 ([428faf24](https://gitcode.com/openharmony-tpc/flutter_engine/commit/428faf242238f4e2c6abf3192a87155614381ba7?ref=hiappevent-327&prId=1116))
