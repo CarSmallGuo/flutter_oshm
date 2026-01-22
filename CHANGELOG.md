@@ -1,4 +1,9 @@
 # Changelog
+## 6.1.0.28
+- fix: 3.7 uri could be empty sometime ([d32c7172](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d32c71726b0deb3fef0baeb5efcbf5d8d3bc325a?ref=dev_uri_empty&prId=1198))
+- dev 分支更新README ([e7713d6f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7713d6f45230af3e0e7c27a647e6470a0f65147?ref=dev&prId=1183))
+- fix: false error log when notify page change successfully ([4bbf42fa](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4bbf42fabd0b186472f25127d1cbb01e03b99f85?ref=dev_dpi_log&prId=1191))
+- 修改napi相关的内存泄露问题 ([c972f37f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/c972f37fdc67b0cafbd6b54b4c30e0ad9daf3d90?ref=handle-scope-3.7&prId=1179))
 ## 6.1.0.27
 - feat: notify OHOS when navigate in Flutter ([2f928192](https://gitcode.com/openharmony-tpc/flutter_engine/commit/2f9281926d5805c35160a199b2ee0ff1cf3a40ad?ref=dpi_dev&prId=1175))
 - patch cipd cache. ([f849f54c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/babba9612bb91b711899da5ea19465e3d66d7880?ref=dev&prId=1167))
