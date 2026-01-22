@@ -1,4 +1,9 @@
 # Changelog
+## 6.1.0.28
+- oh-3.22.0分支更新README文档 ([a8a3aa9d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/a8a3aa9df729bbb172d0c67a63b2a1b842a10986?ref=oh-3.22.0&prId=1184))
+- fix: false error log when notify page change successfully ([fa02020c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fa02020cb10c26084a7bf4b9b0b108a811385f89?ref=22_dpi_log&prId=1197))
+- 修改napi相关的内存泄露问题 ([519ae99d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/519ae99da7134eeb3f7eb67f59605304a30ec41f?ref=handle-scope-3.22&prId=1180))
+- Fix cache errors related to YUVConversionVK. ([7e68d1d6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7e68d1d6917ccbdf0e3991102ab50d8560e94752?ref=yuv-cache-3.22&prId=1186))
 ## 6.1.0.27
 - feat: notify OHOS when navigate in Flutter ([0335dd77](https://gitcode.com/openharmony-tpc/flutter_engine/commit/0335dd774b3e62564f119215c82850890784e731?ref=dpi_3_22_dev&prId=1176))
 - 增加json5文件注释特性解析支持 ([390dc8ae](https://gitcode.com/openharmony-tpc/flutter_engine/commit/390dc8ae6c62067c761e7ef744d0cb08503d8ce7?ref=oh-3.22.0&prId=1155))
