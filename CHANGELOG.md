@@ -1,5 +1,8 @@
 # Changelog
 ## 6.1.0.28
+- Set VMA default block size. See https://github.com/flutter/engine/pull/56368/files ([680b9912](https://gitcode.com/openharmony-tpc/flutter_engine/commit/680b9912066931fd423da20b4d1b3d4f392944b9?ref=mem-3.22&prId=1194))
+- 退后台释放DMA资降低内存 ([907c8623](https://gitcode.com/openharmony-tpc/flutter_engine/commit/907c8623a1ebc1d73061cf1e792069d073ab4c8d?ref=DmaFreeInBackground-3.22.0&prId=1182))
+## 6.1.0.260
 - oh-3.22.0分支更新README文档 ([a8a3aa9d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/a8a3aa9df729bbb172d0c67a63b2a1b842a10986?ref=oh-3.22.0&prId=1184))
 - fix: false error log when notify page change successfully ([fa02020c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fa02020cb10c26084a7bf4b9b0b108a811385f89?ref=22_dpi_log&prId=1197))
 - 修改napi相关的内存泄露问题 ([519ae99d](https://gitcode.com/openharmony-tpc/flutter_engine/commit/519ae99da7134eeb3f7eb67f59605304a30ec41f?ref=handle-scope-3.22&prId=1180))
