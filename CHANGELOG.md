@@ -1,5 +1,7 @@
 # Changelog
 ## 6.1.0.28
+- 退后台释放DMA资降低内存 ([08e9b5cf](https://gitcode.com/openharmony-tpc/flutter_engine/commit/08e9b5cfef229c20ac1a666dafb486f83af032f0?ref=DmaFreeInBackground-3.7&prId=1193))
+## 6.1.0.260
 - fix: 3.7 uri could be empty sometime ([d32c7172](https://gitcode.com/openharmony-tpc/flutter_engine/commit/d32c71726b0deb3fef0baeb5efcbf5d8d3bc325a?ref=dev_uri_empty&prId=1198))
 - dev 分支更新README ([e7713d6f](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e7713d6f45230af3e0e7c27a647e6470a0f65147?ref=dev&prId=1183))
 - fix: false error log when notify page change successfully ([4bbf42fa](https://gitcode.com/openharmony-tpc/flutter_engine/commit/4bbf42fabd0b186472f25127d1cbb01e03b99f85?ref=dev_dpi_log&prId=1191))
