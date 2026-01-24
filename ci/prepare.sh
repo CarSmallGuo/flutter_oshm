@@ -66,6 +66,8 @@ function check_env() {
     export CIPD_NO_SELF_UPDATE=true
     # llvm
     export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
+    # archive
+    export PATH=$PROJECT_DIR/cipd/bin:$PATH
     echo "$ env"
     env
     # set
@@ -112,8 +114,8 @@ function patch_cipd() {
     cd $PROJECT_DIR
     echo "$ git clone -b main https://gitcode.com/xiedrsz/cipd.git"
     git clone -b main https://gitcode.com/xiedrsz/cipd.git
-    echo "$ cd ./cipd && ./patch_cipd.sh"
-    cd ./cipd && ./patch_cipd.sh
+    echo "$ cd ./cipd && patchcipd"
+    cd ./cipd && patchcipd
 }
 
 # Sync cache

@@ -15,7 +15,9 @@ ENGINE_DIR="$PROJECT_DIR/flutter_flutter/engine"
 ARCHIVE_DIR="$ROOT_DIR/Archive/out"
 # Build mode, randomly select one from debug, profile and release
 MODES=("debug" "profile" "release")
-BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
+# TODO
+# BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
+BUILD_MODE=debug
 
 # Target branch
 TARGET_FLUTTER_BRANCH="oh-3.32.4-dev"
@@ -42,6 +44,8 @@ function check_env() {
     export CIPD_NO_SELF_UPDATE=true
     # llvm
     export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
+    # archive
+    export PATH=$PROJECT_DIR/cipd/bin:$PATH
     echo "$ set"
     set
 }
@@ -114,6 +118,10 @@ function compile_engine_random() {
     fi
 
     # Archive
+    echo "$ cp $ARCHIVE_DIR/engine.ohos.version $ENGINE_DIR/src/out/engine.ohos.version"
+    cp $ARCHIVE_DIR/engine.ohos.version $ENGINE_DIR/src/out/engine.ohos.version
+    cd src && save_mtime out && mv restore_mtimes.sh out/restore_mtimes.sh
+    archive sync out cloud://$TARGET_FLUTTER_BRANCH/out
     (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
 }
 
@@ -138,10 +146,47 @@ function compile_engine_all() {
     fi
 
     # Archive
+    echo "$ cp $ARCHIVE_DIR/engine.ohos.version $ENGINE_DIR/src/out/engine.ohos.version"
+    cp $ARCHIVE_DIR/engine.ohos.version $ENGINE_DIR/src/out/engine.ohos.version
+    cd src && save_mtime out && mv restore_mtimes.sh out/restore_mtimes.sh
+    archive sync out cloud://$TARGET_FLUTTER_BRANCH/out
     (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
 }
 
-# Pack SDK
+# 同步out产物和恢复mtime
+function restore_mtimes() {
+    # 如果是星期五则直接返回
+    if [ "$(date +%u)" -eq 5 ]; then
+        return
+    fi
+    echo "Restore mtimes"
+    # 更新engine的mtime
+    echo "$ cd $PROJECT_DIR/flutter_flutter"
+    cd $PROJECT_DIR/flutter_flutter
+    find engine -type f -exec touch -d "10 days ago" {} +
+    # 同步云端out
+    echo "$ mkdir -p engine/src/out"
+    mkdir -p engine/src/out
+    echo "$ archive sync cloud://$TARGET_FLUTTER_BRANCH/out engine/src/out"
+    archive sync cloud://$TARGET_FLUTTER_BRANCH/out engine/src/out
+    # 刷新变更文件的mtime
+    if [ -f engine/src/out/engine.ohos.version ]; then
+        commit_id=$(cat engine/src/out/engine.ohos.version)
+        echo "$ git diff --name-only --diff-filter=d $commit_id | xargs -r touch"
+        git diff --name-only --diff-filter=d $commit_id | xargs -r touch
+    else
+        find engine -type f -exec touch {} +
+    fi
+    if [ -f engine/src/out/restore_mtimes.sh ]; then
+        echo "$ mv engine/src/out/restore_mtimes.sh engine/src/restore_mtimes.sh"
+        mv engine/src/out/restore_mtimes.sh engine/src/restore_mtimes.sh
+        echo "$ chmod +x engine/src/restore_mtimes.sh"
+        chmod +x engine/src/restore_mtimes.sh
+        echo "$ cd engine/src && ./restore_mtimes.sh"
+        cd engine/src && ./restore_mtimes.sh
+    fi
+}
+
 function pack_flutter() {
     echo "Pack SDK"
     echo "$ cd $PROJECT_DIR/flutter_flutter"
@@ -178,12 +223,6 @@ function compile_tester() {
     fi
 }
 
-# Upload to obs
-function upload_to_obs() {
-    echo "Upload to obs"
-    # To be done
-}
-
 function compile() {
     echo "Start compilation"
     check_env
@@ -203,10 +242,12 @@ function compile() {
     if [ -z "${PR_URL}" ]; then
         # PR_URL is empty, indicates daily build, needs full compilation
         echo "PR_URL is empty, indicates daily build, needs full compilation"
+        restore_mtimes
         compile_engine_all
     else
         # Gatekeeper
         echo "PR_URL is not empty, indicates gatekeeper build, needs random compilation"
+        restore_mtimes
         compile_engine_random
     fi
     if [ $? -ne 0 ]; then
