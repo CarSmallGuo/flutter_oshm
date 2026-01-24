@@ -15,8 +15,8 @@ ENGINE_DIR="$PROJECT_DIR/flutter_flutter/engine"
 ARCHIVE_DIR="$ROOT_DIR/Archive/out"
 # Build mode, randomly select one from debug, profile and release
 MODES=("debug" "profile" "release")
+BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
 # TODO
-# BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
 BUILD_MODE=debug
 
 # Target branch
