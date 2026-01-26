@@ -93,6 +93,19 @@ function gclient_sync() {
     sed -i 's|enable_unittests = current_toolchain == host_toolchain \|\| is_fuchsia \|\| is_mac|enable_unittests = false|g' $ENGINE_DIR/src/flutter/testing/testing.gni
 }
 
+# 打包out文件夹
+function pack_out() {
+    mkdir -p $ARCHIVE_DIR/out
+    cd $ENGINE_DIR/src/out
+    # 遍历 out 目录，单独打包每个文件夹
+    for dir in ./*; do
+        if [ -d "$dir" ]; then
+            tar -czpf $ARCHIVE_DIR/out/$(basename $dir).tar.gz $dir
+        fi
+    done
+}
+
+
 # Compile engine, randomly select one from debug, profile and release
 function compile_engine_random() {
     echo "Build mode: $BUILD_MODE"
@@ -120,7 +133,7 @@ function compile_engine_random() {
     # Archive
     cd src
     save_mtime out $ARCHIVE_DIR/restore_mtimes.sh
-    (tar -czpf $ARCHIVE_DIR/out.tar.gz out &)
+    (pack_out &)
 }
 
 # Compile engine, full build
@@ -159,6 +172,7 @@ function restore_engine_mtimes() {
     # Update engine mtimes
     echo "$ cd $ENGINE_DIR/src"
     cd $ENGINE_DIR/src
+    archive init
     archive cp cloud://$TARGET_FLUTTER_BRANCH/engine.ohos.version engine.ohos.version
     if [ ! -f engine.ohos.version ]; then
         return
@@ -170,11 +184,11 @@ function restore_engine_mtimes() {
     git diff --name-only --diff-filter=d $commit_id | xargs -r touch
     cd $ENGINE_DIR/src
 
-    archive cp cloud://$TARGET_FLUTTER_BRANCH/out.tar.gz out.tar.gz
-    if [ ! -f out.tar.gz ]; then
-        return
-    fi
-    tar -xzpf out.tar.gz
+    archive sync cloud://$TARGET_FLUTTER_BRANCH/out out -ps 73400320
+    cd out
+    for tarfile in *.tar.gz; do
+        tar -xzpf "$tarfile"
+    done
 
     archive cp cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh restore_mtimes.sh
     if [ ! -f restore_mtimes.sh ]; then
@@ -225,7 +239,7 @@ function upload_to_cloud() {
     echo "Upload to cloud"
     archive cp $ARCHIVE_DIR/restore_mtimes.sh cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh
     archive cp $ARCHIVE_DIR/engine.ohos.version cloud://$TARGET_FLUTTER_BRANCH/engine.ohos.version
-    archive cp $ARCHIVE_DIR/out.tar.gz cloud://$TARGET_FLUTTER_BRANCH/out.tar.gz
+    archive sync $ARCHIVE_DIR/out cloud://$TARGET_FLUTTER_BRANCH/out -ps 73400320
 }
 
 function compile() {
