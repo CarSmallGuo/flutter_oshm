@@ -16,6 +16,8 @@ ARCHIVE_DIR="$ROOT_DIR/Archive/out"
 # Build mode, randomly select one from debug, profile and release
 MODES=("debug" "profile" "release")
 BUILD_MODE=${MODES[$RANDOM % ${#MODES[@]}]}
+# TODO
+BUILD_MODE=debug
 
 # Target branch
 TARGET_FLUTTER_BRANCH="oh-3.32.4-dev"
@@ -42,6 +44,8 @@ function check_env() {
     export CIPD_NO_SELF_UPDATE=true
     # llvm
     export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
+    # archive
+    export PATH=$PROJECT_DIR/cipd/bin:$PATH
     echo "$ set"
     set
 }
@@ -114,7 +118,9 @@ function compile_engine_random() {
     fi
 
     # Archive
-    (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
+    cd src
+    save_mtime out $ARCHIVE_DIR/restore_mtimes.sh
+    (cp -a out/. $ARCHIVE_DIR &)
 }
 
 # Compile engine, full build
@@ -138,10 +144,45 @@ function compile_engine_all() {
     fi
 
     # Archive
-    (cp -a $ENGINE_DIR/src/out/. $ARCHIVE_DIR &)
+    cd src
+    save_mtime out $ARCHIVE_DIR/restore_mtimes.sh
+    (cp -a out/. $ARCHIVE_DIR &)
 }
 
-# Pack SDK
+# Sync out artifacts and restore engine mtimes
+function restore_engine_mtimes() {
+    # If it's Friday, return directly
+    if [ "$(date +%u)" -eq 5 ]; then
+        return
+    fi
+
+    # Update engine mtimes
+    echo "$ cd $ENGINE_DIR/src"
+    cd $ENGINE_DIR/src
+    archive init
+    archive cp cloud://$TARGET_FLUTTER_BRANCH/engine.ohos.version engine.ohos.version
+    if [ ! -f engine.ohos.version ]; then
+        return
+    fi
+    find . -type f -exec touch -d "10 days ago" {} +
+    commit_id=$(cat engine.ohos.version)
+    cd $Project_DIR/flutter_flutter
+    echo "$ git diff --name-only --diff-filter=d $commit_id | xargs -r touch"
+    git diff --name-only --diff-filter=d $commit_id | xargs -r touch
+    cd $ENGINE_DIR/src
+
+    echo "sync out artifacts"
+    archive sync cloud://$TARGET_FLUTTER_BRANCH/out out
+
+    archive cp cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh restore_mtimes.sh
+    if [ ! -f restore_mtimes.sh ]; then
+        return
+    fi
+    chmod +x ./restore_mtimes.sh && ./restore_mtimes.sh
+
+    echo "Successfully restore engine mtimes"
+}
+
 function pack_flutter() {
     echo "Pack SDK"
     echo "$ cd $PROJECT_DIR/flutter_flutter"
@@ -178,10 +219,13 @@ function compile_tester() {
     fi
 }
 
-# Upload to obs
-function upload_to_obs() {
-    echo "Upload to obs"
-    # To be done
+function upload_to_cloud() {
+    echo "Upload to cloud"
+    archive cp $ARCHIVE_DIR/restore_mtimes.sh cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh
+    archive cp $ARCHIVE_DIR/engine.ohos.version cloud://$TARGET_FLUTTER_BRANCH/engine.ohos.version
+    echo "sync out artifacts to cloud"
+    archive sync $ARCHIVE_DIR/out cloud://$TARGET_FLUTTER_BRANCH/out
+    wait
 }
 
 function compile() {
@@ -201,12 +245,14 @@ function compile() {
     fi
 
     if [ -z "${PR_URL}" ]; then
-        # PR_URL is empty, indicates daily build, needs full compilation
-        echo "PR_URL is empty, indicates daily build, needs full compilation"
+        # PR_URL is empty, indicates daily build, requires full compilation
+        echo "PR_URL is empty, indicates daily build, requires full compilation"
+        restore_engine_mtimes
         compile_engine_all
     else
         # Gatekeeper
-        echo "PR_URL is not empty, indicates gatekeeper build, needs random compilation"
+        echo "PR_URL is not empty, indicates gatekeeper build, requires random compilation"
+        restore_engine_mtimes
         compile_engine_random
     fi
     if [ $? -ne 0 ]; then
@@ -219,12 +265,16 @@ function compile() {
         echo "Failed to execute: compile_tester"
         return 1
     fi
+
+    upload_to_cloud
+    
+    archive uninstall
     echo "Compilation stage completed"
 }
 
 compile $@
 if [ $? -ne 0 ]; then
-    # Delete in background, src folder has been polluted
+    # Delete in background, src folder has been corrupted
     (rm -rf $ENGINE_DIR/src &)
     echo "Compilation stage failed"
     exit 1
