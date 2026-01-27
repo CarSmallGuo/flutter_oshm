@@ -120,7 +120,7 @@ function compile_engine_random() {
     # Archive
     cd src
     save_mtime out $ARCHIVE_DIR/restore_mtimes.sh
-    (cp -a out/. $ARCHIVE_DIR &)
+    (cp -a out/. $ARCHIVE_DIR/out &)
 }
 
 # Compile engine, full build
@@ -146,7 +146,7 @@ function compile_engine_all() {
     # Archive
     cd src
     save_mtime out $ARCHIVE_DIR/restore_mtimes.sh
-    (cp -a out/. $ARCHIVE_DIR &)
+    (cp -a out/. $ARCHIVE_DIR/out &)
 }
 
 # Sync out artifacts and restore engine mtimes
@@ -171,7 +171,6 @@ function restore_engine_mtimes() {
     git diff --name-only --diff-filter=d $commit_id | xargs -r touch
     cd $ENGINE_DIR/src
 
-    echo "sync out artifacts"
     archive sync cloud://$TARGET_FLUTTER_BRANCH/out out
 
     archive cp cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh restore_mtimes.sh
@@ -223,9 +222,7 @@ function upload_to_cloud() {
     echo "Upload to cloud"
     archive cp $ARCHIVE_DIR/restore_mtimes.sh cloud://$TARGET_FLUTTER_BRANCH/restore_mtimes.sh
     archive cp $ARCHIVE_DIR/engine.ohos.version cloud://$TARGET_FLUTTER_BRANCH/engine.ohos.version
-    echo "sync out artifacts to cloud"
     archive sync $ARCHIVE_DIR/out cloud://$TARGET_FLUTTER_BRANCH/out
-    wait
 }
 
 function compile() {

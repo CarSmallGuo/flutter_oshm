@@ -104,7 +104,7 @@ function check_env() {
     cd $PROJECT_DIR
     echo "$ ls -al"
     ls -al
-    mkdir -p $ARCHIVE_DIR
+    mkdir -p $ARCHIVE_DIR/out
     mkdir -p $BACKUP_DIR
 }
 
