@@ -66,6 +66,8 @@ function check_env() {
     export CIPD_NO_SELF_UPDATE=true
     # llvm
     export PATH=$DEVECO_SDK_HOME/default/openharmony/native/llvm/bin:$PATH
+    # archive
+    export PATH=$PROJECT_DIR/cipd/bin:$PATH
     echo "$ env"
     env
     # set
@@ -102,18 +104,28 @@ function check_env() {
     cd $PROJECT_DIR
     echo "$ ls -al"
     ls -al
-    mkdir -p $ARCHIVE_DIR
+    mkdir -p $ARCHIVE_DIR/out
     mkdir -p $BACKUP_DIR
 }
 
-function patch_cipd() {
-    echo "Patch cipd"
-    echo "$ cd $PROJECT_DIR"
-    cd $PROJECT_DIR
-    echo "$ git clone -b main https://gitcode.com/xiedrsz/cipd.git"
-    git clone -b main https://gitcode.com/xiedrsz/cipd.git
-    echo "$ cd ./cipd && ./patch_cipd.sh"
-    cd ./cipd && ./patch_cipd.sh
+function prepare_cipd() {
+    echo "Prepare cipd"
+    echo "$ cd $PROJECT_DIR/cipd"
+    cd $PROJECT_DIR/cipd
+    if [ $? -ne 0 ]; then
+        echo "cipd does not exist"
+        return 0
+    fi
+    echo "$ git branch -a"
+    git branch -a
+    echo "$ git checkout main"
+    git checkout main
+    echo "$ git reset --hard"
+    git reset --hard
+    echo "$ git pull --rebase"
+    git pull --rebase
+    echo "$ patchcipd"
+    patchcipd
 }
 
 # Sync cache
@@ -124,7 +136,7 @@ function sync_cache() {
     find $CIPD_CACHE_DIR -type f -exec touch {} +
     echo "$ rm $CIPD_CACHE_DIR/instances/state.db"
     rm $CIPD_CACHE_DIR/instances/state.db
-    patch_cipd
+    prepare_cipd
     # Refresh FLUTTERTPC repositories
     echo "$ cd $REPO_CACHE_DIR"
     cd $REPO_CACHE_DIR
