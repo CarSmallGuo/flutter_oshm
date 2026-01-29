@@ -1,4 +1,7 @@
 # Changelog
+## 6.1.0.29
+- [impeller] Vulkan backend supports skipping rendering when dirty region is 0. ([1893c004](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1893c004ebc42cd43153c5c17107d2eda819c64f?ref=skip_damage_zero_322&prId=1203))
+- Add monitor for external textures visible area ([e78dbad9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e78dbad9ca500a05f8fa114410f222f46bb70ed6?ref=oh-3.22.0&prId=1199))
 ## 6.1.0.28
 - Set VMA default block size. See https://github.com/flutter/engine/pull/56368/files ([680b9912](https://gitcode.com/openharmony-tpc/flutter_engine/commit/680b9912066931fd423da20b4d1b3d4f392944b9?ref=mem-3.22&prId=1194))
 - 退后台释放DMA资降低内存 ([907c8623](https://gitcode.com/openharmony-tpc/flutter_engine/commit/907c8623a1ebc1d73061cf1e792069d073ab4c8d?ref=DmaFreeInBackground-3.22.0&prId=1182))
