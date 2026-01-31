@@ -13,6 +13,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart' show clampDouble, precisionErrorTolerance;
 import 'package:flutter/gestures.dart' show DragStartBehavior;
 import 'package:flutter/rendering.dart';
+import 'dart:async';
 
 import 'basic.dart';
 import 'debug.dart';
@@ -32,6 +33,7 @@ import 'scroll_view.dart';
 import 'scrollable.dart';
 import 'sliver_fill.dart';
 import 'viewport.dart';
+import '_statusBar.dart';
 
 /// A controller for [PageView].
 ///
@@ -307,7 +309,7 @@ class PageMetrics extends FixedScrollMetrics {
   /// The current page displayed in the [PageView].
   double? get page {
     return math.max(0.0, clampDouble(pixels, minScrollExtent, maxScrollExtent)) /
-           math.max(1.0, viewportDimension * viewportFraction);
+        math.max(1.0, viewportDimension * viewportFraction);
   }
 
   /// The fraction of the viewport that each page occupies.
@@ -325,12 +327,12 @@ class _PagePosition extends ScrollPositionWithSingleContext implements PageMetri
     double viewportFraction = 1.0,
     super.oldPosition,
   }) : assert(viewportFraction > 0.0),
-       _viewportFraction = viewportFraction,
-       _pageToUseOnStartup = initialPage.toDouble(),
-       super(
-         initialPixels: null,
-         keepScrollOffset: keepPage,
-       );
+        _viewportFraction = viewportFraction,
+        _pageToUseOnStartup = initialPage.toDouble(),
+        super(
+          initialPixels: null,
+          keepScrollOffset: keepPage,
+        );
 
   final int initialPage;
   double _pageToUseOnStartup;
@@ -717,10 +719,10 @@ class PageView extends StatefulWidget {
     this.scrollBehavior,
     this.padEnds = true,
   }) : childrenDelegate = SliverChildBuilderDelegate(
-         itemBuilder,
-         findChildIndexCallback: findChildIndexCallback,
-         childCount: itemCount,
-       );
+          itemBuilder,
+          findChildIndexCallback: findChildIndexCallback,
+          childCount: itemCount,
+        );
 
   /// Creates a scrollable list that works page by page with a custom child
   /// model.
@@ -870,10 +872,26 @@ class _PageViewState extends State<PageView> {
 
   late PageController _controller;
 
+  StreamSubscription? _subscription;
+
   @override
   void initState() {
     super.initState();
     _initController();
+    if (widget.scrollDirection == Axis.vertical) {
+      ChannelMessageHandler.init();
+      _subscription = ChannelMessageHandler.messageStream.listen((message) {
+        try {
+          _controller.animateToPage(
+            0,
+            duration: const Duration(milliseconds: 1000),
+            curve: Curves.easeOutCirc,
+          );
+        } catch(err) {
+          print(err);
+        };
+      });
+    }
     _lastReportedPage = _controller.initialPage;
   }
 
@@ -882,9 +900,10 @@ class _PageViewState extends State<PageView> {
     if (widget.controller == null) {
       _controller.dispose();
     }
+    _subscription?.cancel();
+    _subscription = null;
     super.dispose();
   }
-
 
   void _initController() {
     _controller = widget.controller ?? PageController();
@@ -921,7 +940,7 @@ class _PageViewState extends State<PageView> {
     ).applyTo(
       widget.pageSnapping
         ? _kPagePhysics.applyTo(widget.physics ?? widget.scrollBehavior?.getScrollPhysics(context))
-        : widget.physics ?? widget.scrollBehavior?.getScrollPhysics(context),
+          : widget.physics ?? widget.scrollBehavior?.getScrollPhysics(context),
     );
 
     return NotificationListener<ScrollNotification>(
