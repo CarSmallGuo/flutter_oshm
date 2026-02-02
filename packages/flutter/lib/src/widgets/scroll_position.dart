@@ -1049,10 +1049,17 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
       case TargetPlatform.macOS:
         break;
       case TargetPlatform.ohos:
+        String scrollType = '${this.runtimeType}';
+        SystemChannels.platform.invokeMethod(
+          'Scroll.type',
+          {'type': scrollType}
+        );
         SystemChannels.platform.invokeMethod(
           'Scroll.Activity',
           'start',
         );
+      default:
+        break;
     }
     activity!.dispatchScrollStartNotification(copyWith(), context.notificationContext);
   }
@@ -1084,6 +1091,8 @@ abstract class ScrollPosition extends ViewportOffset with ScrollMetrics {
           'Scroll.Activity',
           'end',
         );
+      default:
+        break;
     }
   }
 

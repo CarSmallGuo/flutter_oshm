@@ -589,6 +589,28 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   static set systemContextMenuClient(SystemContextMenuClient? client) {
     instance._systemContextMenuClient = client;
   }
+
+  // 上报navigator执行push的动作
+  void reportNavigatorPush(bool start, [String preSettingsName = 'null', String curSettingsName = 'null']) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorPush',
+      <String, dynamic>{
+        'start': start,
+        'preSettingsName': preSettingsName,
+        'curSettingsName': curSettingsName,
+      }
+    );
+  }
+
+  // 上报navigator执行pop的动作
+  void reportNavigatorPop(bool start) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorPop',
+      <String, bool>{
+        'start': start,
+      }
+    );
+  }
 }
 
 /// Signature for listening to changes in the [SystemUiMode].
