@@ -418,6 +418,17 @@ DartVM::DartVM(const std::shared_ptr<const DartVMData>& vm_data,
   }
 
   char* flags_error = Dart_SetVMFlags(args.size(), args.data());
+  {
+    std::ostringstream oss;
+    oss << "## whl ## Dart_SetVMFlags args: [";
+    for (size_t i = 0; i < args.size(); ++i) {
+      if (i > 0)
+        oss << ", ";
+      oss << "\"" << args[i] << "\"";
+    }
+    oss << "]";
+    FML_LOG(INFO) << oss.str();
+  }
   if (flags_error) {
     FML_LOG(FATAL) << "Error while setting Dart VM flags: " << flags_error;
     ::free(flags_error);

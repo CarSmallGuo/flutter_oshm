@@ -68,6 +68,7 @@ export class FlutterAbility extends UIAbility implements Host {
    */
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam) {
     // 冷启动通过上下文环境获取到系统当前文字大小，并进行键值存储
+    Log.i(TAG, "## whl ## oncreate FlutterShellArgs.fromWant - want.parameters:"+ JSON.stringify(want.parameters));
     AppStorage.setOrCreate('fontSizeScale', this.context.config.fontSizeScale);
     Log.i(TAG, "this.context.config.fontSizeScale = " + this.context.config.fontSizeScale);
 
@@ -229,6 +230,7 @@ export class FlutterAbility extends UIAbility implements Host {
   }
 
   getFlutterShellArgs(): FlutterShellArgs {
+    Log.i(TAG, "## whl ## getFlutterShellArgs");
     return FlutterShellArgs.fromWant(this.getWant());
   }
 

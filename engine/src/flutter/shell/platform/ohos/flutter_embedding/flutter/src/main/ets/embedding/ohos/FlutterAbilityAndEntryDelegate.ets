@@ -221,7 +221,13 @@ class FlutterAbilityAndEntryDelegate implements ExclusiveAppComponent<UIAbility>
     if (group == null && this.context != null) {
       group = new FlutterEngineGroup();
       const flutterShellArgs = this.host ? this.host.getFlutterShellArgs() : new FlutterShellArgs();
-      group.checkLoader(this.context, flutterShellArgs.toArray() ?? []);
+      const argsArray = flutterShellArgs.toArray();
+      const want = this.host ? this.host.getWant() : null;
+      Log.i(TAG, "## whl ## setupFlutterEngine flutterShellArgs: " + JSON.stringify({args: argsArray}) + 
+        (want ? ", want.parameters: " + JSON.stringify(want.parameters) : ", no host"));   
+      // Ensure the Flutter engine loader is initialized with the same args that will
+      // be used to start the Dart VM.
+      group.checkLoader(this.context, argsArray);
       this.engineGroup = group;
     }
     if (this.context) {

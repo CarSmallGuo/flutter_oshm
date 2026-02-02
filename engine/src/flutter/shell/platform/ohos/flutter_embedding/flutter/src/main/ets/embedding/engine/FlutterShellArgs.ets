@@ -54,7 +54,8 @@ export default class FlutterShellArgs {
   static ARG_DART_FLAGS = "--dart-flags=";
   static ARG_KEY_MSAA_SAMPLES = "msaa-samples";
   static ARG_MSAA_SAMPLES = "--msaa-samples=";
-
+  static ARG_KEY_PROFILE_MICROTASKS = "profile-microtasks";
+  static ARG_PROFILE_MICROTASKS = "--profile-microtasks";
   /**
    * 从意图中解析参数，创建shellArgs
    * @returns
@@ -91,7 +92,8 @@ export default class FlutterShellArgs {
       FlutterShellArgs.ARG_PURGE_PERSISTENT_CACHE, want, flutterShellArgs);
     FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_VERBOSE_LOGGING, FlutterShellArgs.ARG_VERBOSE_LOGGING, want,
       flutterShellArgs);
-
+    FlutterShellArgs.checkArg(FlutterShellArgs.ARG_KEY_PROFILE_MICROTASKS, FlutterShellArgs.ARG_PROFILE_MICROTASKS, want,
+      flutterShellArgs);
     let skia_allow_list: Object = want.parameters![FlutterShellArgs.ARG_KEY_TRACE_SKIA_ALLOWLIST];
     if (skia_allow_list != undefined) {
       flutterShellArgs.add(FlutterShellArgs.ARG_TRACE_SKIA_ALLOWLIST + (skia_allow_list as string));

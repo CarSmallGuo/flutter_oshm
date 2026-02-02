@@ -33,6 +33,7 @@ export default class FlutterEngineGroup {
     let loader: FlutterLoader = FlutterInjector.getInstance().getFlutterLoader();
     if (!loader.initialized) {
       loader.startInitialization(context);
+      Log.i(TAG, "## whl ## checkLoader args:" + JSON.stringify(args));
       loader.ensureInitializationComplete(args);
     }
   }
