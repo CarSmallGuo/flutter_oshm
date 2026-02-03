@@ -3219,6 +3219,13 @@ class _RouteEntry extends RouteTransitionRecord {
     route.install();
     assert(route.overlayEntries.isNotEmpty);
     if (currentState == _RouteLifecycle.push || currentState == _RouteLifecycle.pushReplace) {
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
+          ServicesBinding.instance.reportNavigatorActivity('push', 'start');
+        default:
+          break;
+      }
+
       final TickerFuture routeFuture = route.didPush();
       currentState = _RouteLifecycle.pushing;
       routeFuture.whenCompleteOrCancel(() {
@@ -3234,6 +3241,13 @@ class _RouteEntry extends RouteTransitionRecord {
             navigator._debugLocked = false;
             return true;
           }());
+
+          switch (defaultTargetPlatform) {
+            case TargetPlatform.ohos:
+              ServicesBinding.instance.reportNavigatorActivity('push', 'finish');
+            default:
+              break;
+          }
         }
       });
     } else {
@@ -4477,6 +4491,12 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
           }
           assert(entry.currentState == _RouteLifecycle.popping);
           canRemoveOrAdd = true;
+          switch (defaultTargetPlatform) {
+            case TargetPlatform.ohos:
+              ServicesBinding.instance.reportNavigatorActivity('pop', 'start');
+            default:
+              break;
+          }
         case _RouteLifecycle.popping:
           // Will exit this state when animation completes.
           break;
@@ -5723,6 +5743,13 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     // finishes synchronously.
     if (!_flushingHistory) {
       _flushHistoryUpdates(rearrangeOverlay: false);
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.ohos:
+        ServicesBinding.instance.reportNavigatorActivity('pop', 'finish');
+      default:
+        break;
     }
 
     assert(() {
