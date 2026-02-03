@@ -518,6 +518,23 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   Future<void> initializationComplete() async {
     await SystemChannels.platform.invokeMethod('System.initializationComplete');
   }
+
+  /// Report the activity executed by the navigator.
+  ///
+  /// @Param Activity :
+  /// [push] or [pop]
+  ///
+  /// @Param status :
+  /// [start] or [finish]
+  void reportNavigatorActivity(String activity, String status) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorActivity',
+      <String, String>{
+        'activity': activity,
+        'status': status
+      }
+    );
+  }
 }
 
 /// Signature for listening to changes in the [SystemUiMode].
