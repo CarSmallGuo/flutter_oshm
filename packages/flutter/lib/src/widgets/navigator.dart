@@ -3218,6 +3218,23 @@ class _RouteEntry extends RouteTransitionRecord {
     route.install();
     assert(route.overlayEntries.isNotEmpty);
     if (currentState == _RouteLifecycle.push || currentState == _RouteLifecycle.pushReplace) {
+      switch (defaultTargetPlatform) {
+        case TargetPlatform.ohos:
+          // The name of the previously displayed route
+          String preSettingsName = 'null';
+          if (previousPresent != null && previousPresent.settings.name != null) {
+            preSettingsName = previousPresent!.settings.name!;
+          }
+          // The name of the currently displayed route
+          String curSettingsName = 'null';
+          if (route.settings.name != null) {
+            curSettingsName = route.settings.name!;
+          }
+          ServicesBinding.instance.reportNavigatorPush(true, preSettingsName, curSettingsName);
+        default:
+          break;
+      }
+
       final TickerFuture routeFuture = route.didPush();
       currentState = _RouteLifecycle.pushing;
       routeFuture.whenCompleteOrCancel(() {
@@ -3233,6 +3250,13 @@ class _RouteEntry extends RouteTransitionRecord {
             navigator._debugLocked = false;
             return true;
           }());
+
+          switch (defaultTargetPlatform) {
+            case TargetPlatform.ohos:
+              ServicesBinding.instance.reportNavigatorPush(false);
+            default:
+              break;
+          }
         }
       });
     } else {
@@ -4473,6 +4497,12 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
           }
           assert(entry.currentState == _RouteLifecycle.popping);
           canRemoveOrAdd = true;
+          switch (defaultTargetPlatform) {
+            case TargetPlatform.ohos:
+              ServicesBinding.instance.reportNavigatorPop(true);
+            default:
+              break;
+          }
         case _RouteLifecycle.popping:
           // Will exit this state when animation completes.
           break;
@@ -5720,6 +5750,13 @@ class NavigatorState extends State<Navigator> with TickerProviderStateMixin, Res
     // finishes synchronously.
     if (!_flushingHistory) {
       _flushHistoryUpdates(rearrangeOverlay: false);
+    }
+
+    switch (defaultTargetPlatform) {
+      case TargetPlatform.ohos:
+        ServicesBinding.instance.reportNavigatorPop(false);
+      default:
+        break;
     }
 
     assert(() {

@@ -8,13 +8,16 @@
 *
 */
 
+import { common } from '@kit.AbilityKit';
+import hiTraceMeter from '@ohos.hiTraceMeter';
+
 import JSONMethodCodec from '../../../plugin/common/JSONMethodCodec';
 import MethodCall from '../../../plugin/common/MethodCall';
 import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
-import { common } from '@kit.AbilityKit';
 import FlutterManager from '../../ohos/FlutterManager';
+import Any from '../../../plugin/common/Any';
 
 /**
  * Channel for handling navigation-related communication between Flutter and OpenHarmony.
@@ -88,6 +91,7 @@ class NavigationCallback implements MethodCallHandler {
   private static TAG = "NavigationChannel";
   private dartExecutor: DartExecutor;
   private context?: common.Context;
+  private navigationMgr: NavigationManager = new NavigationManager();
 
   constructor(dartExecutor: DartExecutor, context?: common.Context) {
     this.dartExecutor = dartExecutor;
@@ -95,16 +99,60 @@ class NavigationCallback implements MethodCallHandler {
   }
 
   onMethodCall(call: MethodCall, result: MethodResult) {
+    let method: string = call.method;
+    let args: Any = call.args;
+    Log.i(NavigationCallback.TAG, "method = " + method);
+    switch (method) {
+      case "reportNavigatorPush": {
+        /// Report the push action executed by the navigator.
+        /// 
+        /// @Param start : Start to record trace.
+        /// true - start to record trace; false - finish to record trace.
+        /// 
+        /// @Param preSettingsName : The name of the previously displayed route.
+        /// 
+        /// @Param curSettingsName : The name of the currently displayed route.
+        let start: boolean = args.get("start");
+
+        let preSettingsName: string = args.get("preSettingsName");
+        let curSettingsName: string = args.get("curSettingsName");
+        if (start === undefined || preSettingsName === undefined || curSettingsName === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPush, incorrect parameter");
+          break;
+        }
+        this.navigationMgr.reportNavigatorPush(start, preSettingsName, curSettingsName);
+        break;
+      }
+      case "reportNavigatorPop": {
+        /// Report the pop action executed by the navigator.
+        /// 
+        /// @Param start : Start to record trace.
+        /// true - start to record trace; false - finish to record trace.
+        let start: boolean = args.get("start");
+        if (start === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPop, incorrect parameter");
+          break;
+        }
+        this.navigationMgr.reportNavigatorPop(start);
+        break;
+      }
+      default: {
+        this.notifyPageChanged(call);
+        result.success(null);
+        break;
+      }
+    }
+  }
+
+  private notifyPageChanged(call: MethodCall) {
     if (this.dartExecutor == null || this.dartExecutor.flutterNapi == null) {
       Log.e(NavigationCallback.TAG, "dartExecutor or flutterNapi is null, cancel OHOS page change notification");
-      result.success(null);
       return;
     }
 
     // Skip notification if context is not provided
     if (this.context == null) {
       Log.e(NavigationCallback.TAG, "context is not provided, skip OHOS page change notification");
-      result.success(null);
       return;
     }
 
@@ -116,7 +164,6 @@ class NavigationCallback implements MethodCallHandler {
     const windowId: number = FlutterManager.getInstance().getWindowId(this.context);
     if (windowId == 0) {
       Log.e(NavigationCallback.TAG, "Failed to get windowId, skip OHOS page change notification, uri: " + currentUri);
-      result.success(null);
       return;
     }
 
@@ -127,7 +174,34 @@ class NavigationCallback implements MethodCallHandler {
     } else {
       Log.e(NavigationCallback.TAG, "NotifyPageChanged failed, uri: " + currentUri + ", windowId: " + windowId + ", result: " + notifyResult);
     }
+  }
+}
 
-    result.success(null);
+class NavigationManager {
+  private settingsNameArray: Array<string> = ["null"];
+
+  reportNavigatorPush(start: boolean, preSettingsName: string, curSettingsName: string) {
+    if (start) {
+      if (this.settingsNameArray.length == 1) {
+        this.settingsNameArray.push(preSettingsName);
+        this.settingsNameArray.push(curSettingsName);
+      } else {
+        this.settingsNameArray.push(curSettingsName);
+
+      }
+      hiTraceMeter.startTrace("flutter::NAVIGATOR_PUSH", 0);
+
+    } else {
+      hiTraceMeter.finishTrace("flutter::NAVIGATOR_PUSH", 0);
+    }
+  }
+
+  reportNavigatorPop(start: boolean) {
+    if (start) {
+      hiTraceMeter.startTrace("flutter::NAVIGATOR_POP", 0);
+    } else {
+      hiTraceMeter.finishTrace("flutter::NAVIGATOR_POP", 0);
+      this.settingsNameArray.pop();
+    }
   }
 }
