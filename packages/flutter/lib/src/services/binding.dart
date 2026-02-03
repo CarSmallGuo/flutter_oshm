@@ -589,6 +589,38 @@ mixin ServicesBinding on BindingBase, SchedulerBinding {
   static set systemContextMenuClient(SystemContextMenuClient? client) {
     instance._systemContextMenuClient = client;
   }
+
+  /// Report the push action executed by the navigator.
+  ///
+  /// @Param start : Start to record trace.
+  /// true - start to record trace; false - finish to record trace.
+  ///
+  /// @Param preSettingsName : The name of the previously displayed route.
+  ///
+  /// @Param curSettingsName : The name of the currently displayed route.
+  void reportNavigatorPush(bool start, [String preSettingsName = 'null', String curSettingsName = 'null']) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorPush',
+      <String, dynamic>{
+        'start': start,
+        'preSettingsName': preSettingsName,
+        'curSettingsName': curSettingsName,
+      }
+    );
+  }
+
+  /// Report the pop action executed by the navigator.
+  ///
+  /// @Param start : Start to record trace.
+  /// true - start to record trace; false - finish to record trace.
+  void reportNavigatorPop(bool start) {
+    SystemChannels.navigation.invokeMethod<void>(
+      'reportNavigatorPop',
+      <String, bool>{
+        'start': start,
+      }
+    );
+  }
 }
 
 /// Signature for listening to changes in the [SystemUiMode].

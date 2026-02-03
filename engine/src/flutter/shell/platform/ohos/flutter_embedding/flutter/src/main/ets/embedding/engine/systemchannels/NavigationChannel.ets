@@ -8,11 +8,14 @@
 *
 */
 
+import hiTraceMeter from '@ohos.hiTraceMeter';
+
 import JSONMethodCodec from '../../../plugin/common/JSONMethodCodec';
 import MethodCall from '../../../plugin/common/MethodCall';
 import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
+import Any from '../../../plugin/common/Any';
 
 export default class NavigationChannel {
   private static TAG = "NavigationChannel";
@@ -51,7 +54,77 @@ export default class NavigationChannel {
 }
 
 class NavigationCallback implements MethodCallHandler {
+  private static TAG = "NavigationChannel";
+  private navigationMgr: NavigationManager = new NavigationManager();
+
   onMethodCall(call: MethodCall, result: MethodResult) {
-    result.success(null);
+    let method: string = call.method;
+    let args: Any = call.args;
+    Log.i(NavigationCallback.TAG, "method = " + method);
+    switch (method) {
+      case "reportNavigatorPush": {
+        /// Report the push action executed by the navigator.
+        ///
+        /// @Param start : Start to record trace.
+        /// true - start to record trace; false - finish to record trace.
+        ///
+        /// @Param preSettingsName : The name of the previously displayed route.
+        ///
+        /// @Param curSettingsName : The name of the currently displayed route.
+        let start: boolean = args.get("start");
+        let preSettingsName: string = args.get("preSettingsName");
+        let curSettingsName: string = args.get("curSettingsName");
+        if (start === undefined || preSettingsName === undefined || curSettingsName === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPush, incorrect parameter");
+          break;
+        }
+        this.navigationMgr.reportNavigatorPush(start, preSettingsName, curSettingsName);
+        break;
+      }
+      case "reportNavigatorPop": {
+        /// Report the pop action executed by the navigator.
+        ///
+        /// @Param start : Start to record trace.
+        /// true - start to record trace; false - finish to record trace.
+        let start: boolean = args.get("start");
+        if (start === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPop, incorrect parameter");
+          break;
+        }
+        this.navigationMgr.reportNavigatorPop(start);
+        break;
+      }
+      default: {
+        result.success(null);
+        break;
+      }
+    }
+  }
+}
+
+class NavigationManager {
+  private settingsNameArray: Array<string> = ["null"];
+
+  reportNavigatorPush(start: boolean, preSettingsName: string, curSettingsName: string) {
+    if (start) {
+      if (this.settingsNameArray.length == 1) {
+        this.settingsNameArray.push(preSettingsName);
+        this.settingsNameArray.push(curSettingsName);
+      } else {
+        this.settingsNameArray.push(curSettingsName);
+      }
+      hiTraceMeter.startTrace("flutter::NAVIGATOR_PUSH", 0);
+    } else {
+      hiTraceMeter.finishTrace("flutter::NAVIGATOR_PUSH", 0);
+    }
+  }
+
+  reportNavigatorPop(start: boolean) {
+    if (start) {
+      hiTraceMeter.startTrace("flutter::NAVIGATOR_POP", 0);
+    } else {
+      hiTraceMeter.finishTrace("flutter::NAVIGATOR_POP", 0);
+      this.settingsNameArray.pop();
+    }
   }
 }
