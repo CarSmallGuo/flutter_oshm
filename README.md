@@ -30,58 +30,123 @@ Flutter SDK 仓库
 
 ## 环境依赖
 
-* 开发系统
+- ### 开发系统
 
   Flutter Tools指令目前已支持在Linux、Mac和Windows下使用。
 
-* 环境配置
-   **请从[鸿蒙SDK](https://developer.huawei.com/consumer/cn/develop)下载配套开发工具**
-   *下列环境变量配置，类Unix系统（Linux、Mac），下可直接参照配置，Windows下环境变量配置请在‘编辑系统环境变量’中设置*
+- ### 环境配置
 
-  1. 配置HarmonyOS SDK和环境变量
-   * API18, deveco-studio-5.1 或 command-line-tools-5.1 (推荐使用5.1.0 Beta1或更新版本)
-   * 配置 Java17
-   * 配置环境变量 (SDK, node, ohpm, hvigor)
+  1. #### **安装配套工具**
 
-      ```sh
-       export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
-       export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
-       export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
-       export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
-       export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
-      ```
+     - 安装 **JDK17**，[下载地址](https://www.oracle.com/java/technologies/downloads/)。
+     - 安装 **Deveco Stuido** 或 **Command Line Tools**，[下载地址](https://developer.huawei.com/consumer/cn/download/)
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定3.22.0-ohos分支，并配置环境
+  2. #### 下载 Flutter SDK
 
-     ```sh
-      export PUB_CACHE=D:/PUB
-      export PATH=<flutter_flutter path>/bin:$PATH
-      export PUB_HOSTED_URL=https://pub.flutter-io.cn
-      export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+     通过代码工具下载当前仓库代码
+
+     ```powershell
+     git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git
      ```
 
-   3. 应用构建依赖flutter engine构建产物与engine host，默认从云端获取。也可以手工指定
-      - 使用示例：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>`
-      均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
+  3. #### 配置环境变量
 
-      ```sh
-       #依赖缓存
-       export PUB_CACHE=D:/PUB(自定义路径)
+     ##### Mac、Linux：
 
-       # 国内镜像
-       export PUB_HOSTED_URL=https://pub.flutter-io.cn
-       export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+     - ###### 编辑配置文件
 
-       # 拉取下来的flutter_flutter/bin目录
-       export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
+       打开终端，执行以下命令编辑 `~/.bash_profile`:
 
-       # HamonyOS SDK
+       ```bash
+       vim ~/.bash_profile
+       ```
+
+     - ###### 在文件中配置环境变量：
+
+       ```bash
+       # 配置JDK 17
+       export JAVA_HOME=<JAVA_HOME path>/Contents/Home
+       export PATH=$JAVA_HOME/bin:$PATH
+          
+       # 配置OpenHarmony SDK, ohpm, hvigor, node
        export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
        export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
        export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
-      ```
+          
+       #配置Flutter
+       export PUB_CACHE=D:/PUB
+       export PATH=<flutter_flutter path>/bin:$PATH
+       export PUB_HOSTED_URL=https://pub.flutter-io.cn
+       export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+       ```
+
+     - ###### 保存并退出
+
+       按`Esc`键进入命令模式，输入 `:wq`后按 `Enter` 键保存并推出编辑器。
+
+     - ###### 应用配置
+
+       执行以下命令重新加载配置使其立即生效：
+
+       ```bash
+       source ~/.bash_profile
+       ```
+
+     ##### Windows：
+
+     - ###### 打开系统环境变量设置
+
+       通过以下路径访问环境变量配置界面：
+
+       **此电脑**（右键）→ **属性** → **高级系统设置** → **高级** 选项卡 → **环境变量**
+
+     - ###### 配置环境变量
+
+       在**环境变量**面板，添加以下配置：
+
+       ① 配置配置 `JDK 17`
+
+       | 变量        | 值                             | 作用域       |
+       | ----------- | ------------------------------ | ------------ |
+       | `JAVA_HOME` | `C:\Program Files\Java\jdk-17` | 系统变量     |
+       | `Path`      | `%JAVA_HOME%\bin`              | 追加到现有值 |
+
+       ② 配置 `OpenHarmony SDK` ,`ohpm`, `hvigor`, `node`
+
+       | 变量              | 值                             | 作用域   |
+       | ----------------- | ------------------------------ | -------- |
+       | `TOOL_HOME`       | `D:\Deveco-studio`             | 系统变量 |
+       | `DEVECO_SDK_HOME` | `%TOOL_HOME%\sdk`              | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\ohpm\bin`   | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\hvigor\bin` | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\node\bin`   | 系统变量 |
+
+       ③ 配置 `Flutter`
+
+       | 变量                       | 值                              | 作用域   |
+       | -------------------------- | ------------------------------- | -------- |
+       | `PATH`                     | `D:\flutter_flutter\bin`        | 系统变量 |
+       | `PUB_CACHE`                | `D:\PUB`                        | 系统变量 |
+       | `PUB_HOSTED_URL`           | `https://pub.flutter-io.cn`     | 系统变量 |
+       | `FLUTTER_STORAGE_BASE_URL` | `https://storage.flutter-io.cn` | 系统变量 |
+
+  4. ##### 构建产物
+
+     应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
+
+     ```bash
+     # Mac, Linux 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
+     ```
+
+     ```powershell
+     # Windows 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
+     ```
+
+     **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
 ## 构建步骤
 
