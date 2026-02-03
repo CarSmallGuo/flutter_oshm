@@ -1045,10 +1045,21 @@ switch (defaultTargetPlatform) {
       case TargetPlatform.macOS:
         break;
       case TargetPlatform.ohos:
+        String scrollType = '${this.runtimeType}';
+        /// Report the type of the scrolling component.
+        /// Track scrollable widget names to identify [PageView] instances.
+        SystemChannels.platform.invokeMethod(
+          'Scroll.type',
+          {'type': scrollType}
+        );
+        /// Report the behavior of scrolling components.
+        /// The optional values for Scroll.Activity include [start] and [end].
         SystemChannels.platform.invokeMethod(
           'Scroll.Activity',
           'start',
         );
+      default:
+        break;
     }
     activity!.dispatchScrollStartNotification(copyWith(), context.notificationContext);
   }
@@ -1080,6 +1091,8 @@ switch (defaultTargetPlatform) {
           'Scroll.Activity',
           'end',
         );
+      default:
+        break;
     }
   }
 
