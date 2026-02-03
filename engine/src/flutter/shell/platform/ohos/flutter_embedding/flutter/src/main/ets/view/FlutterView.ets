@@ -541,7 +541,7 @@ export class FlutterView {
   }
   private keyboardHeightChangeCallback = (data: number) => {
     Log.i(TAG, "keyboardHeightChangeCallback " + data);
-    if (this.keyboardAvoidArea) {
+    if (this.keyboardAvoidArea && this.flutterEngine?.getTextInputChannel()?.getKeyboardFocusState()) {
       this.keyboardAvoidArea.bottomRect.height = data;
     }
     this.onAreaChange(null);
