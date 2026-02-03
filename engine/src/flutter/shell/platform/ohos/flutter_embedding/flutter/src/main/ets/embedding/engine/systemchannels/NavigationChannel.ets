@@ -8,13 +8,24 @@
 *
 */
 
+import { common } from '@kit.AbilityKit';
+import hiTraceMeter from '@ohos.hiTraceMeter';
+
 import JSONMethodCodec from '../../../plugin/common/JSONMethodCodec';
 import MethodCall from '../../../plugin/common/MethodCall';
 import MethodChannel, { MethodCallHandler, MethodResult } from '../../../plugin/common/MethodChannel';
 import Log from '../../../util/Log';
 import DartExecutor from '../dart/DartExecutor';
-import { common } from '@kit.AbilityKit';
 import FlutterManager from '../../ohos/FlutterManager';
+import Any from '../../../plugin/common/Any';
+
+/**
+ * Navigator activity types.
+ */
+export enum NavigatorActivity {
+  START = "start",
+  FINISH = "finish",
+}
 
 /**
  * Channel for handling navigation-related communication between Flutter and OpenHarmony.
@@ -95,16 +106,45 @@ class NavigationCallback implements MethodCallHandler {
   }
 
   onMethodCall(call: MethodCall, result: MethodResult) {
+    let method: string = call.method;
+    let args: Any = call.args;
+    Log.i(NavigationCallback.TAG, "method = " + method);
+    switch (method) {
+      case "reportNavigatorPush": {
+        let navigatorActivity: string = args as string;
+        if (navigatorActivity === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPush, incorrect parameter");
+          break;
+        }
+        this.reportNavigatorPush(navigatorActivity);
+        break;
+      }
+      case "reportNavigatorPop": {
+        let navigatorActivity: string = args as string;
+        if (navigatorActivity === undefined) {
+          Log.e(NavigationCallback.TAG, "reportNavigatorPop, incorrect parameter");
+          break;
+        }
+        this.reportNavigatorPop(navigatorActivity);
+        break;
+      }
+      default: {
+        this.notifyPageChanged(call);
+        result.success(null);
+        break;
+      }
+    }
+  }
+
+  private notifyPageChanged(call: MethodCall) {
     if (this.dartExecutor == null || this.dartExecutor.flutterNapi == null) {
       Log.e(NavigationCallback.TAG, "dartExecutor or flutterNapi is null, cancel OHOS page change notification");
-      result.success(null);
       return;
     }
 
     // Skip notification if context is not provided
     if (this.context == null) {
       Log.e(NavigationCallback.TAG, "context is not provided, skip OHOS page change notification");
-      result.success(null);
       return;
     }
 
@@ -116,7 +156,6 @@ class NavigationCallback implements MethodCallHandler {
     const windowId: number = FlutterManager.getInstance().getWindowId(this.context);
     if (windowId == 0) {
       Log.e(NavigationCallback.TAG, "Failed to get windowId, skip OHOS page change notification, uri: " + currentUri);
-      result.success(null);
       return;
     }
 
@@ -127,7 +166,46 @@ class NavigationCallback implements MethodCallHandler {
     } else {
       Log.e(NavigationCallback.TAG, "NotifyPageChanged failed, uri: " + currentUri + ", windowId: " + windowId + ", result: " + notifyResult);
     }
+  }
 
-    result.success(null);
+  /**
+   * Gets a NavigatorActivity from an encoded activity string.
+   * @param activity - The encoded activity string
+   * @returns The NavigatorActivity
+   * @throws Error if the activity string is not recognized
+   */
+  private getNavigatorActivityFromValue(activity: string): NavigatorActivity {
+    let activityTypes: string[] = [
+      NavigatorActivity.START,
+      NavigatorActivity.FINISH
+    ];
+    if (activityTypes.includes(activity as NavigatorActivity)) {
+      return activity as NavigatorActivity;
+    }
+    throw new Error("No such NavigatorActivity: " + activity);
+  }
+
+  private reportNavigatorPush(navigatorActivity: string) {
+    let activityType: NavigatorActivity = this.getNavigatorActivityFromValue(navigatorActivity);
+    switch(activityType) {
+      case NavigatorActivity.START:
+        hiTraceMeter.startTrace("flutter::NAVIGATOR_PUSH", 0);
+        break;
+      case NavigatorActivity.FINISH:
+        hiTraceMeter.finishTrace("flutter::NAVIGATOR_PUSH", 0);
+        break;
+    }
+  }
+
+  private reportNavigatorPop(navigatorActivity: string) {
+    let activityType: NavigatorActivity = this.getNavigatorActivityFromValue(navigatorActivity);
+    switch(activityType) {
+      case NavigatorActivity.START:
+        hiTraceMeter.startTrace("flutter::NAVIGATOR_POP", 0);
+        break;
+      case NavigatorActivity.FINISH:
+        hiTraceMeter.finishTrace("flutter::NAVIGATOR_POP", 0);
+        break;
+    }
   }
 }
