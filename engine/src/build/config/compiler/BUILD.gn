@@ -424,6 +424,20 @@ config("compiler") {
       cflags += [ "-DBORINGSSL_CLANG_SUPPORTS_DOT_ARCH" ]
     }
 
+    if (!unuse_bisheng) {
+      cflags += [
+        "-fwhole-program-vtables",
+        "-mllvm","--enable-partial-inlining",
+      ]
+      ldflags += [
+        "-Wl,-mllvm,-wholeprogramdevirt-check-fallback",
+        "-Wl,--Bsymbolic-functions",
+        "-Wl,--aarch64-inline-plt",
+        "-Wl,-mllvm,--enable-partial-inlining",
+        "-Wl,-mllvm,--tail-dup-placement",
+      ]
+    }
+
     defines += [ "__OHOS__" ]
   } else if (is_linux) {
     cflags += [ "-pthread" ]

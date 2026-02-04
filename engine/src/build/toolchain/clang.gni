@@ -16,4 +16,6 @@ declare_args() {
 
   # Set this flag to strip .so files.
   stripped_symbols = !is_debug
+
+  unuse_bisheng = false
 }

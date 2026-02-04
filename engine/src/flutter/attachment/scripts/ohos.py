@@ -163,11 +163,15 @@ def isNdkValid(path):
 # 指定engine编译的配置参数
 def engineConfig(buildInfo, args):
   OHOS_NDK_HOME = getNdkHome()
-  # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$OHOS_NDK_HOME/llvm/bin:$PATH
+
+  LLVM_HOME = os.path.join(OHOS_NDK_HOME, "../..", "hms", "native", "BiSheng")
+  if args.unuse_bisheng:
+    LLVM_HOME = os.path.join(OHOS_NDK_HOME, "llvm")
+
+  # export PATH=$OHOS_NDK_HOME/build-tools/cmake/bin:$PATH
   lastPath = os.getenv("PATH")
   os.environ["PATH"] = (
       "%s%s" % (os.path.join(OHOS_NDK_HOME, "build-tools", "cmake", "bin"), PATH_SEP) + "%s%s" %
-      (os.path.join(OHOS_NDK_HOME, "build-tools", "llvm", "bin"), PATH_SEP) + "%s%s" %
       (os.path.abspath("depot_tools"), PATH_SEP) + lastPath
   )
   unixCommand = ""
@@ -179,12 +183,14 @@ def engineConfig(buildInfo, args):
     )
   OPT = "--unoptimized " if buildInfo.unoptimized else ""
   LTO = "--no-lto " if buildInfo.buildType == "debug" else ""
+  UNUSE_BISHENG = "--unuse-bisheng" if args.unuse_bisheng else ""
   runCommand(
       "%s " % os.path.join("src", "flutter", "tools", "gn") + "--ohos " +
       "--ohos-cpu %s " % buildInfo.targetArch + "--runtime-mode %s " % buildInfo.buildType + OPT +
       LTO + unixCommand + "--no-goma " + "--no-prebuilt-dart-sdk " + "--full-dart-sdk " +
       "--embedder-for-target " + "--disable-desktop-embeddings " + "--no-build-embedder-examples " +
       "--ohos-api-int %s " % args.ohos_api_int + "--verbose " +
+      UNUSE_BISHENG +
       args.gn_extra_param.replace("\\", ""),
       checkCode=False,
       timeout=600,
