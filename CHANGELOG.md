@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.30
+- chore: Implement incremental builds. ([cb0f712c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/cb0f712c575fece8392fc1e8db544b73e9a3a847?ref=dev&prId=1204))
 ## 6.1.0.28
 - 退后台释放DMA资降低内存 ([08e9b5cf](https://gitcode.com/openharmony-tpc/flutter_engine/commit/08e9b5cfef229c20ac1a666dafb486f83af032f0?ref=DmaFreeInBackground-3.7&prId=1193))
 ## 6.1.0.260
