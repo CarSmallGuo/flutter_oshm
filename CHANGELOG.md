@@ -1,4 +1,10 @@
 # Changelog
+## 6.1.0.30
+- 毕昇编译器替换，开启优化选项 ([7496195c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7496195ce3c6e314db481ad27d1b3d0e5c7d6257?ref=322-bisheng-engine&prId=1218))
+- Click the status bar to automatically return to the top ([37837b37](https://gitcode.com/openharmony-tpc/flutter_engine/commit/37837b37ef93a30f0647c2c4cf2c10a5b8401eae?ref=oh-3.22.0&prId=1207))
+- 修复多PlatformView场景下输入框失焦问题 ([ffc7fcc5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/ffc7fcc5475b6874b4f238079cf2a41238e3d18c?ref=oh-3.22.0&prId=1213))
+- 增加路由跳转和标签页切换的检测能力 ([1906477e](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1906477e54e4d089ff5cba596124bf36ed6b8c9f?ref=3.22-tracing-engine&prId=1216))
+- chore: Implement incremental builds. ([906c54e5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/906c54e53130eb2686d0cdfd5a0832cd32c6f56f?ref=oh-3.22.0&prId=1205))
 ## 6.1.0.29
 - [impeller] Vulkan backend supports skipping rendering when dirty region is 0. ([1893c004](https://gitcode.com/openharmony-tpc/flutter_engine/commit/1893c004ebc42cd43153c5c17107d2eda819c64f?ref=skip_damage_zero_322&prId=1203))
 - Add monitor for external textures visible area ([e78dbad9](https://gitcode.com/openharmony-tpc/flutter_engine/commit/e78dbad9ca500a05f8fa114410f222f46bb70ed6?ref=oh-3.22.0&prId=1199))
