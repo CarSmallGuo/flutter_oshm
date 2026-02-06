@@ -1,10 +1,8 @@
 Flutter SDK 仓库
 ==============
 
-原始仓来源：https://github.com/flutter/flutter
-
 ## 仓库说明
-1. 本仓库基于 Google Flutter SDK，针对 OpenHarmony 平台进行兼容性适配与扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译与构建适配 OpenHarmony 的 Flutter 应用。
+1. 本仓库以 Google  [Flutter SDK](https://github.com/flutter/flutter)  为基础，针对 OpenHarmony 平台进行兼容性适配与功能扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译和构建适配 OpenHarmony 的 Flutter 应用。
 2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建 
 
 ## 版本规划
@@ -14,7 +12,9 @@ Flutter SDK 仓库
 请参见：[Flutter OH 版本升级指导](https://gitcode.com/wwyang09/flutter_samples_readme/blob/master/docs/ohos/10_appendix/UpgradeGuide.md)
 
 ## 开发文档
-开发指导、API说明、场景案例等请参考 [flutter_samples 仓库 ohos/docs](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)。该文档包含环境搭建、功能开发、性能调优、调试调测、三方库接入、FAQ等内容。
+开发相关规范、API说明及实践案例请参考以下文档：
+- [Google Flutter 官方文档](https://docs.flutter.dev/)：Flutter 官方开发指南与 API 文档。
+- [OpenHarmony Flutter 适配开发文档](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/README.md)：Flutter 适配 OpenHarmony 的开发指导与示例。
 
 ## 环境依赖
 
