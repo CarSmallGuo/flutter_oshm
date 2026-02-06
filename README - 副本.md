@@ -4,17 +4,29 @@ Flutter SDK 仓库
 原始仓来源：https://github.com/flutter/flutter
 
 ## 仓库说明
-1. 本仓库基于 Google Flutter SDK，针对 OpenHarmony 平台进行兼容性适配与扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译与构建适配 OpenHarmony 的 Flutter 应用。
-2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建 
+1. 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
+2. 本仓库基于Flutter官方社区3.22.0版本构建
+   * [sdk基础版本链接](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
+   * [engine基础版本链接](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
 
-## 版本规划
-请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
+## Flutter OH版本演进规划和分支策略
+您可以在[Flutter OH版本演进规划和分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)中了解更多关于我们对Flutter的OpenHarmony适配版本的说明。
 
 ## 升级指导
-请参见：[Flutter OH 版本升级指导](https://gitcode.com/wwyang09/flutter_samples_readme/blob/master/docs/ohos/10_appendix/UpgradeGuide.md)
+1. 如果您的项目希望从鸿蒙3.7.12版本升级到3.22.0版本
+   * 环境依赖：两者环境配置一致，无需额外修改
+   * 从3.7.12->3.22.0的官方特性新增与变更请参考[Release Notes](https://docs.flutter.dev/release/release-notes)
+   * 官方兼容性变更请参考[升级指导](https://docs.flutter.dev/release/breaking-changes)
+   * 兼容性变更说明请参考[变更说明](/release-notes/changelog/Flutter3.7_to_3.22_Breaking-changes.md)
+   * 渲染引擎：新增impeller-vulkan模式（默认，可切换为skia-gl）
+   * 三方库
+      - 纯dart库请升级到指定版本以支持3.22.0
+      - [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
+
+2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.22.0版本，请参考剩余指导文档。
 
 ## 开发文档
-开发指导、API说明、场景案例等请参考 [flutter_samples 仓库 ohos/docs](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)。该文档包含环境搭建、功能开发、性能调优、调试调测、三方库接入、FAQ等内容。
+[参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
 
 ## 环境依赖
 
@@ -120,23 +132,21 @@ Flutter SDK 仓库
        | `PUB_HOSTED_URL`           | `https://pub.flutter-io.cn`     | 系统变量 |
        | `FLUTTER_STORAGE_BASE_URL` | `https://storage.flutter-io.cn` | 系统变量 |
 
- 4. ##### 构建产物
+  4. ##### 构建产物
 
-    应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
+     应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
 
-    ```bash
-    # Mac, Linux 示例
-    flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
-    ```
+     ```bash
+     # Mac, Linux 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
+     ```
 
-    ```powershell
-    # Windows 示例
-    flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
-    ```
+     ```powershell
+     # Windows 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
+     ```
 
-    **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
-
-    如需本地编译 Flutter Engine，请参考 [官方编译文档](https://github.com/flutter/engine/blob/main/CONTRIBUTING.md#building-and-testing-the-engine)。
+     **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
 ## 构建步骤
 
