@@ -42,6 +42,15 @@ class OHOSExternalTexture : public flutter::Texture {
 
   void OnTextureUnregistered() override;
 
+  /// @brief Switch the native image listener to a default handler that drains
+  ///        buffers without notifying Flutter. Must be called on the raster
+  ///        thread.
+  void SetFrameAvailableListenerToDefault();
+
+  /// @brief Restore the native image listener for normal rendering. Must be
+  ///        called on the raster thread.
+  void RestoreFrameAvailableListener();
+
   uint64_t GetProducerSurfaceId();
 
   uint64_t GetProducerWindowId();

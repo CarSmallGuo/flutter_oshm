@@ -1095,6 +1095,21 @@ void PlatformViewOHOS::ExecuteReclaimRestore() {
   // 1. Disable frame gate (allow external texture updates)
   frame_gate_enabled_.store(false, std::memory_order_release);
 
+  if (!all_external_texture_.empty()) {
+    std::vector<std::shared_ptr<OHOSExternalTexture>> external_textures;
+    external_textures.reserve(all_external_texture_.size());
+    for (const auto& entry : all_external_texture_) {
+      external_textures.push_back(entry.second);
+    }
+    RunOnRasterAndWait([external_textures]() {
+      for (const auto& texture : external_textures) {
+        if (texture) {
+          texture->RestoreFrameAvailableListener();
+        }
+      }
+    });
+  }
+
   // 2. Rebuild onscreen context if it was torn down
   if (!ShouldRebuildOnscreenContext()) {
     return;
@@ -1163,9 +1178,20 @@ void PlatformViewOHOS::ExecuteReclaimAggressive() {
   const bool is_skia = (context_ptr && context_ptr->RenderingApi() ==
                                            OHOSRenderingAPI::kOpenGLES);
 
-  RunOnRasterAndWait([surface_ptr, context_ptr, is_skia]() {
+  std::vector<std::shared_ptr<OHOSExternalTexture>> external_textures;
+  external_textures.reserve(all_external_texture_.size());
+  for (const auto& entry : all_external_texture_) {
+    external_textures.push_back(entry.second);
+  }
+
+  RunOnRasterAndWait([surface_ptr, context_ptr, is_skia, external_textures]() {
     if (is_skia) {
       TryFreeSkiaGpuResources(surface_ptr, context_ptr);
+    }
+    for (const auto& texture : external_textures) {
+      if (texture) {
+        texture->SetFrameAvailableListenerToDefault();
+      }
     }
     // Always teardown onscreen context to release DMA buffers
     if (surface_ptr) {
