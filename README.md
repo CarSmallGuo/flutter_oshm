@@ -2,17 +2,22 @@ Flutter SDK 仓库
 ==============
 
 ## 仓库说明
+
 1. 本仓库以 Google  [Flutter SDK](https://github.com/flutter/flutter)  为基础，针对 OpenHarmony 平台进行兼容性适配与功能扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译和构建适配 OpenHarmony 的 Flutter 应用。
 2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建 
 
 ## 版本规划
+
 请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
 
 ## 升级指导
+
 请参见：[Flutter OH 版本升级指导](https://gitcode.com/wwyang09/flutter_samples_readme/blob/master/docs/ohos/10_appendix/UpgradeGuide.md)
 
 ## 开发文档
+
 开发相关规范、API说明及实践案例请参考以下文档：
+
 - [Google Flutter 官方文档](https://docs.flutter.dev/)：Flutter 官方开发指南与 API 文档。
 - [OpenHarmony Flutter 适配开发文档](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/README.md)：Flutter 适配 OpenHarmony 的开发指导与示例。
 
@@ -120,23 +125,21 @@ Flutter SDK 仓库
        | `PUB_HOSTED_URL`           | `https://pub.flutter-io.cn`     | 系统变量 |
        | `FLUTTER_STORAGE_BASE_URL` | `https://storage.flutter-io.cn` | 系统变量 |
 
- 4. ##### 构建产物
+  4. ##### 构建产物
 
-    应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
+     应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
 
-    ```bash
-    # Mac, Linux 示例
-    flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
-    ```
+     ```bash
+     # Mac, Linux 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
+     ```
 
-    ```powershell
-    # Windows 示例
-    flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
-    ```
+     ```powershell
+     # Windows 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
+     ```
 
-    **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
-
-    如需本地编译 Flutter Engine，请参考 [官方编译文档](https://github.com/flutter/engine/blob/main/CONTRIBUTING.md#building-and-testing-the-engine)。
+     **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
 ## 构建步骤
 
