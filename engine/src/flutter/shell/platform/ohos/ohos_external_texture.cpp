@@ -282,6 +282,24 @@ void OHOSExternalTexture::OnTextureUnregistered() {
   GPUResourceDestroy();
 }
 
+void OHOSExternalTexture::SetFrameAvailableListenerToDefault() {
+  if (native_image_source_ == nullptr) {
+    return;
+  }
+  OH_OnFrameAvailableListener listener;
+  listener.context = (void*)native_image_source_;
+  listener.onFrameAvailable = &OHOSExternalTexture::DefaultOnFrameAvailable;
+  OH_NativeImage_SetOnFrameAvailableListener(native_image_source_, listener);
+}
+
+void OHOSExternalTexture::RestoreFrameAvailableListener() {
+  if (native_image_source_ == nullptr) {
+    return;
+  }
+  OH_NativeImage_SetOnFrameAvailableListener(native_image_source_,
+                                             frame_listener_);
+}
+
 void OHOSExternalTexture::OnGrContextCreated() {
   FML_LOG(INFO) << "OnGrContextCreated texture_id " << Id();
   if (native_image_source_ == nullptr) {
