@@ -14,12 +14,13 @@ Flutter SDK 仓库
 
 请参见：[Flutter OH 版本升级指导](https://gitcode.com/wwyang09/flutter_samples_readme/blob/master/docs/ohos/10_appendix/UpgradeGuide.md)
 
+
 ## 开发文档
 
-开发相关规范、API说明及实践案例请参考以下文档：
+Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
 
 - [Google Flutter 官方文档](https://docs.flutter.dev/)：Flutter 官方开发指南与 API 文档。
-- [OpenHarmony Flutter 适配开发文档](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/README.md)：Flutter 适配 OpenHarmony 的开发指导与示例。
+- [Flutter OH 适配开发文档](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/README.md)：Flutter 适配 OpenHarmony 的开发指导与示例。
 
 ## 环境依赖
 
