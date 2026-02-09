@@ -110,7 +110,38 @@ export class KeyEventHandler {
     [KeyCode.KEYCODE_NUMPAD_9, new KeyText('9', '')],
     [KeyCode.KEYCODE_NUMPAD_DOT, new KeyText('.', '')],
   ]);
+  // Combination keys
+  private static combinationKeys: Set<KeyCode> = new Set<KeyCode>([
+    KeyCode.KEYCODE_CTRL_LEFT,
+    KeyCode.KEYCODE_CTRL_RIGHT,
+    KeyCode.KEYCODE_ALT_LEFT,
+    KeyCode.KEYCODE_ALT_RIGHT,
+  ]);
+  private static shiftKeys: Set<KeyCode> = new Set<KeyCode>([
+    KeyCode.KEYCODE_SHIFT_LEFT,
+    KeyCode.KEYCODE_SHIFT_RIGHT,
+  ]);
   private textInputPlugin?: TextInputPlugin;
+  private isShiftMode: boolean = false;
+  private isCombinationMode: boolean = false;
+  private isCapsLockMode: boolean = false;
+  private isNumLockMode: boolean = true; // NumLock is enabled by default
+  private isOverwriteMode: boolean = false; // Overwrite mode (Insert mode)
+  // The keyCode for CapsLock key is 2074 (0x81A)
+  private static readonly CAPS_LOCK_KEYCODE: number = 2074;
+  // The keyCode for NumLock key is 2102
+  private static readonly NUM_LOCK_KEYCODE: number = 2102;
+  // The keyCode for MOVE_HOME key is 2081
+  private static readonly MOVE_HOME_KEYCODE: number = 2081;
+  // The keyCode for MOVE_END key is 2082
+  private static readonly MOVE_END_KEYCODE: number = 2082;
+  // The keyCode for INSERT key is 2083
+  private static readonly INSERT_KEYCODE: number = 2083;
+  // The keyCode for Enter key is 2054
+  private static readonly ENTER_KEYCODE: number = 2054;
+  // The keyCode range for numpad keys: 2103~2122
+  private static readonly NUMPAD_KEYCODE_MIN: number = 2103;
+  private static readonly NUMPAD_KEYCODE_MAX: number = 2122;
 
   /**
    * Constructs a new KeyEventHandler instance.
@@ -125,11 +156,19 @@ export class KeyEventHandler {
    * @param event - The key event
    * @returns The text string for the key, considering shift state
    */
-  getKeyText(event: KeyEvent): string {
+  getKeyText(event: KeyEvent) : string {
     let keyText = KeyEventHandler.keyTextMap.get(event.keyCode);
-    const isShiftMode = event.getModifierKeyState && event.getModifierKeyState(['Shift']);
     if (keyText != undefined) {
-      return isShiftMode ? keyText.shiftCase : keyText.normalCase;
+      // Check if it's a letter key (A-Z)
+      const isLetter = event.keyCode >= KeyCode.KEYCODE_A && event.keyCode <= KeyCode.KEYCODE_Z;
+      // If CapsLock is enabled, reverse the case for letter keys
+      if (isLetter && this.isCapsLockMode) {
+        // Shift + CapsLock = lowercase (reverses CapsLock effect)
+        return this.isShiftMode ? keyText.normalCase : keyText.shiftCase;
+      } else {
+        // Normal case: Shift determines case
+        return this.isShiftMode ? keyText.shiftCase : keyText.normalCase;
+      }
     }
     return '';
   }
@@ -159,16 +198,82 @@ export class KeyEventHandler {
       "name": "handleKeyEvent",
       "event": event
     }));
-
-    const isCtrlPressed = event.getModifierKeyState && event.getModifierKeyState(['Ctrl']);
-    const isAltPressed = event.getModifierKeyState && event.getModifierKeyState(['Alt']);
-    const isCombinationMode = isCtrlPressed || isAltPressed;
-
     if (event.type == KeyType.Down) {
-      // When Ctrl/Alt keys are pressed or data is empty, do not input characters (letters/numbers/symbols)
-      const obtainedKeyText: string = this.getKeyText(event);
-      if (!isCombinationMode && obtainedKeyText) {
-        this.textInputPlugin?.getEditingState().handleInsertTextEvent(obtainedKeyText);
+      // Handle CapsLock key
+      if (event.keyCode == KeyEventHandler.CAPS_LOCK_KEYCODE) {
+        this.isCapsLockMode = !this.isCapsLockMode;
+        Log.i(TAG, `CapsLock toggled: ${this.isCapsLockMode}`);
+      } else if (event.keyCode == KeyEventHandler.NUM_LOCK_KEYCODE) {
+        // Handle NumLock key
+        this.isNumLockMode = !this.isNumLockMode;
+        Log.i(TAG, `NumLock toggled: ${this.isNumLockMode}`);
+      } else if (event.keyCode == KeyEventHandler.MOVE_HOME_KEYCODE) {
+        // Handle MOVE_HOME key, move cursor to the beginning of the input field
+        const editingState = this.textInputPlugin?.getEditingState();
+        if (editingState) {
+          // Set selection range and notify listeners via handleSelectByRangeEvent
+          editingState.handleSelectByRangeEvent({ start: 0, end: 0 });
+          Log.i(TAG, `MOVE_HOME: cursor moved to beginning`);
+        }
+      } else if (event.keyCode == KeyEventHandler.MOVE_END_KEYCODE) {
+        // Handle MOVE_END key, move cursor to the end of the input field
+        const editingState = this.textInputPlugin?.getEditingState();
+        if (editingState) {
+          // Set selection range and notify listeners via handleSelectByRangeEvent
+          // When start is not 0, it goes to the else branch, moving cursor to the end (using -1 matches test case usage)
+          editingState.handleSelectByRangeEvent({ start: -1, end: -1 });
+          Log.i(TAG, `MOVE_END: cursor moved to end`);
+        }
+      } else if (event.keyCode == KeyEventHandler.INSERT_KEYCODE) {
+        // Handle INSERT key, toggle overwrite mode
+        this.isOverwriteMode = !this.isOverwriteMode;
+        Log.i(TAG, `Insert mode toggled: ${this.isOverwriteMode ? 'overwrite' : 'insert'}`);
+      } else if (event.keyCode == KeyEventHandler.ENTER_KEYCODE) {
+        // Handle Enter key, insert newline character
+        const editingState = this.textInputPlugin?.getEditingState();
+        if (editingState) {
+          editingState.handleInsertTextEvent('\n');
+          Log.i(TAG, `ENTER: inserted newline`);
+        }
+      } else if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
+        this.isCombinationMode = true;
+      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
+        this.isShiftMode = true;
+      } else {
+        // Check if it's a numpad key
+        const isNumpadKey = event.keyCode >= KeyEventHandler.NUMPAD_KEYCODE_MIN && 
+                            event.keyCode <= KeyEventHandler.NUMPAD_KEYCODE_MAX;
+        
+        // If it's a numpad key and NumLock is off, don't input
+        if (isNumpadKey && !this.isNumLockMode) {
+          Log.i(TAG, `Numpad key ${event.keyCode} blocked: NumLock is off`);
+          return;
+        }
+        
+        // Don't input characters (letters/numbers/symbols) when Ctrl/Alt keys are pressed or data is empty
+        if (!this.isCombinationMode && this.getKeyText(event)) {
+          const editingState = this.textInputPlugin?.getEditingState();
+          if (editingState) {
+            if (this.isOverwriteMode) {
+              // Overwrite mode: if there's a character to the right of cursor, select one character first, then replace
+              const cursorPos = editingState.getSelectionStart();
+              const textLength = editingState.getStringCache().length;
+              if (cursorPos < textLength) {
+                // Select one character to the right of cursor
+                editingState.setSelectionStart(cursorPos);
+                editingState.setSelectionEnd(cursorPos + 1);
+              }
+            }
+            // Insert or replace character
+            editingState.handleInsertTextEvent(this.getKeyText(event));
+          }
+        }
+      }
+    } else if (event.type == KeyType.Up) {
+      if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
+        this.isCombinationMode = false;
+      } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
+        this.isShiftMode = false;
       }
     }
   }
