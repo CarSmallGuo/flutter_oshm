@@ -126,21 +126,6 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
        | `PUB_HOSTED_URL`           | `https://pub.flutter-io.cn`     | 系统变量 |
        | `FLUTTER_STORAGE_BASE_URL` | `https://storage.flutter-io.cn` | 系统变量 |
 
-  4. ##### 构建产物
-
-     应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
-
-     ```bash
-     # Mac, Linux 示例
-     flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
-     ```
-
-     ```powershell
-     # Windows 示例
-     flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
-     ```
-
-     **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
 ## 构建指南
 
