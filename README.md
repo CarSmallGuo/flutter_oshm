@@ -200,7 +200,7 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
 
 - ### 构建Flutter OH Engine
 
-  请参见：[Flutter OH Engine 构建指南](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/docs/ohos/10_appendix/EngineBuildGuide.md)
+  请参见：[Flutter OH Engine 构建指导](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/docs/ohos/10_appendix/EngineBuildGuide.md)
 
 ## 支持指令
 
