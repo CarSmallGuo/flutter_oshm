@@ -144,15 +144,15 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
 
 ## 构建指南
 
-- ### 构建应用
+- ### 构建Flutter OH应用
 
-  1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter**与**OpenHarmony**应都为ok标识，若两处提示缺少环境，按提示补上相应环境即可。
+  1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter** 与 **HarmonyOS toolchain** 应都为`[√]`标识。若提示`[!]`，根据提示配置相应环境即可。  
 
   2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
 
-     ```
-      # 创建工程
-      flutter create --platforms ohos <projectName>
+     ```bash
+     # 创建工程
+     flutter create --platforms ohos <projectName>
 
      # 进入工程根目录编译
      # 示例：flutter build hap [--target-platform ohos-arm64] [--local-engine=<DIR>/src/out/ohos_release_arm64] --release
@@ -181,30 +181,26 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
        新建工程默认打开impeller选项。
        对于旧工程，可将以上buildinfo.json5文件复制到工程目录的对应路径下(rawfile目录)，并修改value值即可实现开关功能。如果不添加开关，则默认打开enable-impeller。
 
-
-
   3. 通过`flutter devices`指令发现ohos设备之后，使用 `hdc -t <deviceId> install <hap file path>`进行安装。
 
   4. 也可直接使用下列指令运行：
 
-     ```
-      flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
+     ```bash
+     flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
      ```
 
-  5. 构建app包命令：
+  5. 构建hap包命令：
 
-     ```
+     ```bash
       # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
-      flutter build app --release
+      flutter build hap --release
      ```
 
 
 
+- ### 构建Flutter OH Engine
 
-
-- ### 构建Engine
-
-  请参见：[FLutter OH Engine 编译指南]()
+  请参见：[Flutter OH Engine 构建指南](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/docs/ohos/10_appendix/EngineBuildGuide.md)
 
 ## 支持指令
 
