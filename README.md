@@ -1,136 +1,211 @@
 Flutter SDK 仓库
 ==============
 
-原始仓来源：https://github.com/flutter/flutter
-
 ## 仓库说明
-1. 本仓库是基于Flutter SDK对于OpenHarmony平台的兼容拓展，可支持IDE或者终端使用Flutter Tools指令编译和构建OpenHarmony应用程序。
-2. 本仓库基于Flutter官方社区3.22.0版本构建
-   * [sdk基础版本链接](https://github.com/flutter/flutter/commit/5dcb86f68f239346676ceb1ed1ea385bd215fba1)
-   * [engine基础版本链接](https://github.com/flutter/engine/commit/f6344b75dcf861d8bf1f1322780b8811f982e31a)
 
-## Flutter OH版本演进规划和分支策略
-您可以在[Flutter OH版本演进规划和分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)中了解更多关于我们对Flutter的OpenHarmony适配版本的说明。
+1. 本仓库以 Google  [Flutter SDK](https://github.com/flutter/flutter)  为基础，针对 OpenHarmony 平台进行兼容性适配与功能扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译和构建适配 OpenHarmony 的 Flutter 应用。
+2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建
+
+## 版本规划
+
+请参见：[Flutter OH 版本规划与分支策略](https://gitcode.com/openharmony-tpc/flutter_flutter/wiki/Flutter-OH%E7%89%88%E6%9C%AC%E6%BC%94%E8%BF%9B%E8%A7%84%E5%88%92%E5%92%8C%E5%88%86%E6%94%AF%E7%AD%96%E7%95%A5.md)
 
 ## 升级指导
-1. 如果您的项目希望从鸿蒙3.7.12版本升级到3.22.0版本
-   * 环境依赖：两者环境配置一致，无需额外修改
-   * 从3.7.12->3.22.0的官方特性新增与变更请参考[Release Notes](https://docs.flutter.dev/release/release-notes)
-   * 官方兼容性变更请参考[升级指导](https://docs.flutter.dev/release/breaking-changes)
-   * 兼容性变更说明请参考[变更说明](/release-notes/changelog/Flutter3.7_to_3.22_Breaking-changes.md)
-   * 渲染引擎：新增impeller-vulkan模式（默认，可切换为skia-gl）
-   * 三方库
-      - 纯dart库请升级到指定版本以支持3.22.0
-      - [openharmony-tpc/flutter_packages](https://gitcode.com/openharmony-tpc/flutter_packages/blob/master/README.md)中的package在3.22.0版本已经过一轮简单的可用性测试，如果在您使用中有任何问题，烦请创建issue跟踪解决。
 
-2. 如果您的项目希望从安卓或ios等版本迁移到鸿蒙适配3.22.0版本，请参考剩余指导文档。
+请参见：[Flutter OH 版本升级指导](https://gitcode.com/wwyang09/flutter_samples_readme/blob/master/docs/ohos/10_appendix/UpgradeGuide.md)
+
 
 ## 开发文档
-[参考文档](https://gitcode.com/openharmony-tpc/flutter_samples/tree/master/ohos/docs)
+
+Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
+
+- [Google Flutter 官方文档](https://docs.flutter.dev/)：Flutter 官方开发指南与 API 文档。
+- [Flutter OH 适配开发文档](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/README.md)：Flutter 适配 OpenHarmony 的开发指导与示例。
 
 ## 环境依赖
 
-* 开发系统
+- ### 开发系统
 
   Flutter Tools指令目前已支持在Linux、Mac和Windows下使用。
 
-* 环境配置
-   **请从[鸿蒙SDK](https://developer.huawei.com/consumer/cn/develop)下载配套开发工具**
-   *下列环境变量配置，类Unix系统（Linux、Mac），下可直接参照配置，Windows下环境变量配置请在‘编辑系统环境变量’中设置*
+- ### 环境配置
 
-  1. 配置HarmonyOS SDK和环境变量
-   * API18, deveco-studio-5.1 或 command-line-tools-5.1 (推荐使用5.1.0 Beta1或更新版本)
-   * 配置 Java17
-   * 配置环境变量 (SDK, node, ohpm, hvigor)
+  1. #### **安装配套工具**
 
-      ```sh
-       export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
-       export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
-       export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
-       export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
-       export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
-      ```
+     - 安装 **JDK17**，[下载地址](https://www.oracle.com/java/technologies/downloads/)。
+     - 安装 **Deveco Stuido** 或 **Command Line Tools**，[下载地址](https://developer.huawei.com/consumer/cn/download/)
 
-  2. 通过代码工具下载当前仓库代码`git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git`，指定3.22.0-ohos分支，并配置环境
+  2. #### 下载 Flutter SDK
 
-     ```sh
-      export PUB_CACHE=D:/PUB
-      export PATH=<flutter_flutter path>/bin:$PATH
-      export PUB_HOSTED_URL=https://pub.flutter-io.cn
-      export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+     通过代码工具下载当前仓库代码
+
+     ```powershell
+     git clone https://gitcode.com/openharmony-tpc/flutter_flutter.git
      ```
 
-   3. 应用构建依赖flutter engine构建产物与engine host，默认从云端获取。也可以手工指定
-      - 使用示例：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>`
-      均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
+  3. #### 配置环境变量
 
-      ```sh
-       #依赖缓存
-       export PUB_CACHE=D:/PUB(自定义路径)
+     ##### Mac、Linux：
 
-       # 国内镜像
-       export PUB_HOSTED_URL=https://pub.flutter-io.cn
-       export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+     - ###### 编辑配置文件
 
-       # 拉取下来的flutter_flutter/bin目录
-       export PATH=/home/<user>/ohos/flutter_flutter/bin:$PATH
+       打开终端，执行以下命令编辑 `~/.bash_profile`:
 
-       # HamonyOS SDK
+       ```bash
+       vim ~/.bash_profile
+       ```
+
+     - ###### 在文件中配置环境变量：
+
+       ```bash
+       # 配置JDK 17
+       export JAVA_HOME=<JAVA_HOME path>/Contents/Home
+       export PATH=$JAVA_HOME/bin:$PATH
+
+       # 配置OpenHarmony SDK, ohpm, hvigor, node
        export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
        export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
        export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
-      ```
 
-## 构建步骤
+       #配置Flutter
+       export PUB_CACHE=D:/PUB
+       export PATH=<flutter_flutter path>/bin:$PATH
+       export PUB_HOSTED_URL=https://pub.flutter-io.cn
+       export FLUTTER_STORAGE_BASE_URL=https://storage.flutter-io.cn
+       ```
 
-1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter**与**OpenHarmony**应都为ok标识，若两处提示缺少环境，按提示补上相应环境即可。
+     - ###### 保存并退出
 
-2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
+       按`Esc`键进入命令模式，输入 `:wq`后按 `Enter` 键保存并推出编辑器。
 
-   ```
-    # 创建工程
-    flutter create --platforms ohos <projectName>
+     - ###### 应用配置
 
-   # 进入工程根目录编译
-   # 示例：flutter build hap [--target-platform ohos-arm64] [--local-engine=<DIR>/src/out/ohos_release_arm64] --release
-   flutter build hap --target-platform ohos-arm64 --<debug|release|profile> [--local-engine=src/out/<engine产物目录> --local-engine-host=src/out/<engine host目录>/]
-   ```
-   2.1 创建工程并打开impeller开关
-   当前Flutter ohos平台中支持impeller-vulkan渲染模式，可通过开关控制是否打开。
-   开关位于`buildinfo.json5`文件中，如果选择关闭impeller渲染，可将json文件中的value改为false。下一次运行时即可关闭。
-   文件路径：`ohos/entry/src/main/resources/rawfile/buildinfo.json5`
-   （初次flutter create之后，配置文件位于profile目录，首次run或build之后会搬移到rawfile目录）
+       执行以下命令重新加载配置使其立即生效：
 
-   文件内容：
-   ```json
-   {
-      "string": [
-         {
-            "name": "enable_impeller",
-            "value": "true"
-         }
-      ]
-   }
-   ```
-   新建工程默认打开impeller选项。
-   对于旧工程，可将以上buildinfo.json5文件复制到工程目录的对应路径下(rawfile目录)，并修改value值即可实现开关功能。如果不添加开关，则默认打开enable-impeller。
+       ```bash
+       source ~/.bash_profile
+       ```
 
-3. 通过`flutter devices`指令发现ohos设备之后，使用 `hdc -t <deviceId> install <hap file path>`进行安装。
+     ##### Windows：
 
-4. 也可直接使用下列指令运行：
-```
-   flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
-```
+     - ###### 打开系统环境变量设置
 
-5. 构建app包命令：
-   ```
-    # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
-    flutter build app --release
-   ```
+       通过以下路径访问环境变量配置界面：
 
-## 已兼容OpenHarmony开发的指令列表
+       **此电脑**（右键）→ **属性** → **高级系统设置** → **高级** 选项卡 → **环境变量**
+
+     - ###### 配置环境变量
+
+       在**环境变量**面板，添加以下配置：
+
+       ① 配置配置 `JDK 17`
+
+       | 变量        | 值                             | 作用域       |
+       | ----------- | ------------------------------ | ------------ |
+       | `JAVA_HOME` | `C:\Program Files\Java\jdk-17` | 系统变量     |
+       | `Path`      | `%JAVA_HOME%\bin`              | 追加到现有值 |
+
+       ② 配置 `OpenHarmony SDK` ,`ohpm`, `hvigor`, `node`
+
+       | 变量              | 值                             | 作用域   |
+       | ----------------- | ------------------------------ | -------- |
+       | `TOOL_HOME`       | `D:\Deveco-studio`             | 系统变量 |
+       | `DEVECO_SDK_HOME` | `%TOOL_HOME%\sdk`              | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\ohpm\bin`   | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\hvigor\bin` | 系统变量 |
+       | `Path`            | `%TOOL_HOME%\tools\node\bin`   | 系统变量 |
+
+       ③ 配置 `Flutter`
+
+       | 变量                       | 值                              | 作用域   |
+       | -------------------------- | ------------------------------- | -------- |
+       | `PATH`                     | `D:\flutter_flutter\bin`        | 系统变量 |
+       | `PUB_CACHE`                | `D:\PUB`                        | 系统变量 |
+       | `PUB_HOSTED_URL`           | `https://pub.flutter-io.cn`     | 系统变量 |
+       | `FLUTTER_STORAGE_BASE_URL` | `https://storage.flutter-io.cn` | 系统变量 |
+
+  4. ##### 构建产物
+
+     应用构建依赖 Flutter Engine 构建产物及 Engine Host。默认会从远程服务器获取；您也可以通过配置参数手动指定本地路径。
+
+     ```bash
+     # Mac, Linux 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=flutter_engine/src/out/<engine产物目录> --local-engine-host=flutter_engine/src/out/<host产物目录>
+     ```
+
+     ```powershell
+     # Windows 示例
+     flutter build hap --{debug,profile,rlease} --local-engine=D:\flutter_engine\src\out\<engine产物目录> --local-engine-host=D:\flutter_engine\src\out\<host产物目录>
+     ```
+
+     **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
+
+## 构建指南
+
+- ### 构建Flutter OH应用
+
+  1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter** 与 **HarmonyOS toolchain** 应都为`[√]`标识。若提示`[!]`，根据提示配置相应环境即可。  
+
+  2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
+
+     ```bash
+     # 创建工程
+     flutter create --platforms ohos <projectName>
+
+     # 进入工程根目录编译
+     # 示例：flutter build hap [--target-platform ohos-arm64] [--local-engine=<DIR>/src/out/ohos_release_arm64] --release
+     flutter build hap --target-platform ohos-arm64 --<debug|release|profile> [--local-engine=src/out/<engine产物目录> --local-engine-host=src/out/<engine host目录>/]
+     ```
+
+     - 创建工程并打开impeller开关
+       当前Flutter ohos平台中支持impeller-vulkan渲染模式，可通过开关控制是否打开。
+       开关位于`buildinfo.json5`文件中，如果选择关闭impeller渲染，可将json文件中的value改为false。下一次运行时即可关闭。
+       文件路径：`ohos/entry/src/main/resources/rawfile/buildinfo.json5`
+       （初次flutter create之后，配置文件位于profile目录，首次run或build之后会搬移到rawfile目录）
+
+       文件内容：
+
+       ```
+       {
+          "string": [
+             {
+                "name": "enable_impeller",
+                "value": "true"
+             }
+          ]
+       }
+       ```
+
+       新建工程默认打开impeller选项。
+       对于旧工程，可将以上buildinfo.json5文件复制到工程目录的对应路径下(rawfile目录)，并修改value值即可实现开关功能。如果不添加开关，则默认打开enable-impeller。
+
+  3. 通过`flutter devices`指令发现ohos设备之后，使用 `hdc -t <deviceId> install <hap file path>`进行安装。
+
+  4. 也可直接使用下列指令运行：
+
+     ```bash
+     flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
+     ```
+
+  5. 构建hap包命令：
+
+     ```bash
+      # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
+      flutter build hap --release
+     ```
+
+
+
+- ### 构建Flutter OH Engine
+
+  请参见：[Flutter OH Engine 构建指南](https://gitcode.com/openharmony-tpc/flutter_samples/blob/master/docs/ohos/10_appendix/EngineBuildGuide.md)
+
+## 支持指令
+
+已兼容OpenHarmony开发的指令列表：
+
 | 指令名称   | 指令描述           | 使用说明                                                     |
 | ---------- | ------------------ | ------------------------------------------------------------ |
 | doctor     | 环境检测           | flutter doctor                                               |
@@ -150,8 +225,6 @@ Flutter SDK 仓库
 | pub        | 获取依赖           | flutter pub get                                              |
 | clean      | 清除项目依赖       | flutter clean                                                |
 | cache      | 清除全局缓存数据   | flutter pub cache clean                                      |
-
-附：[Flutter三方库适配计划](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
 
 
 ## 常见问题
