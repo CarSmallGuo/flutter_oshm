@@ -4,7 +4,7 @@ Flutter SDK 仓库
 ## 仓库说明
 
 1. 本仓库以 Google  [Flutter SDK](https://github.com/flutter/flutter)  为基础，针对 OpenHarmony 平台进行兼容性适配与功能扩展。支持开发者通过 IDE 或命令行使用 Flutter Tools 指令，编译和构建适配 OpenHarmony 的 Flutter 应用。
-2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建 
+2. 本仓库基于 Flutter 官方社区 3.22.0 版本构建
 
 ## 版本规划
 
@@ -61,14 +61,14 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
        # 配置JDK 17
        export JAVA_HOME=<JAVA_HOME path>/Contents/Home
        export PATH=$JAVA_HOME/bin:$PATH
-          
+
        # 配置OpenHarmony SDK, ohpm, hvigor, node
        export TOOL_HOME=/Applications/DevEco-Studio.app/Contents # mac环境
        export DEVECO_SDK_HOME=$TOOL_HOME/sdk # command-line-tools/sdk
        export PATH=$TOOL_HOME/tools/ohpm/bin:$PATH # command-line-tools/ohpm/bin
        export PATH=$TOOL_HOME/tools/hvigor/bin:$PATH # command-line-tools/hvigor/bin
        export PATH=$TOOL_HOME/tools/node/bin:$PATH # command-line-tools/tool/node/bin
-          
+
        #配置Flutter
        export PUB_CACHE=D:/PUB
        export PATH=<flutter_flutter path>/bin:$PATH
@@ -142,54 +142,74 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
 
      **注**：`--local-engine=src/out/<engine产物目录> --local-engine-host=src/our/<host产物目录>` 均在 `src/out` 路径下。不同构建类型的产物分别在 `ohos_debug_unopt_arm64`、 `ohos_release_arm64` 和 `ohos_profile_arm64` 目录下。engine host 的构建类型也有三种，分别在 `host_debug_unopt` 、`host_release` 与 `host_profile` 目录中。构建需要根据不同的构建类型来指定不同的目录。
 
-## 构建步骤
+## 构建指南
 
-1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter**与**OpenHarmony**应都为ok标识，若两处提示缺少环境，按提示补上相应环境即可。
+- ### 构建应用
 
-2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
+  1. 运行 `flutter doctor -v` 检查环境变量配置是否正确，**Futter**与**OpenHarmony**应都为ok标识，若两处提示缺少环境，按提示补上相应环境即可。
 
-   ```
-    # 创建工程
-    flutter create --platforms ohos <projectName>
+  2. 创建工程与编译命令，编译产物在\<projectName\>/ohos/entry/build/default/outputs/default/entry-default-signed.hap下。
 
-   # 进入工程根目录编译
-   # 示例：flutter build hap [--target-platform ohos-arm64] [--local-engine=<DIR>/src/out/ohos_release_arm64] --release
-   flutter build hap --target-platform ohos-arm64 --<debug|release|profile> [--local-engine=src/out/<engine产物目录> --local-engine-host=src/out/<engine host目录>/]
-   ```
-   2.1 创建工程并打开impeller开关
-   当前Flutter ohos平台中支持impeller-vulkan渲染模式，可通过开关控制是否打开。
-   开关位于`buildinfo.json5`文件中，如果选择关闭impeller渲染，可将json文件中的value改为false。下一次运行时即可关闭。
-   文件路径：`ohos/entry/src/main/resources/rawfile/buildinfo.json5`
-   （初次flutter create之后，配置文件位于profile目录，首次run或build之后会搬移到rawfile目录）
+     ```
+      # 创建工程
+      flutter create --platforms ohos <projectName>
 
-   文件内容：
-   ```json
-   {
-      "string": [
-         {
-            "name": "enable_impeller",
-            "value": "true"
-         }
-      ]
-   }
-   ```
-   新建工程默认打开impeller选项。
-   对于旧工程，可将以上buildinfo.json5文件复制到工程目录的对应路径下(rawfile目录)，并修改value值即可实现开关功能。如果不添加开关，则默认打开enable-impeller。
+     # 进入工程根目录编译
+     # 示例：flutter build hap [--target-platform ohos-arm64] [--local-engine=<DIR>/src/out/ohos_release_arm64] --release
+     flutter build hap --target-platform ohos-arm64 --<debug|release|profile> [--local-engine=src/out/<engine产物目录> --local-engine-host=src/out/<engine host目录>/]
+     ```
 
-3. 通过`flutter devices`指令发现ohos设备之后，使用 `hdc -t <deviceId> install <hap file path>`进行安装。
+     - 创建工程并打开impeller开关
+       当前Flutter ohos平台中支持impeller-vulkan渲染模式，可通过开关控制是否打开。
+       开关位于`buildinfo.json5`文件中，如果选择关闭impeller渲染，可将json文件中的value改为false。下一次运行时即可关闭。
+       文件路径：`ohos/entry/src/main/resources/rawfile/buildinfo.json5`
+       （初次flutter create之后，配置文件位于profile目录，首次run或build之后会搬移到rawfile目录）
 
-4. 也可直接使用下列指令运行：
-```
-   flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
-```
+       文件内容：
 
-5. 构建app包命令：
-   ```
-    # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
-    flutter build app --release
-   ```
+       ```
+       {
+          "string": [
+             {
+                "name": "enable_impeller",
+                "value": "true"
+             }
+          ]
+       }
+       ```
 
-## 已兼容OpenHarmony开发的指令列表
+       新建工程默认打开impeller选项。
+       对于旧工程，可将以上buildinfo.json5文件复制到工程目录的对应路径下(rawfile目录)，并修改value值即可实现开关功能。如果不添加开关，则默认打开enable-impeller。
+
+
+
+  3. 通过`flutter devices`指令发现ohos设备之后，使用 `hdc -t <deviceId> install <hap file path>`进行安装。
+
+  4. 也可直接使用下列指令运行：
+
+     ```
+      flutter run --debug [--local-engine=<DIR>/src/out/ohos_debug_unopt_arm64] [--local-engine-host=<DIR>/src/out/host_debug_unopt] -d <device-id>
+     ```
+
+  5. 构建app包命令：
+
+     ```
+      # 示例：flutter build app --release [--local-engine=<DIR>/src/out/ohos_release_arm64] [--local-engine-host=<DIR>/src/out/host_release]
+      flutter build app --release
+     ```
+
+
+
+
+
+- ### 构建Engine
+
+  请参见：[FLutter OH Engine 编译指南]()
+
+## 支持指令
+
+已兼容OpenHarmony开发的指令列表：
+
 | 指令名称   | 指令描述           | 使用说明                                                     |
 | ---------- | ------------------ | ------------------------------------------------------------ |
 | doctor     | 环境检测           | flutter doctor                                               |
@@ -209,8 +229,6 @@ Flutter OH 的开发指导、规范及相关资料，可参考以下文档：
 | pub        | 获取依赖           | flutter pub get                                              |
 | clean      | 清除项目依赖       | flutter clean                                                |
 | cache      | 清除全局缓存数据   | flutter pub cache clean                                      |
-
-附：[Flutter三方库适配计划](https://docs.qq.com/sheet/DVVJDWWt1V09zUFN2)
 
 
 ## 常见问题
