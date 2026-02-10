@@ -231,14 +231,22 @@ export class KeyEventHandler {
           const editingState = this.textInputPlugin?.getEditingState();
           if (editingState) {
             if (this.isOverwriteMode) {
-              // Overwrite mode: if there's a character to the right of cursor, select one character first, then replace
-              const cursorPos = editingState.getSelectionStart();
-              const textLength = editingState.getStringCache().length;
-              if (cursorPos < textLength) {
-                // Select one character to the right of cursor
-                editingState.setSelectionStart(cursorPos);
-                editingState.setSelectionEnd(cursorPos + 1);
+              // Overwrite mode: check if there's already a selection
+              const selectionStart = editingState.getSelectionStart();
+              const selectionEnd = editingState.getSelectionEnd();
+              const hasSelection = selectionStart !== selectionEnd;
+              
+              if (!hasSelection) {
+                // No existing selection: if there's a character to the right of cursor, select one character first, then replace
+                const cursorPos = selectionStart;
+                const textLength = editingState.getStringCache().length;
+                if (cursorPos < textLength) {
+                  // Select one character to the right of cursor
+                  editingState.setSelectionStart(cursorPos);
+                  editingState.setSelectionEnd(cursorPos + 1);
+                }
               }
+              // If there's already a selection, use it directly for replacement
             }
             // Insert or replace character
             editingState.handleInsertTextEvent(this.getKeyText(event));
