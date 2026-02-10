@@ -127,21 +127,6 @@ export class KeyEventHandler {
   private isCapsLockMode: boolean = false;
   private isNumLockMode: boolean = true; // NumLock is enabled by default
   private isOverwriteMode: boolean = false; // Overwrite mode (Insert mode)
-  // The keyCode for CapsLock key is 2074 (0x81A)
-  private static readonly CAPS_LOCK_KEYCODE: number = 2074;
-  // The keyCode for NumLock key is 2102
-  private static readonly NUM_LOCK_KEYCODE: number = 2102;
-  // The keyCode for MOVE_HOME key is 2081
-  private static readonly MOVE_HOME_KEYCODE: number = 2081;
-  // The keyCode for MOVE_END key is 2082
-  private static readonly MOVE_END_KEYCODE: number = 2082;
-  // The keyCode for INSERT key is 2083
-  private static readonly INSERT_KEYCODE: number = 2083;
-  // The keyCode for Enter key is 2054
-  private static readonly ENTER_KEYCODE: number = 2054;
-  // The keyCode range for numpad keys: 2103~2122
-  private static readonly NUMPAD_KEYCODE_MIN: number = 2103;
-  private static readonly NUMPAD_KEYCODE_MAX: number = 2122;
 
   /**
    * Constructs a new KeyEventHandler instance.
@@ -158,7 +143,7 @@ export class KeyEventHandler {
    */
   getKeyText(event: KeyEvent) : string {
     let keyText = KeyEventHandler.keyTextMap.get(event.keyCode);
-    if (keyText != undefined) {
+    if (keyText !== undefined) {
       // Check if it's a letter key (A-Z)
       const isLetter = event.keyCode >= KeyCode.KEYCODE_A && event.keyCode <= KeyCode.KEYCODE_Z;
       // If CapsLock is enabled, reverse the case for letter keys
@@ -198,16 +183,16 @@ export class KeyEventHandler {
       "name": "handleKeyEvent",
       "event": event
     }));
-    if (event.type == KeyType.Down) {
+    if (event.type === KeyType.Down) {
       // Handle CapsLock key
-      if (event.keyCode == KeyEventHandler.CAPS_LOCK_KEYCODE) {
+      if (event.keyCode === KeyCode.KEYCODE_CAPS_LOCK) {
         this.isCapsLockMode = !this.isCapsLockMode;
         Log.i(TAG, `CapsLock toggled: ${this.isCapsLockMode}`);
-      } else if (event.keyCode == KeyEventHandler.NUM_LOCK_KEYCODE) {
+      } else if (event.keyCode === KeyCode.KEYCODE_NUM_LOCK) {
         // Handle NumLock key
         this.isNumLockMode = !this.isNumLockMode;
         Log.i(TAG, `NumLock toggled: ${this.isNumLockMode}`);
-      } else if (event.keyCode == KeyEventHandler.MOVE_HOME_KEYCODE) {
+      } else if (event.keyCode === KeyCode.KEYCODE_MOVE_HOME) {
         // Handle MOVE_HOME key, move cursor to the beginning of the input field
         const editingState = this.textInputPlugin?.getEditingState();
         if (editingState) {
@@ -215,7 +200,7 @@ export class KeyEventHandler {
           editingState.handleSelectByRangeEvent({ start: 0, end: 0 });
           Log.i(TAG, `MOVE_HOME: cursor moved to beginning`);
         }
-      } else if (event.keyCode == KeyEventHandler.MOVE_END_KEYCODE) {
+      } else if (event.keyCode === KeyCode.KEYCODE_MOVE_END) {
         // Handle MOVE_END key, move cursor to the end of the input field
         const editingState = this.textInputPlugin?.getEditingState();
         if (editingState) {
@@ -224,11 +209,11 @@ export class KeyEventHandler {
           editingState.handleSelectByRangeEvent({ start: -1, end: -1 });
           Log.i(TAG, `MOVE_END: cursor moved to end`);
         }
-      } else if (event.keyCode == KeyEventHandler.INSERT_KEYCODE) {
+      } else if (event.keyCode === KeyCode.KEYCODE_INSERT) {
         // Handle INSERT key, toggle overwrite mode
         this.isOverwriteMode = !this.isOverwriteMode;
         Log.i(TAG, `Insert mode toggled: ${this.isOverwriteMode ? 'overwrite' : 'insert'}`);
-      } else if (event.keyCode == KeyEventHandler.ENTER_KEYCODE) {
+      } else if (event.keyCode === KeyCode.KEYCODE_ENTER) {
         // Handle Enter key, insert newline character
         const editingState = this.textInputPlugin?.getEditingState();
         if (editingState) {
@@ -241,8 +226,14 @@ export class KeyEventHandler {
         this.isShiftMode = true;
       } else {
         // Check if it's a numpad key
-        const isNumpadKey = event.keyCode >= KeyEventHandler.NUMPAD_KEYCODE_MIN && 
-                            event.keyCode <= KeyEventHandler.NUMPAD_KEYCODE_MAX;
+        const isNumpadKey = (event.keyCode >= KeyCode.KEYCODE_NUMPAD_0 && event.keyCode <= KeyCode.KEYCODE_NUMPAD_9) ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_DOT ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_ADD ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_SUBTRACT ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_MULTIPLY ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_DIVIDE ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_ENTER ||
+                            event.keyCode === KeyCode.KEYCODE_NUMPAD_EQUALS;
         
         // If it's a numpad key and NumLock is off, don't input
         if (isNumpadKey && !this.isNumLockMode) {
@@ -269,7 +260,7 @@ export class KeyEventHandler {
           }
         }
       }
-    } else if (event.type == KeyType.Up) {
+    } else if (event.type === KeyType.Up) {
       if (KeyEventHandler.combinationKeys.has(event.keyCode)) {
         this.isCombinationMode = false;
       } else if (KeyEventHandler.shiftKeys.has(event.keyCode)) {
