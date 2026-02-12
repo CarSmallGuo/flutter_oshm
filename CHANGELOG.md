@@ -1,4 +1,8 @@
 # Changelog
+## 6.1.0.310
+- [Impeller] Fixed an issue where gradient effects on HarmonyOS devices exhibited clipping. With mediump enabled by default, IPOrderedDither8x8 uint(dest.x) and uint(dest.y) might experience precision loss on some GPU chips. ([fb2447c5](https://gitcode.com/openharmony-tpc/flutter_engine/commit/fb2447c52528f6e04bc2fc53441c3e3dccc6e54b?ref=gradient_dithering_issue_322&prId=1222))
+- Frame gate enabled: keep draining producer queue, but do not schedule ([87d51c88](https://gitcode.com/openharmony-tpc/flutter_engine/commit/87d51c88e5161c0257b9c4408e45008040798e04?ref=externalchange_engine3.22&prId=1226))
+- Fix the issue where the clipboard cannot paste content in a custom format ([b8910f95](https://gitcode.com/openharmony-tpc/flutter_engine/commit/b8910f953bad13750b44f28e8d8bbaa5e9d1d16a?ref=oh-3.22.0&prId=1220))
 ## 6.1.0.30
 - 毕昇编译器替换，开启优化选项 ([7496195c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/7496195ce3c6e314db481ad27d1b3d0e5c7d6257?ref=322-bisheng-engine&prId=1218))
 - Click the status bar to automatically return to the top ([37837b37](https://gitcode.com/openharmony-tpc/flutter_engine/commit/37837b37ef93a30f0647c2c4cf2c10a5b8401eae?ref=oh-3.22.0&prId=1207))
