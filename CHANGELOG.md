@@ -1,4 +1,6 @@
 # Changelog
+## 6.1.0.310
+- Frame gate enabled: keep draining producer queue, but do not schedule ([21e1ccb6](https://gitcode.com/openharmony-tpc/flutter_engine/commit/21e1ccb6a454c973e149965d08819a1850f1f16b?ref=externalchange_engine3.7&prId=1228))
 ## 6.1.0.30
 - chore: Implement incremental builds. ([cb0f712c](https://gitcode.com/openharmony-tpc/flutter_engine/commit/cb0f712c575fece8392fc1e8db544b73e9a3a847?ref=dev&prId=1204))
 ## 6.1.0.28
