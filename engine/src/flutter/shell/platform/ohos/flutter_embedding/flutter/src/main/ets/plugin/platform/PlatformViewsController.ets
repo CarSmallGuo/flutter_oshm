@@ -238,11 +238,27 @@ export default class PlatformViewsController implements PlatformViewsHandler {
     Log.i(TAG, `Offset is id${viewId}, t:${top}, l:${left}`);
 
     let viewWrapper = this.viewWrappers.get(viewId)
-    if (viewWrapper != undefined) {
-      let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params
-      this.setParams(params!, "left", left);
-      this.setParams(params!, "top", top);
+    if (viewWrapper === undefined) {
+      return;
     }
+
+    let params: DVModelParameters | undefined = viewWrapper?.getDvModel()!.params;
+    // When the current value is NaN and the previous value is a normal value,
+    // the platformView is considered to have transitioned from visible to invisible.
+    if (isNaN(top) && isNaN(left)) {
+      let leftPre: number | undefined = this.getParams(params!, "left");
+      let topPre: number | undefined = this.getParams(params!, "top");
+      let compType: string | undefined = viewWrapper?.getDvModel().compType;
+      if ((leftPre !== undefined && !isNaN(leftPre)) &&
+          (topPre !== undefined && !isNaN(topPre)) &&
+          (compType !== undefined && compType === "NodeContainer")) {
+        let nodeController: EmbeddingNodeController | undefined =
+          (params as Record<string, Any>)["nodeController"] as EmbeddingNodeController;
+        nodeController?.notifyPlatformViewInvisible();
+      }
+    }
+    this.setParams(params!, "left", left);
+    this.setParams(params!, "top", top);
   }
 
   /**
