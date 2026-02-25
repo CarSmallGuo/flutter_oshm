@@ -9,6 +9,7 @@ import deviceInfo from '@ohos.deviceInfo';
 import TextInputPlugin from '../../plugin/editing/TextInputPlugin';
 import Log from '../../util/Log';
 import { KeyCode } from '@kit.InputKit';
+import { ListenableEditingState } from '../../plugin/editing/ListenableEditingState';
 
 const TAG = "KeyEventHandler";
 
@@ -168,7 +169,7 @@ export class KeyEventHandler {
    * @param action - The action to execute with the editing state
    * @returns True if the action was executed, false otherwise
    */
-  private withEditingState(action: (editingState: any) => void): boolean {
+  private withEditingState(action: (editingState: ListenableEditingState) => void): boolean {
     const editingState = this.textInputPlugin?.getEditingState();
     if (editingState) {
       action(editingState);
