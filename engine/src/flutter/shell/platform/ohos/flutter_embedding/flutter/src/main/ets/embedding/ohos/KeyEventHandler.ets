@@ -164,6 +164,20 @@ export class KeyEventHandler {
   }
 
   /**
+   * Helper method to safely execute an action on the editing state.
+   * @param action - The action to execute with the editing state
+   * @returns True if the action was executed, false otherwise
+   */
+  private withEditingState(action: (editingState: any) => void): boolean {
+    const editingState = this.textInputPlugin?.getEditingState();
+    if (editingState) {
+      action(editingState);
+      return true;
+    }
+    return false;
+  }
+
+  /**
    * Handles a key event and inserts text if appropriate.
    * @param event - The key event to handle
    */
@@ -173,84 +187,90 @@ export class KeyEventHandler {
       "event": event
     }));
     if (event.type === KeyType.Down) {
-      // Handle MOVE_HOME key
-      if (event.keyCode === KeyCode.KEYCODE_MOVE_HOME) {
-        // Handle MOVE_HOME key, move cursor to the beginning of the input field
-        const editingState = this.textInputPlugin?.getEditingState();
-        if (editingState) {
-          // Set selection range and notify listeners via handleSelectByRangeEvent
-          editingState.handleSelectByRangeEvent({ start: 0, end: 0 });
-          Log.i(TAG, `MOVE_HOME: cursor moved to beginning`);
+      switch (event.keyCode) {
+        case KeyCode.KEYCODE_MOVE_HOME: {
+          // Handle MOVE_HOME key, move cursor to the beginning of the input field
+          this.withEditingState((editingState) => {
+            // Set selection range and notify listeners via handleSelectByRangeEvent
+            editingState.handleSelectByRangeEvent({ start: 0, end: 0 });
+            Log.i(TAG, `MOVE_HOME: cursor moved to beginning`);
+          });
+          break;
         }
-      } else if (event.keyCode === KeyCode.KEYCODE_MOVE_END) {
-        // Handle MOVE_END key, move cursor to the end of the input field
-        const editingState = this.textInputPlugin?.getEditingState();
-        if (editingState) {
-          // Set selection range and notify listeners via handleSelectByRangeEvent
-          // When start is not 0, it goes to the else branch, moving cursor to the end (using -1 matches test case usage)
-          editingState.handleSelectByRangeEvent({ start: -1, end: -1 });
-          Log.i(TAG, `MOVE_END: cursor moved to end`);
+        case KeyCode.KEYCODE_MOVE_END: {
+          // Handle MOVE_END key, move cursor to the end of the input field
+          this.withEditingState((editingState) => {
+            // Set selection range and notify listeners via handleSelectByRangeEvent
+            // When start is not 0, it goes to the else branch, moving cursor to the end (using -1 matches test case usage)
+            editingState.handleSelectByRangeEvent({ start: -1, end: -1 });
+            Log.i(TAG, `MOVE_END: cursor moved to end`);
+          });
+          break;
         }
-      } else if (event.keyCode === KeyCode.KEYCODE_INSERT) {
-        // Handle INSERT key, toggle overwrite mode
-        this.isOverwriteMode = !this.isOverwriteMode;
-        Log.i(TAG, `Insert mode toggled: ${this.isOverwriteMode ? 'overwrite' : 'insert'}`);
-      } else if (event.keyCode === KeyCode.KEYCODE_ENTER) {
-        // Handle Enter key, insert newline character
-        const editingState = this.textInputPlugin?.getEditingState();
-        if (editingState) {
-          editingState.handleInsertTextEvent('\n');
-          Log.i(TAG, `ENTER: inserted newline`);
+        case KeyCode.KEYCODE_INSERT: {
+          // Handle INSERT key, toggle overwrite mode
+          this.isOverwriteMode = !this.isOverwriteMode;
+          Log.i(TAG, `Insert mode toggled: ${this.isOverwriteMode ? 'overwrite' : 'insert'}`);
+          break;
         }
-      } else {
-        // Check if it's a numpad key
-        const isNumpadKey = (event.keyCode >= KeyCode.KEYCODE_NUMPAD_0 && event.keyCode <= KeyCode.KEYCODE_NUMPAD_9) ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_DOT ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_ADD ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_SUBTRACT ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_MULTIPLY ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_DIVIDE ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_ENTER ||
-                            event.keyCode === KeyCode.KEYCODE_NUMPAD_EQUALS;
-        
-        // Use event.isNumLockOn to check NumLock state
-        const isNumLockOn = event.isNumLockOn !== undefined ? event.isNumLockOn : true; // Default to true if not available
-        // If it's a numpad key and NumLock is off, don't input
-        if (isNumpadKey && !isNumLockOn) {
-          Log.i(TAG, `Numpad key ${event.keyCode} blocked: NumLock is off`);
-          return;
+        case KeyCode.KEYCODE_ENTER: {
+          // Handle Enter key, insert newline character
+          this.withEditingState((editingState) => {
+            editingState.handleInsertTextEvent('\n');
+            Log.i(TAG, `ENTER: inserted newline`);
+          });
+          break;
         }
-        
-        // Use getModifierKeyState to check Ctrl and Alt state
-        const isCtrlPressed = event.getModifierKeyState && event.getModifierKeyState(['Ctrl']) || false;
-        const isAltPressed = event.getModifierKeyState && event.getModifierKeyState(['Alt']) || false;
-        const isCombinationMode = isCtrlPressed || isAltPressed;
-        
-        // Don't input characters (letters/numbers/symbols) when Ctrl/Alt keys are pressed or data is empty
-        if (!isCombinationMode && this.getKeyText(event)) {
-          const editingState = this.textInputPlugin?.getEditingState();
-          if (editingState) {
-            if (this.isOverwriteMode) {
-              // Overwrite mode: check if there's already a selection
-              const selectionStart = editingState.getSelectionStart();
-              const selectionEnd = editingState.getSelectionEnd();
-              const hasSelection = selectionStart !== selectionEnd;
-              
-              if (!hasSelection) {
-                // No existing selection: if there's a character to the right of cursor, select one character first, then replace
-                const cursorPos = selectionStart;
-                const textLength = editingState.getStringCache().length;
-                if (cursorPos < textLength) {
-                  // Select one character to the right of cursor
-                  editingState.setSelectionStart(cursorPos);
-                  editingState.setSelectionEnd(cursorPos + 1);
-                }
-              }
-              // If there's already a selection, use it directly for replacement
-            }
-            // Insert or replace character
-            editingState.handleInsertTextEvent(this.getKeyText(event));
+        default: {
+          // Check if it's a numpad key
+          const isNumpadKey = (event.keyCode >= KeyCode.KEYCODE_NUMPAD_0 && event.keyCode <= KeyCode.KEYCODE_NUMPAD_9) ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_DOT ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_ADD ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_SUBTRACT ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_MULTIPLY ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_DIVIDE ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_ENTER ||
+                              event.keyCode === KeyCode.KEYCODE_NUMPAD_EQUALS;
+          
+          // Use event.isNumLockOn to check NumLock state
+          const isNumLockOn = event.isNumLockOn !== undefined ? event.isNumLockOn : true; // Default to true if not available
+          // If it's a numpad key and NumLock is off, don't input
+          if (isNumpadKey && !isNumLockOn) {
+            Log.i(TAG, `Numpad key ${event.keyCode} blocked: NumLock is off`);
+            return;
           }
+          
+          // Use getModifierKeyState to check Ctrl and Alt state
+          const isCtrlPressed = event.getModifierKeyState && event.getModifierKeyState(['Ctrl']) || false;
+          const isAltPressed = event.getModifierKeyState && event.getModifierKeyState(['Alt']) || false;
+          const isCombinationMode = isCtrlPressed || isAltPressed;
+          
+          // Don't input characters (letters/numbers/symbols) when Ctrl/Alt keys are pressed or data is empty
+          if (!isCombinationMode && this.getKeyText(event)) {
+            this.withEditingState((editingState) => {
+              if (this.isOverwriteMode) {
+                // Overwrite mode: check if there's already a selection
+                const selectionStart = editingState.getSelectionStart();
+                const selectionEnd = editingState.getSelectionEnd();
+                const hasSelection = selectionStart !== selectionEnd;
+                
+                if (!hasSelection) {
+                  // No existing selection: if there's a character to the right of cursor, select one character first, then replace
+                  const cursorPos = selectionStart;
+                  const textLength = editingState.getStringCache().length;
+                  if (cursorPos < textLength) {
+                    // Select one character to the right of cursor
+                    editingState.setSelectionStart(cursorPos);
+                    editingState.setSelectionEnd(cursorPos + 1);
+                  }
+                }
+                // If there's already a selection, use it directly for replacement
+              }
+              // Insert or replace character
+              editingState.handleInsertTextEvent(this.getKeyText(event));
+            });
+          }
+          break;
         }
       }
     }
