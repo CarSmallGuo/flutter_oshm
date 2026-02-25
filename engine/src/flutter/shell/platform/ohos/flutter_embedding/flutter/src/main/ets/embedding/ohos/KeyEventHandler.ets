@@ -134,7 +134,7 @@ export class KeyEventHandler {
       // Use event.isCapsLockOn to check CapsLock state
       const isCapsLockOn = event.isCapsLockOn !== undefined ? event.isCapsLockOn : false;
       // Use getModifierKeyState to check Shift state
-      const isShiftPressed = event.getModifierKeyState && event.getModifierKeyState(['Shift']) || false;
+      const isShiftPressed = this.getModifierKeyStateSafe(event, ['Shift']);
       // If CapsLock is enabled, reverse the case for letter keys
       if (isLetter && isCapsLockOn) {
         // Shift + CapsLock = lowercase (reverses CapsLock effect)
@@ -175,6 +175,24 @@ export class KeyEventHandler {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Safely gets the modifier key state from a key event.
+   * @param event - The key event
+   * @param modifierKeys - Array of modifier key names (e.g., ['Shift'], ['Ctrl'], ['Alt'])
+   * @returns True if the modifier key is pressed, false otherwise
+   */
+  private getModifierKeyStateSafe(event: KeyEvent, modifierKeys: string[]): boolean {
+    if (!event.getModifierKeyState) {
+      return false;
+    }
+    try {
+      return event.getModifierKeyState(modifierKeys) || false;
+    } catch (e) {
+      Log.e(TAG, `Failed to get modifier key state for ${modifierKeys.join(', ')}: ${e}`);
+      return false;
+    }
   }
 
   /**
@@ -241,8 +259,8 @@ export class KeyEventHandler {
           }
           
           // Use getModifierKeyState to check Ctrl and Alt state
-          const isCtrlPressed = event.getModifierKeyState && event.getModifierKeyState(['Ctrl']) || false;
-          const isAltPressed = event.getModifierKeyState && event.getModifierKeyState(['Alt']) || false;
+          const isCtrlPressed = this.getModifierKeyStateSafe(event, ['Ctrl']);
+          const isAltPressed = this.getModifierKeyStateSafe(event, ['Alt']);
           const isCombinationMode = isCtrlPressed || isAltPressed;
           
           // Don't input characters (letters/numbers/symbols) when Ctrl/Alt keys are pressed or data is empty
