@@ -260,9 +260,8 @@ export class KeyEventHandler {
           }
           
           // Use getModifierKeyState to check Ctrl and Alt state
-          const isCtrlPressed = this.getModifierKeyStateSafe(event, ['Ctrl']);
-          const isAltPressed = this.getModifierKeyStateSafe(event, ['Alt']);
-          const isCombinationMode = isCtrlPressed || isAltPressed;
+          // Returns true if either Ctrl or Alt (or both) is pressed
+          const isCombinationMode = this.getModifierKeyStateSafe(event, ['Ctrl', 'Alt']);
           
           // Don't input characters (letters/numbers/symbols) when Ctrl/Alt keys are pressed or data is empty
           if (!isCombinationMode && this.getKeyText(event)) {
